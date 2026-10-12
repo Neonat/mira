@@ -1,0 +1,22 @@
+# Local Supabase configuration. This file does not link to any hosted project.
+project_id = "mira-dbsearch"
+
+[api]
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+major_version = 17
+
+[db.migrations]
+enabled = true
+
+[db.seed]
+# The mira workspace is created by the first migration; there are no seed files.
+enabled = false
+sql_paths = []
+
+[auth]
+enable_signup = true
+enable_anonymous_sign_ins = false
