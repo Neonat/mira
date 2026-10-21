@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "items": [
+    {"id": "html-example", "kind": "html", "path": "mas_notice.html", "url": "https://www.mas.gov.sg/fixtures/synthetic-html", "fixture": true},
+    {"id": "pdf-example", "kind": "pdf", "path": "synthetic_notice.pdf", "url": "https://www.mas.gov.sg/fixtures/synthetic-notice.pdf", "fixture": true},
+    {"id": "scan-needs-ocr", "kind": "pdf", "path": "synthetic_scan.pdf", "url": "https://www.mas.gov.sg/fixtures/synthetic-scan.pdf", "fixture": true}
+  ]
+}

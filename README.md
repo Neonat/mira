@@ -2,9 +2,11 @@
 
 Mira is an agentic research assistant for internal auditors. An auditor picks a topic (for example AML/CFT) and the jurisdictions to cover. Mira then plans the research, gathers regulatory and industry developments from authoritative sources, checks every claim against a cited passage, and produces a structured draft report. The auditor reviews and signs off. Every source snapshot, plan, agent step, finding and report version is stored in Supabase Postgres so a reviewer can trace each statement back to its original publication.
 
-**Build status: the current build is a Prototype/Minimum Viable Product (MVP).** It is an academic prototype, not a bank production system. This repository contains the database foundation and the product documents. The agent workflow, source connectors, user interface and report renderer are specified in [PRD v2](docs/mira_PRD_v2.md) and are still to be built.
+**Build status: the current build is a Prototype/Minimum Viable Product (MVP).** It is an academic prototype, not a bank production system. This repository contains the database foundation and the product documents. A local HTML/PDF ingestion workbench with resumable batches and a Streamlit source inspector is available; the agent workflow, production source connectors and report renderer specified in [PRD v2](docs/mira_PRD_v2.md) are still to be built.
 
 ## Start here
+
+- [Ingestion quickstart](docs/ingestion-quickstart.md): run Nat’s HTML/PDF pipeline, resumable batches and local inspection screen without Supabase credentials.
 
 - [PRD v2](docs/mira_PRD_v2.md): current product requirements, agent architecture, guardrails and MVP scope.
 - [Agentic feasibility analysis](docs/mira_agentic_feasibility.md): which of the proposed agentic changes are feasible and how they score against the rubric.
