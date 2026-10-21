@@ -89,6 +89,14 @@ class IngestionTests(unittest.TestCase):
                 with self.assertRaises(IngestionError):
                     fetch(URL)
 
+    @patch('mira.ingest.time.sleep')
+    @patch('mira.ingest.request')
+    def test_pdf_fetch_opt_in(self, request, sleep):
+        data = Path('tests/fixtures/synthetic_notice.pdf').read_bytes()
+        request.side_effect = [(200, {}, b'User-agent: *\nAllow: /'),
+                               (200, {'content-type': 'application/pdf'}, data)]
+        self.assertEqual(fetch(URL, allow_pdf=True), (URL, data, 'live'))
+
 
 if __name__ == '__main__':
     unittest.main()

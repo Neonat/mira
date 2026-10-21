@@ -11,11 +11,15 @@ def process_item(item, directory):
     size = item.get('passage_size', 1000)
     origin = item.get('origin', 'local')
     if item['kind'] == 'url':
-        # The live adapter remains HTML-only; local PDFs can be downloaded by the
-        # user under their source permissions and imported separately.
-        url, html, origin = fetch(url)
-        data, suffix = html.encode('utf-8'), 'html'
-        bundle = extract(html, url, origin, size)
+        url, payload, origin = fetch(url, allow_pdf=True)
+        if isinstance(payload, bytes):
+            from mira.pdf import extract_pdf
+            data, suffix = payload, 'pdf'
+            bundle = extract_pdf(data, url, origin=origin, size=size)
+        else:
+            data, suffix = payload.encode('utf-8'), 'html'
+            bundle = extract(payload, url, origin, size)
+
     else:
         path = Path(item['path'])
         limit = 10_000_000 if item['kind'] == 'pdf' else MAX_BYTES

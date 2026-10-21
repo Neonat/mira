@@ -139,17 +139,21 @@ def load_bundle(directory, item):
     return json.loads(data)
 
 
-def run_batch(directory, run_id, *, retry_failed=False, max_items=None, processor=extract_isolated):
+def run_batch(directory, run_id, *, retry_failed=False, max_items=None, processor=extract_isolated, item_ids=None):
     path = run_path(directory, run_id)
     if max_items is not None and max_items < 1:
         raise IngestionError('max_items must be positive.')
     with run_lock(path):
         run = json.loads(path.read_text())
+        if item_ids is not None and not set(item_ids).issubset({i['input']['id'] for i in run['items']}):
+            raise IngestionError('Requested item is not in this run.')
         run['status'] = 'running'
         processed = 0
         atomic_json(path, run)
         try:
             for item in run['items']:
+                if item_ids is not None and item['input']['id'] not in item_ids:
+                    continue
                 if item['status'] in SUCCESS:
                     try:
                         load_bundle(directory, item)

@@ -85,7 +85,7 @@ def robots_for(url):
     raise IngestionError('Too many robots redirects.')
 
 
-def fetch(url):
+def fetch(url, *, allow_pdf=False):
     policies = {}
     for _ in range(5):
         url = checked_url(url)
@@ -109,6 +109,8 @@ def fetch(url):
         if status != 200:
             raise IngestionError(f'Page fetch failed (HTTP {status}).')
         content_type = headers.get('content-type', '')
+        if allow_pdf and content_type.split(';')[0].strip().lower() == 'application/pdf':
+            return url, data, 'live'
         if content_type.split(';')[0].strip().lower() not in ('text/html', 'application/xhtml+xml'):
             raise IngestionError('Only HTML is supported in this first slice; PDF is not yet implemented.')
         charset = re.search(r'charset=["\']?([^;\s"\']+)', content_type, re.I)
