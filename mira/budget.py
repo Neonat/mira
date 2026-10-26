@@ -28,12 +28,18 @@ class RunBudget:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> RunBudget:
+        """Read ``MIRA_MAX_*``; a missing or blank value keeps the default."""
         default = cls()
+
+        def value(name: str, fallback: float) -> str | float:
+            raw = env.get(name, "")
+            return raw.strip() or fallback
+
         return cls(
-            max_fetched_documents=int(env.get("MIRA_MAX_FETCHED_DOCUMENTS", default.max_fetched_documents)),
-            max_llm_tokens=int(env.get("MIRA_MAX_LLM_TOKENS", default.max_llm_tokens)),
-            max_run_minutes=float(env.get("MIRA_MAX_RUN_MINUTES", default.max_run_minutes)),
-            max_gap_rounds=int(env.get("MIRA_MAX_GAP_ROUNDS", default.max_gap_rounds)),
+            max_fetched_documents=int(value("MIRA_MAX_FETCHED_DOCUMENTS", default.max_fetched_documents)),
+            max_llm_tokens=int(value("MIRA_MAX_LLM_TOKENS", default.max_llm_tokens)),
+            max_run_minutes=float(value("MIRA_MAX_RUN_MINUTES", default.max_run_minutes)),
+            max_gap_rounds=int(value("MIRA_MAX_GAP_ROUNDS", default.max_gap_rounds)),
         )
 
     def as_source_limits(self) -> dict[str, float]:

@@ -180,7 +180,11 @@ def test_full_run_produces_a_verified_draft_report():
     assert [status for status, _ in store.statuses] == ["running", "draft"]
     records = steps(store)
     assert [r.step_no for r in records] == list(range(1, len(records) + 1))
-    assert [r.role for r in records] == ["planner", "regulatory_scout", "analyst"] + ["verifier"] * 4 + ["writer"]
+    assert [r.role for r in records] == (
+        ["planner", "regulatory_scout", "completeness_checker", "analyst"] + ["verifier"] * 4 + ["writer"]
+    )
+    # The fake scout reports no expected-source status, so both items stay missing.
+    assert [row.status for row in store.coverage] == ["missing", "missing"]
     assert all(r.status == "succeeded" and r.finished_at for r in records)
     assert records[0].model == "scripted" and records[0].tokens_in == 100
     # Facts are checked before the inference that rests on them.

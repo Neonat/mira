@@ -13,8 +13,11 @@ only moves through its own values (running → draft, partial, failed or cancell
   inference is checked only once every fact it rests on is verified (§6.3).
 - Cancellation is checked between steps.
 
-Not built yet: waiting for plan approval, gap-filling rounds and the
-completeness check (M2), and the re-run diff (M3).
+After scouting, a code-only completeness check compares the expected-source
+list with what was actually saved (§6.4).
+
+Not built yet: waiting for plan approval, gap-filling rounds (M2), and the
+re-run diff (M3).
 """
 
 from __future__ import annotations
@@ -30,20 +33,23 @@ from uuid import UUID
 from mira.agents import analyst, planner, writer
 from mira.brief import check_brief_scope
 from mira.budget import BudgetExhausted, BudgetTracker
+from mira.completeness import coverage_rows
 from mira.contracts import (
     CONTRACT_VERSION,
     AgentRole,
+    CoverageRow,
     ReportSection,
     ReportSentence,
     ReportSnapshot,
     RunStatus,
+    ScoutResult,
     StepRecord,
     StepStatus,
 )
 from mira.interfaces import CheckOutcome, Scout, ScoutOutcome, ScoutTask, Verifier
 from mira.llm import LLMClient, LLMError, LLMResult
 from mira.report import ReportContext, render_html
-from mira.store import PassageRecord, RunContext, RunStore, StoredClaim
+from mira.store import ExpectedSourceRecord, PassageRecord, RunContext, RunStore, SourceRecord, StoredClaim
 
 
 class RunCancelled(Exception):
@@ -120,6 +126,11 @@ class _Run:
         self.step_no = 0
         self.reasons: list[str] = []
         self.tasks: tuple[ScoutTask, ...] = ()
+        self.sources: dict[UUID, SourceRecord] = {}
+        self.expected: list[ExpectedSourceRecord] = []
+        self.scout_results: dict[str, ScoutResult] = {}
+        self.skipped: dict[str, str] = {}
+        self.coverage: list[CoverageRow] = []
         self.passages: dict[UUID, PassageRecord] = {}
         self.claims: list[StoredClaim] = []
         self.verified: dict[UUID, StoredClaim] = {}
@@ -134,6 +145,7 @@ class _Run:
             try:
                 self._plan()
                 self._scout()
+                self._check_coverage()
                 self._analyse()
                 self._verify()
             except BudgetExhausted as exc:
@@ -223,6 +235,8 @@ class _Run:
         ctx, brief = self.ctx, self.ctx.brief
         sources = self.store.list_sources(ctx.workspace_id)
         expected = self.store.list_expected_sources(ctx.workspace_id, brief.topic, brief.jurisdictions)
+        self.sources = {source.id: source for source in sources}
+        self.expected = list(expected)
         refs = {"source_ids": [str(s.id) for s in sources], "expected_source_ids": [str(e.id) for e in expected]}
         try:
             with self._step("planner", input_refs=refs) as step:
@@ -242,6 +256,7 @@ class _Run:
                 reason = f"task {task.task_label} not run: no {task.role.replace('_', ' ')} is available"
                 self._skip(task.role, reason, jurisdiction=task.jurisdiction_code)
                 self.reasons.append(reason)
+                self.skipped[task.task_label] = reason
             else:
                 runnable.append((task, scout))
         caps = split_documents([task.max_documents for task, _ in runnable], self.budget.remaining_documents())
@@ -251,6 +266,7 @@ class _Run:
                 reason = f"task {task.task_label} not run: document budget used"
                 self._skip(task.role, reason, jurisdiction=task.jurisdiction_code)
                 self.reasons.append(reason)
+                self.skipped[task.task_label] = reason
             else:
                 funded.append((task, scout, cap))
         if not funded:
@@ -291,6 +307,7 @@ class _Run:
                         step.tokens_out += exc.tokens_out
                     self._finish(step, "failed", f"{type(exc).__name__}: {exc}")
                     self.reasons.append(f"task {task.task_label} ({task.role.replace('_', ' ')}) failed: {exc}")
+                    self.skipped[task.task_label] = f"scout failed: {exc}"
                 else:
                     self._finish(step, "succeeded")
 
@@ -313,6 +330,7 @@ class _Run:
         if missing:
             raise ValueError(f"{len(missing)} cited passages are not saved in the evidence store")
         self.passages.update({passage.id: passage for passage in found})
+        self.scout_results[task.task_label] = result
         step.output_refs.update(
             passage_ids=[str(i) for i in passage_ids],
             documents=len(result.report.documents),
@@ -320,6 +338,17 @@ class _Run:
             fetch_refused=sum(1 for attempt in result.fetch_log if attempt.outcome == "refused"),
             fetch_failed=sum(1 for attempt in result.fetch_log if attempt.outcome == "failed"),
         )
+
+    def _check_coverage(self) -> None:
+        if not self.expected:
+            return
+        with self._step("completeness_checker", input_refs={"expected_source_ids": [str(e.id) for e in self.expected]}) as step:
+            self.coverage = coverage_rows(self.expected, self.sources, self.tasks, self.scout_results, self.skipped)
+            self.store.save_coverage(self.ctx, self.coverage)
+            counts: dict[str, int] = {}
+            for row in self.coverage:
+                counts[row.status] = counts.get(row.status, 0) + 1
+            step.output_refs.update(counts)
 
     def _analyse(self) -> None:
         if not self.passages:
@@ -429,7 +458,7 @@ class _Run:
             analysis_run_id=self.ctx.analysis_run_id,
             analysis_revision_id=self.ctx.analysis_revision_id,
             sections=sections,
-            coverage=[],
+            coverage=self.coverage,
             unresolved_finding_ids=list(self.unresolved),
         )
         context = ReportContext(
@@ -439,14 +468,24 @@ class _Run:
             passages=self.passages,
             unresolved=self.unresolved,
             generated_at=self.o.now(),
+            expected={row.id: row for row in self.expected},
         )
         report_id = self.store.save_report(self.ctx, snapshot, render_html(snapshot, context))
         return report_id, snapshot, status
 
     def _coverage_section(self) -> ReportSection:
         status = self.budget.status()
+        if self.coverage:
+            counts: dict[str, int] = {}
+            for row in self.coverage:
+                counts[row.status] = counts.get(row.status, 0) + 1
+            version = max(row.list_version for row in self.expected)
+            summary = ", ".join(f"{n} {name.replace('_', ' ')}" for name, n in sorted(counts.items()))
+            coverage_line = f"Coverage relative to the expected-source list v{version}, not complete: {summary}."
+        else:
+            coverage_line = "Coverage against the expected-source list was not checked in this run."
         lines = [
-            "Coverage against the expected-source list was not checked in this run.",
+            coverage_line,
             f"{len(self.verified)} claims verified; {len(self.unresolved)} unresolved and kept out of the report body.",
             f"Budget used: {status['tokens_used']} of {status['max_llm_tokens']} model tokens, "
             f"{status['documents_fetched']} of {status['max_fetched_documents']} documents, "

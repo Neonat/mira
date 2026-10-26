@@ -8,14 +8,14 @@ watermark and the statements in §7.2.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from html import escape
 from urllib.parse import urlsplit
 from uuid import UUID
 
 from mira.contracts import Brief, ReportSnapshot, RunStatus
-from mira.store import PassageRecord, StoredClaim
+from mira.store import ExpectedSourceRecord, PassageRecord, StoredClaim
 
 TEMPLATE_VERSION = "report/1"
 
@@ -43,6 +43,7 @@ body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; 
 .meta td { padding: 0 1rem 0 0; } .statements { border-left: 3px solid #b45309; padding-left: 1rem; color: #444; }
 .tag { font-size: 0.75rem; border: 1px solid #888; border-radius: 3px; padding: 0 0.3rem; margin-left: 0.3rem; }
 sup a { text-decoration: none; } .empty { color: #666; font-style: italic; }
+table { border-collapse: collapse; } th, td { text-align: left; padding: 0.2rem 0.6rem; border-bottom: 1px solid #ddd; vertical-align: top; }
 """
 
 
@@ -54,6 +55,7 @@ class ReportContext:
     passages: Mapping[UUID, PassageRecord]
     unresolved: Mapping[UUID, str]
     generated_at: datetime
+    expected: Mapping[UUID, ExpectedSourceRecord] = field(default_factory=dict)
 
 
 def _link(url: str) -> str:
@@ -121,6 +123,17 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
         if section.no_verified_items and not section.sentences:
             parts.append('<p class="empty">No verified items.</p>')
         parts += [sentence_html(sentence.text, sentence.finding_ids) for sentence in section.sentences]
+        if key == "coverage_limitations" and snapshot.coverage:
+            parts.append("<h3>Expected sources</h3><table><tr><th>Jurisdiction</th><th>Expected item</th>"
+                         "<th>Status</th><th>Note</th></tr>")
+            for row in snapshot.coverage:
+                item = context.expected.get(row.expected_source_id)
+                parts.append(
+                    f"<tr><td>{escape(item.jurisdiction_code if item else '')}</td>"
+                    f"<td>{escape(item.document_hint if item else str(row.expected_source_id))}</td>"
+                    f"<td>{escape(row.status.replace('_', ' '))}</td><td>{escape(row.note or '')}</td></tr>"
+                )
+            parts.append("</table>")
         if key == "coverage_limitations" and context.unresolved:
             parts.append("<h3>Unresolved items (not in the report body)</h3><ul>")
             for finding_id, reason in context.unresolved.items():

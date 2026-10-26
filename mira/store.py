@@ -10,6 +10,7 @@ inside ``acting_as`` for the initiating user, every query filtered by
 - ``save_claims`` / ``update_claim``: ``analysis_findings``, ``analysis_evidence``,
   ``finding_evidence`` (with ``supporting_quote``), ``finding_dependencies``
 - ``save_checks``: ``claim_checks``
+- ``save_coverage``: ``coverage_results``
 - ``save_report``: ``reports`` (``evidence_snapshot`` is the ``ReportSnapshot``)
 - ``set_run_status``: ``analysis_runs.status`` and ``failure_summary``
 
@@ -25,7 +26,7 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from mira.budget import RunBudget
-from mira.contracts import Brief, ClaimDraft, ReportSnapshot, RunStatus, StepRecord, Verdict
+from mira.contracts import Brief, ClaimDraft, CoverageRow, ReportSnapshot, RunStatus, StepRecord, Verdict
 
 # --- Records (filled by code, carry real IDs) ----------------------------------
 
@@ -49,6 +50,7 @@ class SourceRecord:
     base_url: str | None
     jurisdiction_code: str | None
     permitted_operations: tuple[str, ...]
+    connector_config: dict[str, object] = field(default_factory=dict, compare=False)
 
 
 @dataclass(frozen=True)
@@ -125,6 +127,8 @@ class RunStore(Protocol):
 
     def save_checks(self, ctx: RunContext, step_id: UUID, verdicts: Sequence[Verdict]) -> None: ...
 
+    def save_coverage(self, ctx: RunContext, rows: Sequence[CoverageRow]) -> None: ...
+
     def save_report(self, ctx: RunContext, snapshot: ReportSnapshot, html: str) -> UUID: ...
 
     def cancel_requested(self, ctx: RunContext) -> bool: ...
@@ -150,6 +154,7 @@ class InMemoryStore:
     plans: list[dict[str, object]] = field(default_factory=list)
     claims: dict[UUID, StoredClaim] = field(default_factory=dict)
     checks: list[tuple[UUID, Verdict]] = field(default_factory=list)
+    coverage: list[CoverageRow] = field(default_factory=list)
     reports: list[SavedReport] = field(default_factory=list)
     cancel: bool = False
 
@@ -201,6 +206,9 @@ class InMemoryStore:
 
     def save_checks(self, ctx: RunContext, step_id: UUID, verdicts: Sequence[Verdict]) -> None:
         self.checks.extend((step_id, verdict) for verdict in verdicts)
+
+    def save_coverage(self, ctx: RunContext, rows: Sequence[CoverageRow]) -> None:
+        self.coverage.extend(rows)
 
     def save_report(self, ctx: RunContext, snapshot: ReportSnapshot, html: str) -> UUID:
         report = SavedReport(uuid4(), snapshot, html)

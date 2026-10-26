@@ -2,7 +2,8 @@
 
     MIRA_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres pytest
 
-Never point this at a shared database: it inserts test users and rows.
+Never point this at a shared database: it inserts test users and rows. Sources and
+expected sources are inserted inactive so a local development database stays usable.
 """
 
 import os
@@ -76,8 +77,8 @@ def test_worker_can_save_sources_for_an_analyst(conn, workspace_id):
     analyst = make_user(conn, workspace_id, "analyst")
     with acting_as(conn, analyst):
         source_id = conn.execute(
-            """insert into public.sources (workspace_id, source_key, name, source_type, base_url, permitted_operations, created_by)
-               values (%s, %s, 'MAS', 'regulator', 'https://www.mas.gov.sg', array['metadata','fetch'], %s) returning id""",
+            """insert into public.sources (workspace_id, source_key, name, source_type, base_url, permitted_operations, created_by, is_active)
+               values (%s, %s, 'MAS', 'regulator', 'https://www.mas.gov.sg', array['metadata','fetch'], %s, false) returning id""",
             (workspace_id, f"mas-{uuid.uuid4()}", analyst),
         ).fetchone()["id"]
     assert source_id
@@ -190,13 +191,13 @@ def test_only_curators_maintain_expected_sources(conn, workspace_id):
     curator = make_user(conn, workspace_id, "curator")
     analyst = make_user(conn, workspace_id, "analyst")
     source_id = conn.execute(
-        """insert into public.sources (workspace_id, source_key, name, source_type)
-           values (%s, %s, 'MAS', 'regulator') returning id""",
+        """insert into public.sources (workspace_id, source_key, name, source_type, is_active)
+           values (%s, %s, 'MAS', 'regulator', false) returning id""",
         (workspace_id, f"mas-{uuid.uuid4()}"),
     ).fetchone()["id"]
     insert = """insert into public.expected_sources
-                  (workspace_id, list_version, topic, jurisdiction_code, category, source_id, document_hint)
-                values (%s, 1, 'AML/CFT', 'SG', 'rule', %s, %s)"""
+                  (workspace_id, list_version, topic, jurisdiction_code, category, source_id, document_hint, is_active)
+                values (%s, 1, 'AML/CFT', 'SG', 'rule', %s, %s, false)"""
     with conn.transaction():
         as_app_user(conn, curator)
         conn.execute(insert, (workspace_id, source_id, f"Notice 626 {uuid.uuid4()}"))

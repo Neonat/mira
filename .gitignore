@@ -9,3 +9,4 @@ supabase/.temp/
 supabase/.branches/
 *.egg-info/
 .pytest_cache/
+reports/

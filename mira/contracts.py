@@ -32,7 +32,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-CONTRACT_VERSION = "1.0"
+CONTRACT_VERSION = "1.1"
 
 # --- Enums (mirror the database check constraints) ---------------------------
 
@@ -117,6 +117,13 @@ class ResearchPlan(Contract):
 
 
 # --- Scouts (AI report + code fetch log) ---------------------------------------
+
+
+class LinkSelection(Contract):
+    """Scout model output: which candidate links (``L1``...) to open next."""
+
+    link_labels: list[Label]
+    notes: str | None
 
 
 class ScoutDocumentDraft(Contract):
