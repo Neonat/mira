@@ -94,7 +94,8 @@ def test_block_pages_unsupported_types_and_errors_fail_visibly():
         "https://www.hkma.gov.hk/blocked": RawResponse(200, HTML, b"<h1>Sorry, this service is currently unavailable.</h1>"),
         "https://www.hkma.gov.hk/zip": RawResponse(200, {"content-type": "application/zip"}, b"PK.."),
     })
-    for url, message in (("blocked", "block page"), ("zip", "not supported"), ("missing", "HTTP 404")):
+    # The block page comes last: after it, the fetcher stops asking that host.
+    for url, message in (("zip", "not supported"), ("missing", "HTTP 404"), ("blocked", "block page")):
         with pytest.raises(FetchFailed, match=message):
             f.fetch(f"https://www.hkma.gov.hk/{url}")
 

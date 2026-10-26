@@ -172,7 +172,8 @@ class PostgresStore:
             return []
         rows = self.conn.execute(
             """select p.id, p.document_version_id, v.document_id, d.source_id, s.name as source_name,
-                      s.jurisdiction_code, v.title, v.source_url, v.published_at, p.passage_number, p.content
+                      s.jurisdiction_code, v.title, v.source_url, v.published_at, p.passage_number, p.content,
+                      coalesce(v.metadata->>'import', '') = 'manual' as imported
                from public.document_passages p
                join public.document_versions v on v.id = p.document_version_id
                join public.documents d on d.id = v.document_id
@@ -183,7 +184,8 @@ class PostgresStore:
         return [
             PassageRecord(row["id"], row["document_version_id"], row["document_id"], row["source_id"],
                           row["source_name"], (row["jurisdiction_code"] or "").strip() or None, row["title"],
-                          row["source_url"], _as_date(row["published_at"]), row["passage_number"], row["content"])
+                          row["source_url"], _as_date(row["published_at"]), row["passage_number"], row["content"],
+                          row["imported"])
             for row in rows
         ]
 

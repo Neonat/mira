@@ -4,6 +4,9 @@
     python -m mira run --jurisdictions HK    create a run as the dev user and execute it
     python -m mira worker [--once]           execute runs queued by the Streamlit app
     python -m mira usage RUN_ID              tokens and estimated cost per role
+    python -m mira import mas FILE --url URL [--title T] [--published YYYY-MM-DD]
+    python -m mira import mas --manifest data/manual/mas/manifest.csv
+                                             load documents you downloaded by hand
 
 Uses MIRA_WORKER_DATABASE_URL, so run it only on a trusted machine.
 """
@@ -15,6 +18,7 @@ import os
 import time
 from dataclasses import replace
 from datetime import date, timedelta
+from pathlib import Path
 from uuid import UUID
 
 from mira.config import REPORTS_DIR, load_env
@@ -46,7 +50,16 @@ def main() -> None:
     worker.add_argument("--poll-seconds", type=float, default=5.0)
     usage = commands.add_parser("usage")
     usage.add_argument("run_id", type=UUID)
+    manual = commands.add_parser("import", help="load documents you downloaded by hand into a source")
+    manual.add_argument("source_key", help="for example mas, sso, fatf")
+    manual.add_argument("files", nargs="*", type=Path, help="one file, with --url")
+    manual.add_argument("--url", help="the https URL the file was downloaded from")
+    manual.add_argument("--title")
+    manual.add_argument("--published", type=date.fromisoformat, help="publication date, YYYY-MM-DD")
+    manual.add_argument("--manifest", type=Path, help="CSV of file,url,title,published for several files")
     args = parser.parse_args()
+    if args.command == "import" and not args.manifest and (len(args.files) != 1 or not args.url):
+        parser.error("import one file with --url, or several with --manifest")
 
     from mira.db import connect
 
@@ -106,6 +119,27 @@ def main() -> None:
             from mira.runner import usage_by_role
 
             print(_table(usage_by_role(conn, args.run_id)))
+        elif args.command == "import":
+            from mira.manual_import import ImportItem, ImportRefused, import_files, load_source, read_manifest
+            from mira.runner import dev_user_id, workspace_id
+
+            workspace = workspace_id(conn)
+            try:
+                source = load_source(conn, workspace, args.source_key)
+                items = read_manifest(args.manifest) if args.manifest else [
+                    ImportItem(args.files[0], args.url, args.title, args.published)]
+                results = import_files(conn, workspace, dev_user_id(conn), args.source_key, items)
+            except ImportRefused as exc:
+                raise SystemExit(f"import refused: {exc}") from exc
+            if "store_text" not in source.permitted_operations:
+                print(f"note: {source.name} does not permit store_text, so only metadata was saved and "
+                      "nothing from it can be cited")
+            print(_table([{
+                "file": r.item.path.name, "outcome": r.outcome, "passages": r.passages,
+                "url": r.item.url, "error": r.error or "",
+            } for r in results]))
+            if any(r.outcome == "failed" for r in results):
+                raise SystemExit(1)
 
 
 if __name__ == "__main__":

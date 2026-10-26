@@ -59,6 +59,14 @@ class FetchFailed(Exception):
     """The fetch was allowed but did not produce a usable page. Logged as ``failed``."""
 
 
+class SiteBlocked(FetchFailed):
+    """The site served a block page. ``repeated`` means no request was sent this time."""
+
+    def __init__(self, message: str, repeated: bool) -> None:
+        super().__init__(message)
+        self.repeated = repeated
+
+
 @dataclass(frozen=True)
 class RawResponse:
     status: int
@@ -178,11 +186,15 @@ class Fetcher:
         self._now = now
         self._hosts: dict[str, _HostState] = {}
         self._hosts_lock = threading.Lock()
+        self._blocked: set[str] = set()
 
     def fetch(self, url: str) -> FetchedPage:
         current = url
         for _ in range(MAX_REDIRECTS + 1):
             source = self.allow.source_for(current)
+            host = (urlsplit(current).hostname or "").lower()
+            if host in self._blocked:
+                raise SiteBlocked(f"{host} served a block page earlier in this run; not asked again", repeated=True)
             self._check_addresses(current)
             if not self._robots_allow(current, source):
                 raise FetchRefused(f"robots.txt disallows {current}")
@@ -207,7 +219,8 @@ class Fetcher:
             # never be saved as evidence, and Mira does not try to get around it.
             for marker in source.connector_config.get("block_markers", []):
                 if marker.encode() in response.body:
-                    raise FetchFailed("the site served a block page to automated requests")
+                    self._blocked.add(host)
+                    raise SiteBlocked("the site served a block page to automated requests", repeated=False)
             return FetchedPage(current, url, source, kind, content_type, response.body, self._now())
         raise FetchFailed(f"more than {MAX_REDIRECTS} redirects")
 

@@ -1,9 +1,11 @@
 """Completeness check against the expected-source list (PRD v2 §6.4, AG09).
 
-Code first: a scout's "found" or "no change" counts only if a page from that
-expected source's own hosts was actually saved in this run. Everything else is
-reported as missing, fetch failed or out of budget, with the reason, so the
-report never presents partial coverage as complete.
+Code first: a scout's "found" or "no change" counts only if the run actually
+read that expected source, either by saving a page from its own hosts in this
+run or by citing a passage from it that is already in the evidence store (a
+manual import, for example). Everything else is reported as missing, fetch
+failed or out of budget, with the reason, so the report never presents partial
+coverage as complete.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from uuid import UUID
 
 from mira.contracts import CoverageRow, ScoutResult
 from mira.interfaces import ScoutTask
-from mira.store import ExpectedSourceRecord, SourceRecord
+from mira.store import ExpectedSourceRecord, PassageRecord, SourceRecord
 
 
 def source_hosts(source: SourceRecord) -> set[str]:
@@ -30,8 +32,11 @@ def coverage_rows(
     results: Mapping[str, ScoutResult],
     skipped: Mapping[str, str],
     gap_round: int = 0,
+    passages: Mapping[UUID, PassageRecord] | None = None,
 ) -> list[CoverageRow]:
-    """One row per expected source. ``results`` and ``skipped`` are keyed by task label."""
+    """One row per expected source. ``results`` and ``skipped`` are keyed by task label;
+    ``passages`` holds the passages the scouts cited, keyed by ID."""
+    passages = passages or {}
     rows = []
     for item in expected:
         source = sources.get(item.source_id)
@@ -52,17 +57,25 @@ def coverage_rows(
         hosts = source_hosts(source)
         statuses: set[str] = set()
         attempts = []
+        cited: list[PassageRecord] = []
         for task in ran:
             result = results[task.task_label]
             label = next((lab for lab, real in result.labels.items() if lab.startswith("E") and real == item.id), None)
             statuses.update(s.status for s in result.report.expected_source_statuses if s.expected_source_label == label)
             attempts.extend(a for a in result.fetch_log if (urlsplit(a.url).hostname or "").lower() in hosts)
+            for document in result.report.documents:
+                for passage_label in document.relevant_passage_labels:
+                    passage = passages.get(result.labels.get(passage_label))
+                    if passage is not None and passage.source_id == item.source_id:
+                        cited.append(passage)
         saved = [a for a in attempts if a.outcome in ("saved", "unchanged") and a.document_version_id]
-        if saved and statuses & {"found", "no_change"}:
+        evidence = saved[0].document_version_id if saved else (cited[0].document_version_id if cited else None)
+        if evidence and statuses & {"found", "no_change"}:
             status = "found" if "found" in statuses else "no_change"
+            note = "from documents imported by hand" if not saved and any(p.imported for p in cited) else None
             rows.append(CoverageRow(expected_source_id=item.id, gap_round=gap_round, status=status,
-                                    document_version_id=saved[0].document_version_id, note=None))
-        elif attempts and not saved:
+                                    document_version_id=evidence, note=note))
+        elif attempts and not saved and not cited:
             error = next((a.error for a in attempts if a.error), "every fetch failed")
             rows.append(CoverageRow(expected_source_id=item.id, gap_round=gap_round, status="fetch_failed",
                                     document_version_id=None, note=error))

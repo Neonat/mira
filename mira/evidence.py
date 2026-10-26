@@ -6,7 +6,8 @@ source permits ``store_text`` (risk G7); otherwise the version keeps metadata an
 the page cannot be cited. An unchanged page reuses its existing version.
 
 Each scout thread uses its own connection and writes inside ``acting_as`` for the
-user who started the run.
+user who started the run. Manual imports (``mira.manual_import``) use the same
+writer, so a document downloaded by hand is stored exactly like a fetched one.
 """
 
 from __future__ import annotations
@@ -22,7 +23,6 @@ from psycopg.types.json import Jsonb
 from mira.db import acting_as
 from mira.extract import EXTRACTION_VERSION, Extracted, split_passages
 from mira.fetch import FetchedPage
-from mira.store import RunContext
 
 DOCUMENT_TYPES = {"regulator": "regulation", "website": "guidance", "rss": "news"}
 
@@ -37,12 +37,14 @@ class SavedPage:
 
 
 class EvidenceWriter:
-    def __init__(self, conn: psycopg.Connection, ctx: RunContext) -> None:
+    def __init__(self, conn: psycopg.Connection, workspace_id: UUID, user_id: UUID) -> None:
         self.conn = conn
-        self.ctx = ctx
+        self.workspace_id = workspace_id
+        self.user_id = user_id
 
-    def save(self, page: FetchedPage, extracted: Extracted) -> SavedPage:
-        ws, user = self.ctx.workspace_id, self.ctx.user_id
+    def save(self, page: FetchedPage, extracted: Extracted, provenance: dict[str, object] | None = None) -> SavedPage:
+        """Save ``page``; ``provenance`` (for example a manual import) is kept in the version metadata."""
+        ws, user = self.workspace_id, self.user_id
         source = page.source
         store_text = "store_text" in source.permitted_operations and extracted.status in ("complete", "partial")
         digest = hashlib.sha256(page.body).hexdigest()
@@ -83,7 +85,8 @@ class EvidenceWriter:
                  extracted.title[:500] or page.url, published, page.fetched_at, extracted.status,
                  extracted.text if store_text else None, EXTRACTION_VERSION,
                  Jsonb({"content_type": page.content_type, "requested_url": page.requested_url, "kind": page.kind,
-                        "text_stored": store_text, "links": len(extracted.links), "error": extracted.error}),
+                        "text_stored": store_text, "links": len(extracted.links), "error": extracted.error,
+                        **(provenance or {})}),
                  latest["id"] if latest else None),
             ).fetchone()["id"]
             passage_ids: list[UUID] = []

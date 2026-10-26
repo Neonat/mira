@@ -343,7 +343,8 @@ class _Run:
         if not self.expected:
             return
         with self._step("completeness_checker", input_refs={"expected_source_ids": [str(e.id) for e in self.expected]}) as step:
-            self.coverage = coverage_rows(self.expected, self.sources, self.tasks, self.scout_results, self.skipped)
+            self.coverage = coverage_rows(self.expected, self.sources, self.tasks, self.scout_results, self.skipped,
+                                          passages=self.passages)
             self.store.save_coverage(self.ctx, self.coverage)
             counts: dict[str, int] = {}
             for row in self.coverage:

@@ -7,7 +7,8 @@ A scout is a bounded loop with code-owned tools:
 2. Up to ``max_rounds`` times, show the model the new links found (as untrusted
    data, with dates where known) and fetch the ones it picks, within the task's
    document allowance.
-3. Add matching passages already in the evidence store (full-text search).
+3. Add passages already in the evidence store: a full-text search, plus the
+   task's own sources' documents published in the period or imported by hand.
 4. Show the model the most relevant saved passages and ask for a ``ScoutReport``:
    documents with the passage labels that matter, and a status for each
    expected source assigned to the task.
@@ -28,7 +29,7 @@ from mira.contracts import FetchAttempt, LabelMap, LinkSelection, ScoutReport, S
 from mira.db import connect
 from mira.evidence import EvidenceWriter
 from mira.extract import Extracted, Link, extract
-from mira.fetch import Fetcher, FetchFailed, FetchRefused
+from mira.fetch import Fetcher, FetchFailed, FetchRefused, SiteBlocked
 from mira.interfaces import ScoutOutcome, ScoutTask
 from mira.llm import LLMClient, LLMResult, call_checked
 from mira.pg_store import PostgresStore
@@ -94,7 +95,7 @@ class _ScoutRun:
         self.step_id = step_id
         self.task = task
         self.store = PostgresStore(conn)
-        self.writer = EvidenceWriter(conn, ctx)
+        self.writer = EvidenceWriter(conn, ctx.workspace_id, ctx.user_id)
         self.log: list[FetchAttempt] = []
         self.visits: list[_Visit] = []
         self.seen: set[str] = set()
@@ -116,7 +117,8 @@ class _ScoutRun:
             self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None, error=str(exc), attempted_at=now))
             return None
         except FetchFailed as exc:
-            self.allowance -= 1
+            if not (isinstance(exc, SiteBlocked) and exc.repeated):  # no request was sent
+                self.allowance -= 1
             self.log.append(FetchAttempt(url=url, outcome="failed", document_version_id=None, error=str(exc), attempted_at=now))
             return None
         self.allowance -= 1
@@ -238,6 +240,22 @@ class _ScoutRun:
             "select passage_id from public.search_passages(%s, %s, %s)", (self.ctx.workspace_id, query, 15)
         ).fetchall()
         ids.extend(row["passage_id"] for row in found if row["passage_id"] not in ids)
+        # The task's own sources: latest versions published in the period, and anything imported by
+        # hand (MAS and other sites that refuse automated access).
+        brief = self.ctx.brief
+        stored = self.conn.execute(
+            """select p.id from public.document_passages p
+               join public.document_versions v on v.id = p.document_version_id
+               join public.documents d on d.id = v.document_id
+               where d.workspace_id = %s and d.source_id = any(%s)
+                 and v.version_number = (select max(version_number) from public.document_versions
+                                         where document_id = d.id)
+                 and (v.published_at::date between %s and %s or v.metadata->>'import' = 'manual')
+               order by v.published_at desc nulls last, p.passage_number
+               limit 300""",
+            (self.ctx.workspace_id, list(self.task.source_ids), brief.period_start, brief.as_of_date),
+        ).fetchall()
+        ids.extend(row["id"] for row in stored if row["id"] not in ids)
         passages = self.store.get_passages(self.ctx.workspace_id, ids)
         terms = _terms(f"{self.ctx.brief.topic} money laundering terrorism financing {self.task.question}")
         feed_urls = {visit.url for visit in self.visits if visit.url.endswith(".xml") or "/rss" in visit.url.lower()}

@@ -152,7 +152,8 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
         parts.append(
             f'<li id="e{number}" value="{number}">{escape(passage.source_name)}, '
             f"<em>{escape(passage.title)}</em> ({published}). {_link(passage.source_url)}. "
-            f"Passage {passage.passage_number}, document version {passage.document_version_id}.</li>"
+            f"Passage {passage.passage_number}, document version {passage.document_version_id}."
+            f"{' Imported by hand from a downloaded copy.' if passage.imported else ''}</li>"
         )
     parts.append("</ol></body></html>")
     return "\n".join(part for part in parts if part)

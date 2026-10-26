@@ -10,3 +10,6 @@ supabase/.branches/
 *.egg-info/
 .pytest_cache/
 reports/
+data/manual/*
+!data/manual/README.md
+!data/manual/manifest.example.csv

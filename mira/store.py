@@ -76,6 +76,7 @@ class PassageRecord:
     published_at: date | None
     passage_number: int
     content: str
+    imported: bool = False
 
 
 @dataclass(frozen=True)

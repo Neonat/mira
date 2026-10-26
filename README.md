@@ -91,6 +91,12 @@ The app signs in with Supabase Auth and works under row-level security. It reads
 .venv/bin/python -m mira usage RUN_ID                  # tokens and estimated cost per role
 ```
 
+For sources that refuse automated access, MAS included, download documents in your browser and import them with their original URL. See [data/manual/README.md](data/manual/README.md).
+
+```sh
+.venv/bin/python -m mira import mas --manifest data/manual/mas/manifest.csv
+```
+
 The development token cap is `MIRA_MAX_LLM_TOKENS=300000` per run. The first live HK run (15 documents) used about 125,000 tokens, roughly US$0.55 at list prices.
 
 ## Code layout
@@ -112,6 +118,7 @@ The development token cap is `MIRA_MAX_LLM_TOKENS=300000` per run. The first liv
 | [`mira/completeness.py`](mira/completeness.py) | Code-only coverage check against the expected-source list |
 | [`mira/pg_store.py`](mira/pg_store.py), [`mira/runner.py`](mira/runner.py), [`mira/__main__.py`](mira/__main__.py) | Postgres run store, run creation and pick-up, and the `python -m mira` command line |
 | [`mira/seed.py`](mira/seed.py) | Allow-list and expected-source list v1 |
+| [`mira/manual_import.py`](mira/manual_import.py) | `python -m mira import`: documents downloaded by hand, saved like fetched pages and cited by their original URL |
 | [`app/streamlit_app.py`](app/streamlit_app.py) | Streamlit app: brief, live run view, report, finding review and sign-off |
 
 Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered.
@@ -122,7 +129,6 @@ Not built yet:
 - the re-run "what changed" diff
 - prompt-injection fixtures (AG14)
 - the M0 recall scorer
-- a command for importing documents by hand
 - a reviewed report rendered without the draft watermark (sign-off is recorded as a new report version)
 
 ## Run the schema locally
@@ -164,8 +170,8 @@ Bookmarks for decisions and gaps deferred during the MVP build. Each needs a dec
    - FATF
    - BIS
 
-   Until someone downloads the needed documents and imports them as `manual` sources, their expected-source rows appear in every report as gaps, and the [M0 ground truth](docs/mira_m0_ground_truth.md) reports recall with and without them. Still open: who downloads them, and how often they are refreshed. Details: [approved sources](docs/mira_approved_sources.md#access-summary).
+   The import command exists (`python -m mira import`, see [data/manual/README.md](data/manual/README.md)). Until someone downloads the needed documents and imports them, their expected-source rows appear in every report as gaps, and the [M0 ground truth](docs/mira_m0_ground_truth.md) reports recall with and without them. Still open: who downloads them, and how often they are refreshed. Details: [approved sources](docs/mira_approved_sources.md#access-summary).
 2. **Full-text search now; local embeddings later.** The MVP finds saved passages with Postgres full-text search (`search_passages`) only. The schema also supports semantic search with local `all-MiniLM-L6-v2` embeddings (`passage_embeddings`, `match_passages`, PRD v2 §5.4). That needs `sentence-transformers`, which installs about 2 GB of PyTorch, so it was left out. Without it, a scout misses passages that use different wording from its query; for example, it may not match "customer due diligence" to "CDD" or "know your customer". Revisit after measuring M0 recall: add embeddings if missed items trace back to wording.
 3. **MAS permission to store text.** MAS's terms forbid storing or reproducing its content without prior written permission. On 26 October 2026 the team decided the prototype stores MAS text anyway, because the verifier needs saved passages. Still open: request written permission from MAS for the academic prototype, and keep report quotes short and attributed until it is granted (risk G7).
-4. **MAS blocks automated access.** Since at least 26 October 2026, `www.mas.gov.sg` serves a "service unavailable" page with HTTP 200 to Mira's honest automated client: pages, `sitemap.xml` and PDFs all get it, although `robots.txt` allows all. Mira detects the page and reports MAS items as `fetch_failed`; it does not disguise itself or work around the block. Until this is resolved, Singapore regulatory coverage depends on a manual import of MAS documents or on access agreed with MAS. This can be raised together with the permission request in item 3.
+4. **MAS blocks automated access.** Since at least 26 October 2026, `www.mas.gov.sg` serves a "service unavailable" page with HTTP 200 to Mira's honest automated client: pages, `sitemap.xml` and PDFs all get it, although `robots.txt` allows all. Mira detects the page and reports MAS items as `fetch_failed`; it does not disguise itself or work around the block. Until this is resolved, Singapore regulatory coverage depends on MAS documents imported by hand with `python -m mira import mas` ([how](data/manual/README.md)), or on access agreed with MAS. Access can be raised together with the permission request in item 3.
 5. **Sources Mira can read but not cite.** Wolfsberg, APG, Egmont, ABS, HKAB, JFIU, FSTB and the Basel Institute have `metadata` and `fetch` only, until their terms are reviewed for `store_text`. Their pages are saved as metadata, but no passages are stored, so no claim can cite them. Industry developments stay thin until this review is done.
