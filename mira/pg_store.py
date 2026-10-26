@@ -343,10 +343,11 @@ class PostgresStore:
         with acting_as(self.conn, ctx.user_id):
             for v in verdicts:
                 self.conn.execute(
+                    # clock_timestamp(), not now(): checks saved in one transaction keep their order.
                     """insert into public.claim_checks
                          (workspace_id, analysis_run_id, finding_id, attempt, method, verdict, reason, model,
-                          prompt_version, agent_step_id)
-                       values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                          prompt_version, agent_step_id, checked_at)
+                       values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, clock_timestamp())""",
                     (ctx.workspace_id, ctx.analysis_run_id, v.finding_id, v.attempt, v.method, v.verdict, v.reason,
                      v.model, v.prompt_version, step_id),
                 )
