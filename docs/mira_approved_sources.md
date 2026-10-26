@@ -38,7 +38,7 @@ Each row becomes a `sources` row: `source_type`, `base_url` (the host `fetch_all
 
 | Publisher | What the terms allow | Proposed operations | Open point |
 |---|---|---|---|
-| **MAS** | Restrictive: no reproduction, caching or redistribution without prior written permission. One personal, non-commercial copy is allowed. | `metadata`, `fetch`, `store_text`, `quote`, `embed`, **pending permission** | **Decision needed:** ask MAS for written permission for an academic prototype, or limit MAS to `metadata` + `fetch` (text read in memory, not stored). The second option weakens the verifier, which needs stored passages. |
+| **MAS** | Restrictive: no reproduction, caching or redistribution without prior written permission. One personal, non-commercial copy is allowed. | `metadata`, `fetch`, `store_text`, `quote`, `embed` | **Decided 26 October 2026:** the prototype stores MAS text so the verifier can check claims against saved passages. Written permission from MAS is still to be requested (see the README's additional notes). |
 | **HKMA** | Non-commercial display, download and reproduction allowed in original form, unmodified and attributed to HKMA. HKMA also offers APIs that may be used to build search and analysis tools. | `metadata`, `fetch`, `store_text`, `quote`, `embed` | Attribute every quote. Prefer the [HKMA API](https://apidocs.hkma.gov.hk/) or RSS where it covers the content. |
 | **SFC** | Download for personal use or within your organisation; brief extracts may be shared with acknowledgement; wider reproduction needs consent. | `metadata`, `fetch`, `store_text`, `quote`, `embed` | Keep report quotes brief and acknowledged; do not redistribute full documents. |
 | Others | Not reviewed yet | `metadata`, `fetch` until reviewed | Read each site's terms before granting `store_text`. |
@@ -117,7 +117,7 @@ The completeness checker (§6.4) checks each row for every run. Category values 
 
 ## Open points before M0
 
-1. **MAS permission** (see the copyright table). This is the main open item: MAS is the most important Singapore source.
+1. **MAS permission** (see the copyright table). The prototype stores MAS text from 26 October 2026; the written permission request is still open.
 2. **Manual imports** for AMLO Cap. 615, the Singapore Acts on SSO, FATF and BIS: who downloads them, and when they are refreshed.
 3. **Terms review** for the remaining sources before granting `store_text`.
 4. **Seed data:** turn this list into seed SQL for `sources` and `expected_sources` once the points above are settled.

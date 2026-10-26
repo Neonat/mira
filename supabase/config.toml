@@ -2,12 +2,29 @@
 project_id = "mira-dbsearch"
 
 [api]
+# Ports are in the 55xxx range so Mira can run beside another local Supabase
+# project on the CLI defaults (543xx).
+port = 55421
 schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 [db]
+port = 55432
+shadow_port = 55420
 major_version = 17
+
+[db.pooler]
+port = 55429
+
+[studio]
+port = 55423
+
+[inbucket]
+port = 55424
+
+[analytics]
+port = 55427
 
 [db.migrations]
 enabled = true
