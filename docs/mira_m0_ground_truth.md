@@ -53,7 +53,7 @@ Expected-source codes:
 
 ## Items
 
-**23 items:** 19 regulatory (6 SG, 13 HK) and 4 international; 22 `fetchable`, 1 `manual`.
+**24 items:** 20 regulatory (6 SG, 14 HK) and 4 international; 23 `fetchable`, 1 `manual`.
 
 PRD v2 §11 expected 20 to 40 items. The count is what the listings support; nothing was added to reach a number.
 
@@ -61,7 +61,7 @@ PRD v2 §11 expected 20 to 40 items. The count is what the listings support; not
 |---|---|---|---|---|---|---|---|
 | GT01 | 2025-11-04 | SG | MHA / SPF | [Criminal Law (Miscellaneous Amendments) Act 2025](https://www.police.gov.sg/Knowledge-Hub/Legislation/Caning-for-Scams-and-Scams-related-Offences). Passed 4 Nov 2025; adds discretionary caning for scam mules convicted of laundering scam proceeds under the CDSA; in force 30 Dec 2025. | SG-6 | manual | regulatory |
 | GT02 | 2025-11-07 | HK | HKMA | [Gazettal of Guideline on AI-to-AI Information Sharing for the Detection or Prevention of Crime](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20251106-2-EN) (20251106-2-EN). New statutory guideline on sharing information between authorized institutions to detect or prevent crime, listed with HKMA's AML/CFT statutory guidelines. | HK-2 | fetchable | regulatory |
-| GT03 | 2025-11-17 | HK | SFC | [Detection and prevention of potential layering activities in money laundering](https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/aml/). AML/CFT circular to licensed corporations and VASPs on detecting and preventing layering in money laundering. | HK-6 | fetchable | regulatory |
+| GT03 | 2025-11-17 | HK | SFC | [Detection and prevention of potential layering activities in money laundering](https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/aml/doc?refNo=25EC62) (25EC62). AML/CFT circular to licensed corporations and VASPs on detecting and preventing layering in money laundering. | HK-6 | fetchable | regulatory |
 | GT04 | 2025-11-19 | HK | HKMA | [Supporting Artificial Intelligence Adoption in AML/CFT](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20251118-3-EN) (20251118-3-EN). HKMA AML/CFT circular supporting banks' use of AI in AML/CFT. | HK-3 | fetchable | regulatory |
 | GT05 | 2025-11-21 | HK | HKMA | [Guidance on risk-based AML/CFT controls for politically exposed persons](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20251118-4-EN) (20251118-4-EN). HKMA guidance on risk-based controls for politically exposed persons, with 'Smart tips on the treatment of politically exposed persons'. | HK-3 | fetchable | regulatory |
 | GT06 | 2025-12-12 | HK | HKMA | [Guidance on combating high-end money laundering](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20251210-1-EN) (20251210-1-EN). HKMA guidance to banks on combating high-end money laundering. | HK-3 | fetchable | regulatory |
@@ -78,10 +78,11 @@ PRD v2 §11 expected 20 to 40 items. The count is what the listings support; not
 | GT17 | 2026-06-23 | SG,HK | Wolfsberg Group | [The Wolfsberg Group publishes updated Guidance on the Risk-Based Approach](https://wolfsberg-group.org/news/guidance-on-the-risk-based-approach). Updated industry guidance for banks on the risk-based approach to financial crime risk. | INT-3 | fetchable | international |
 | GT18 | 2026-06-25 | SG,HK | MAS (FATF) | [June 2026 FATF Statement](https://www.mas.gov.sg/publications/fatf-statement/2026/june-2026). FATF plenary of 17-19 Jun 2026: high-risk and increased-monitoring lists; also forwarded by SFC circular of 14 Jul 2026. | INT-1 | fetchable | international |
 | GT19 | 2026-07-15 | SG,HK | Wolfsberg Group | [The Wolfsberg Group publishes Guidance on the provision of banking services to non-bank payment service providers (PSPs)](https://wolfsberg-group.org/news/guidance-on-the-provision-of-banking-services). Industry guidance for banks serving non-bank payment service providers. | INT-3 | fetchable | international |
-| GT20 | 2026-08-27 | HK | HKMA | [Guidance on risk-based AML/CFT controls for politically exposed persons (Smart Tips version 2.0)](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20260827-4-EN) (20260827-4-EN). Revised PEP guidance with 'Smart Tips on the Treatment of Politically Exposed Persons_Version 2.0'. | HK-3 | fetchable | regulatory |
-| GT21 | 2026-09-03 | HK | HKMA | [Remote on-boarding of individual customers](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20260902-1-EN) (20260902-1-EN). HKMA AML/CFT circular on remote on-boarding of individual customers. | HK-3 | fetchable | regulatory |
-| GT22 | 2026-09-29 | HK | SFC | [SFC reprimands and fines Zheng Da International Financial Holding Limited $7 million and suspends its responsible officer for regulatory breaches](https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR158) (26PR158). HK$7m fine and RO suspension for failing to comply with the AMLO and AML Guideline: no due diligence on customer-supplied trading systems, ineffective monitoring of suspicious trading. | HK-7 | fetchable | regulatory |
-| GT23 | 2026-10-22 | HK | HKMA | [Anti-bribery & corruption controls for account opening](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20261022-1-EN) (20261022-1-EN). HKMA circular, filed with its AML/CFT circulars, on anti-bribery and corruption controls at account opening. | HK-3 | fetchable | regulatory |
+| GT20 | 2026-07-24 | HK | SFC | [SFC reprimands and fines Victory Securities Company Limited $1.7 million and suspends its responsible officer for regulatory breaches](https://apps.sfc.hk/edistributionWeb/api/news/list-content?refNo=26PR113&lang=EN) (26PR113). HK$1.7m fine and RO suspension; the SFC found the firm fell short of the AMLO and AML Guideline by not enquiring into red flags before executing a client's orders. | HK-7 | fetchable | regulatory |
+| GT21 | 2026-08-27 | HK | HKMA | [Guidance on risk-based AML/CFT controls for politically exposed persons (Smart Tips version 2.0)](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20260827-4-EN) (20260827-4-EN). Revised PEP guidance with 'Smart Tips on the Treatment of Politically Exposed Persons_Version 2.0'. | HK-3 | fetchable | regulatory |
+| GT22 | 2026-09-03 | HK | HKMA | [Remote on-boarding of individual customers](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20260902-1-EN) (20260902-1-EN). HKMA AML/CFT circular on remote on-boarding of individual customers. | HK-3 | fetchable | regulatory |
+| GT23 | 2026-09-29 | HK | SFC | [SFC reprimands and fines Zheng Da International Financial Holding Limited $7 million and suspends its responsible officer for regulatory breaches](https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR158) (26PR158). HK$7m fine and RO suspension for failing to comply with the AMLO and AML Guideline: no due diligence on customer-supplied trading systems, ineffective monitoring of suspicious trading. | HK-7 | fetchable | regulatory |
+| GT24 | 2026-10-22 | HK | HKMA | [Anti-bribery & corruption controls for account opening](https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20261022-1-EN) (20261022-1-EN). HKMA circular, filed with its AML/CFT circulars, on anti-bribery and corruption controls at account opening. | HK-3 | fetchable | regulatory |
 
 Notes on reach:
 
@@ -102,12 +103,14 @@ All scanned on 26 October 2026.
 | HKMA | [AML disciplinary actions](https://www.hkma.gov.hk/eng/key-functions/banking/anti-money-laundering-and-counter-financing-of-terrorism/disciplinary-actions/) and [enforcement press releases](https://www.hkma.gov.hk/eng/news-and-media/press-releases/enforcement/) | Full. No AML disciplinary action after 22 Jul 2025 |
 | SFC | [AML/CFT circulars](https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/aml/), 2025 and 2026, all categories | Full |
 | SFC | [Consultations](https://apps.sfc.hk/edistributionWeb/gateway/EN/consultation/) | Full |
-| SFC | [Enforcement news](https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/enforcement-news/), 26 Sep 2025 to 22 Oct 2026 | Titles screened; AML content checked for firm fines with unclear titles |
+| SFC | [Enforcement news](https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/enforcement-news/), 26 Sep 2025 to 22 Oct 2026 | Titles screened; every fine on a firm whose title did not settle it was opened and checked for AML findings |
 | FSTB | [AML/CFT regime site](https://www.fstb.gov.hk/fsb/aml/en/overview.htm) | Last revised 7 Aug 2025; nothing in window |
 | MAS | [Notice 626](https://www.mas.gov.sg/regulation/notices/notice-626) | Last revised 30 Jun 2025, before the window |
 | MAS | [Anti-money laundering page](https://www.mas.gov.sg/regulation/anti-money-laundering) | Full |
 | MAS | [Enforcement actions](https://www.mas.gov.sg/regulation/enforcement/enforcement-actions), pages 1-3 | Full. Every action in the window was opened and checked for AML content |
 | MAS | [Consultations](https://www.mas.gov.sg/publications/consultations), pages 1-2 | Full. No AML/CFT consultation in the window |
+| MAS | [Regulations and guidance](https://www.mas.gov.sg/regulation/regulations-and-guidance), unfiltered, by date: circulars, information papers and guidance | Full. The listings are incomplete: AMLD 05/2026 (GT14) is not among the circulars, and the "Anti-Money Laundering" topic filter misses it too |
+| MAS | Media releases | Search-based only; no listing skim |
 | MAS | Quarterly enforcement summaries for [Q1](https://www.mas.gov.sg/news/media-releases/2026/key-enforcement-actions-taken-by-mas-in-q1-2026) and [Q2 2026](https://www.mas.gov.sg/news/media-releases/2026/key-enforcement-actions-taken-by-mas-in-q2-2026) | Cross-check |
 | MHA / SPF | AML and CDSA legislation releases | Search-based |
 | APG | [Home page news](https://apgml.org/) | No SG or HK item in the window |
@@ -123,6 +126,9 @@ All scanned on 26 October 2026.
 | SFC UN sanctions circulars; "Early Alert on United Nations Sanctions" | Routine sanctions designation updates |
 | SFC AML webinar circulars (27 Nov 2025, 13 Oct 2026) | Events, not regulatory publications |
 | SFC fine on EFG Bank AG, 11 Dec 2025 | Product due diligence, not AML |
+| SFC fine on XHK Limited, 1 Jun 2026 (26PR82) | Financial resources and client money breaches, not AML |
+| SFC fine on China Industrial Securities International Asset Management, 27 Jul 2026 (26PR116) | Red flags in private fund arrangements, not AML |
+| MAS "AML/CFT Supervisory Expectations for Digital Payment Token Service Providers", 13 Jul 2026 | Applies to digital payment token service providers, not banks (rule 3). A reviewer may choose to include it |
 | HKMA circular on VA activities for licensed stablecoins, 27 May 2026 | Not AML/CFT |
 | Banking Legislation (Miscellaneous Amendments) Bill 2026 | Not AML/CFT |
 | MAS enforcement actions in the window other than GT10, GT12 and GT15 | Each opened; none cites AML/CFT |
@@ -133,7 +139,6 @@ All scanned on 26 October 2026.
 
 | Candidate | What is missing |
 |---|---|
-| SFC fines on XHK Limited (1 Jun 2026), Victory Securities (24 Jul 2026) and China Industrial Securities International Asset Management (27 Jul 2026) | Titles say only "regulatory breaches" or "red flags". The full releases were not reached, so AML relevance is unconfirmed |
 | MAS circulars AMLD 01/2026 to 04/2026 | AMLD 05/2026 implies earlier 2026 AML circulars, but none appears in MAS's public listings |
 | MAS consultation numbers P008-2026, P010-2026 and P018-2025 | Missing from the public consultations listing; topics unknown |
 
