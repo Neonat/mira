@@ -2,17 +2,26 @@
 
 Mira is an agentic research assistant for internal auditors. An auditor picks a topic (for example AML/CFT) and the jurisdictions to cover. Mira then plans the research, gathers regulatory and industry developments from authoritative sources, checks every claim against a cited passage, and produces a structured draft report. The auditor reviews and signs off. Every source snapshot, plan, agent step, finding and report version is stored in Supabase Postgres so a reviewer can trace each statement back to its original publication.
 
-**Build status: the current build is a Prototype/Minimum Viable Product (MVP).** It is an academic prototype, not a bank production system. This repository contains the database foundation and the product documents. The agent workflow, source connectors, user interface and report renderer are specified in [PRD v2](docs/mira_PRD_v2.md) and are still to be built.
+**Build status: the current build is a Prototype/Minimum Viable Product (MVP).** It is an academic prototype, not a bank production system. A run works end to end on real regulator content:
+- a brief, from the Streamlit app or the command line
+- a plan
+- scouts that fetch and save allow-listed pages
+- a completeness check
+- analyst claims
+- verification
+- a cited HTML report, then finding-level review and sign-off in the app
+
+Still to build are listed under "Not built yet" below. The 24-item ground-truth list for the M0 recall gate (PRD v2 §11) is in [docs/mira_m0_ground_truth.md](docs/mira_m0_ground_truth.md) and needs review by a human auditor; the recall test itself has not been run.
 
 ## Start here
 
-- [PRD v2](docs/mira_PRD_v2.md): current product requirements, agent architecture, guardrails and MVP scope.
-- [Agentic feasibility analysis](docs/mira_agentic_feasibility.md): which of the proposed agentic changes are feasible and how they score against the rubric.
-- [Engineering guide](docs/mira-engineering-guide.md): database architecture, glossary, contracts, roles and local setup.
+- [PRD v2](docs/mira_PRD_v2.md): the primary, current product requirements, agent architecture, guardrails and MVP scope.
 - [`supabase/migrations/`](supabase/migrations/): canonical, ordered schema history.
 - [`supabase/config.toml`](supabase/config.toml): local Supabase development configuration.
 
-Background documents: [DBS problem statement](docs/dbs_project_statement.md), [grading rubric](docs/project_grading_rubrics.md), [PRD v1](docs/mira_PRD_v1.md) (superseded) and [proposed PRD changes](docs/mira_prd_changes.md).
+Background documents: [DBS problem statement](docs/dbs_project_statement.md), [grading rubric](docs/project_grading_rubrics.md) and [proposed PRD changes](docs/mira_prd_changes.md).
+
+Retired documents are kept in [`docs/archive/`](docs/archive/) for history only: PRD v1, the engineering guide and the agentic feasibility analysis. Where they disagree with PRD v2, PRD v2 wins.
 
 ## How Mira answers the DBS problem statement
 
@@ -51,16 +60,97 @@ The brief asks for an agentic tool that lets auditors select a topic and jurisdi
 | Communication and Presentation (15%) | This README, PRD v2 | One-page journey, architecture diagram, live demo of a run |
 | Content Quality and Evidence (10%) | PRD v2 §11 | Citation precision, coverage against a hand-labelled list of real developments, and a comparison of plain search, a single agent and multiple agents |
 
-## Run the schema locally
+## Python setup
 
-Install the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) and Docker, then from this repository run:
+Python 3.11 or newer. From the repository root:
 
 ```sh
-supabase start
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+cp .env.example .env   # then add your API key
+.venv/bin/python -m pytest
+```
+
+The database tests in `tests/test_worker_db.py` and `tests/test_pipeline_db.py` run only when `MIRA_TEST_DATABASE_URL` points at a local database with all migrations applied; each test uses its own throwaway workspace. Every other test runs offline with a scripted model.
+
+## Run Mira
+
+With the local database running (see "Run the schema locally" below) and `.env` filled in:
+
+```sh
+.venv/bin/pip install -e ".[dev,llm,ui]"
+.venv/bin/python -m mira seed                          # allow-list and expected-source list v1
+.venv/bin/python -m mira worker                        # executes runs queued from the app
+.venv/bin/streamlit run app/streamlit_app.py           # brief, live run view, report and review
+```
+
+The app signs in with Supabase Auth and works under row-level security. It reads only its own settings from `.env` and never the worker's database URL or the API key. The worker is the only process that calls Claude or fetches pages. For a quick run without the app:
+
+```sh
+.venv/bin/python -m mira run --jurisdictions HK --max-documents 15
+.venv/bin/python -m mira usage RUN_ID                  # tokens and estimated cost per role
+```
+
+For sources that refuse automated access, MAS included, download documents in your browser and import them with their original URL. See [data/manual/README.md](data/manual/README.md).
+
+```sh
+.venv/bin/python -m mira import mas --manifest data/manual/mas/manifest.csv
+```
+
+The development token cap is `MIRA_MAX_LLM_TOKENS=300000` per run. The first live HK run (15 documents) used about 125,000 tokens, roughly US$0.55 at list prices.
+
+## Code layout
+
+| Module | What it does |
+|---|---|
+| [`mira/contracts.py`](mira/contracts.py) | Data formats passed between agents, and the short labels models cite |
+| [`mira/db.py`](mira/db.py) | The worker's direct Postgres connection, acting as the initiating user |
+| [`mira/orchestrator.py`](mira/orchestrator.py) | State machine: plan, scout, analyse, verify, write; budgets, cancellation, one `agent_steps` row per step |
+| [`mira/agents/`](mira/agents/) | Planner, analyst (including the rewrite of a partially supported claim) and writer prompts, with code checks on their output |
+| [`mira/interfaces.py`](mira/interfaces.py) | `Scout` and `Verifier` interfaces the orchestrator calls |
+| [`mira/store.py`](mira/store.py) | `RunStore` interface to the evidence store, and an in-memory version for tests |
+| [`mira/llm.py`](mira/llm.py) | Structured-output calls to Claude per role (`MIRA_MODEL_<ROLE>`), one repair retry, and a scripted client |
+| [`mira/budget.py`](mira/budget.py), [`mira/brief.py`](mira/brief.py) | Run budgets (§6.2); brief scope and storage (AG01) |
+| [`mira/report.py`](mira/report.py) | HTML report from saved records, with citations, the coverage table and the evidence appendix |
+| [`mira/fetch.py`](mira/fetch.py) | `fetch_allowed`: allow-list, redirect re-checks, public addresses only, robots.txt, crawl delay, size and type caps, block-page detection |
+| [`mira/extract.py`](mira/extract.py), [`mira/evidence.py`](mira/evidence.py) | Text, links and passages from HTML, PDF and RSS; every fetched page saved as a hashed version before any model reads it |
+| [`mira/agents/scout.py`](mira/agents/scout.py), [`mira/agents/verifier.py`](mira/agents/verifier.py) | Scouts (feeds, hub pages, model-chosen links, PDF follow-through); verifier (`quote_match`, then a fresh-context model check) |
+| [`mira/completeness.py`](mira/completeness.py) | Code-only coverage check against the expected-source list |
+| [`mira/pg_store.py`](mira/pg_store.py), [`mira/runner.py`](mira/runner.py), [`mira/__main__.py`](mira/__main__.py) | Postgres run store, run creation and pick-up, and the `python -m mira` command line |
+| [`mira/seed.py`](mira/seed.py) | Allow-list and expected-source list v1 |
+| [`mira/manual_import.py`](mira/manual_import.py) | `python -m mira import`: documents downloaded by hand, saved like fetched pages and cited by their original URL |
+| [`app/streamlit_app.py`](app/streamlit_app.py) | Streamlit app: brief, live run view, report, finding review and sign-off |
+
+Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered.
+
+Not built yet:
+- waiting for plan approval
+- gap-filling rounds
+- the re-run "what changed" diff
+- prompt-injection fixtures (AG14)
+- the M0 recall scorer
+- a reviewed report rendered without the draft watermark (sign-off is recorded as a new report version)
+
+## Run the schema locally
+
+Install the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) (`brew install supabase/tap/supabase`) and Docker, then from this repository run:
+
+```sh
+supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit
 supabase status
 ```
 
-The local stack applies the checked-in migrations. To recreate the **local** database from those migrations:
+The `-x` list skips services Mira does not use, so the stack fits in about 0.5 GB of Docker memory. Mira's local ports are in the 55xxx range so it can run beside another project on the CLI defaults: API 55421, database 55432, Studio 55423.
+
+The local stack applies the checked-in migrations. Database tests run against it with:
+
+```sh
+MIRA_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres .venv/bin/python -m pytest
+```
+
+For a local login, create a user in Studio (http://127.0.0.1:55423, Authentication) and add it to the `mira` workspace as `admin` with the SQL in the [engineering guide](docs/archive/mira-engineering-guide.md#roles-and-access). Keep its email and password in `.env` as `MIRA_DEV_EMAIL` and `MIRA_DEV_PASSWORD`.
+
+To recreate the **local** database from those migrations:
 
 ```sh
 supabase db reset
@@ -69,3 +159,19 @@ supabase db reset
 `db reset` deletes and rebuilds its target database. Use it only with the local stack here. Do not add `--linked`; that targets a remote project. The team’s shared project already has these two migration versions applied. Do not push migrations to a remote project without first confirming the selected account/project and reviewing `supabase db push --dry-run --linked` with the database owner.
 
 Never commit database passwords, access tokens, service-role keys, or real environment files. The service-role key bypasses row-level security and must stay on trusted server processes.
+
+## Additional notes to address
+
+Bookmarks for decisions and gaps deferred during the MVP build. Each needs a decision before the prototype is presented as complete.
+
+1. **Manual downloads for sources that refuse automated access.** These sources block automated fetching through `robots.txt` or HTTP 403, and Mira does not work around that:
+   - Singapore Statutes Online: CDSA, Terrorism (Suppression of Financing) Act, FSMA 2022
+   - HK e-Legislation: AMLO, Cap. 615
+   - FATF
+   - BIS
+
+   The import command exists (`python -m mira import`, see [data/manual/README.md](data/manual/README.md)). Until someone downloads the needed documents and imports them, their expected-source rows appear in every report as gaps, and the [M0 ground truth](docs/mira_m0_ground_truth.md) reports recall with and without them. Still open: who downloads them, and how often they are refreshed. Details: [approved sources](docs/mira_approved_sources.md#access-summary).
+2. **Full-text search now; local embeddings later.** The MVP finds saved passages with Postgres full-text search (`search_passages`) only. The schema also supports semantic search with local `all-MiniLM-L6-v2` embeddings (`passage_embeddings`, `match_passages`, PRD v2 §5.4). That needs `sentence-transformers`, which installs about 2 GB of PyTorch, so it was left out. Without it, a scout misses passages that use different wording from its query; for example, it may not match "customer due diligence" to "CDD" or "know your customer". Revisit after measuring M0 recall: add embeddings if missed items trace back to wording.
+3. **MAS permission to store text.** MAS's terms forbid storing or reproducing its content without prior written permission. On 26 October 2026 the team decided the prototype stores MAS text anyway, because the verifier needs saved passages. Still open: request written permission from MAS for the academic prototype, and keep report quotes short and attributed until it is granted (risk G7).
+4. **MAS blocks automated access.** Since at least 26 October 2026, `www.mas.gov.sg` serves a "service unavailable" page with HTTP 200 to Mira's honest automated client: pages, `sitemap.xml` and PDFs all get it, although `robots.txt` allows all. Mira detects the page and reports MAS items as `fetch_failed`; it does not disguise itself or work around the block. Until this is resolved, Singapore regulatory coverage depends on MAS documents imported by hand with `python -m mira import mas` ([how](data/manual/README.md)), or on access agreed with MAS. Access can be raised together with the permission request in item 3.
+5. **Sources Mira can read but not cite.** Wolfsberg, APG, Egmont, ABS, HKAB, JFIU, FSTB and the Basel Institute have `metadata` and `fetch` only, until their terms are reviewed for `store_text`. Their pages are saved as metadata, but no passages are stored, so no claim can cite them. Industry developments stay thin until this review is done.

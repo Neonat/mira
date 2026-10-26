@@ -1,6 +1,6 @@
 # Mira agentic changes: feasibility analysis
 
-Written 21 October 2026. Reviews [`mira_prd_changes.md`](mira_prd_changes.md) against [`mira_PRD_v1.md`](mira_PRD_v1.md), the checked-in Supabase schema, the [DBS problem statement](dbs_project_statement.md) and the [grading rubric](project_grading_rubrics.md). The result feeds [PRD v2](mira_PRD_v2.md).
+Written 21 October 2026. Reviews [`mira_prd_changes.md`](../mira_prd_changes.md) against [`mira_PRD_v1.md`](mira_PRD_v1.md), the checked-in Supabase schema, the [DBS problem statement](../dbs_project_statement.md) and the [grading rubric](../project_grading_rubrics.md). The result feeds [PRD v2](../mira_PRD_v2.md).
 
 ## 1. Summary
 

@@ -3,11 +3,11 @@
 Agentic external driver research for internal audit
 
 Version 2.0 (passed internal maker-checker review; open decisions in §14) | 21 October 2026 | Audience: Nathaniel, Ewen, Saai and the product owner
-Supersedes: [PRD v1.0](mira_PRD_v1.md) (11 October 2026). Inputs: [DBS problem statement](dbs_project_statement.md), [grading rubric](project_grading_rubrics.md), [proposed changes](mira_prd_changes.md), [feasibility analysis](mira_agentic_feasibility.md).
+Supersedes: [PRD v1.0](archive/mira_PRD_v1.md) (11 October 2026). Inputs: [DBS problem statement](dbs_project_statement.md), [grading rubric](project_grading_rubrics.md), [proposed changes](mira_prd_changes.md), [feasibility analysis](archive/mira_agentic_feasibility.md).
 
 **Build status.** The current build is a Prototype/Minimum Viable Product (MVP). It is an academic prototype using public information only. It is not bank production software and does not reach compliance conclusions about the bank.
 
-**Status of this document.** Sections marked *Pending PO confirmation* change requirements that v1 recorded as confirmed (§14). Until the product owner agrees, v1 remains the record for those items. Numerical targets are proposals for team agreement.
+**Status of this document.** This is the primary requirements document; v1 is archived. Numerical targets are proposals for team agreement.
 
 ---
 
@@ -21,7 +21,7 @@ Supersedes: [PRD v1.0](mira_PRD_v1.md) (11 October 2026). Inputs: [DBS problem s
 | Monitoring | Manual ingestion jobs | Re-run a saved brief and see "what changed since" |
 | Report | Findings, priority, evidence appendix | Adds plain-language obligations, deadlines, jurisdiction comparison, supervisory trends, industry developments |
 | Evaluation | Retrieval metrics | Report-level metrics: citation precision, coverage on real developments, single agent vs multiple agents, time saved |
-| MVP scope | 20–30 year archive goal, OpenSearch evaluation | AML/CFT, Singapore + Hong Kong, last 12–24 months. Archive is Stage 2 *(Pending PO confirmation)* |
+| MVP scope | 20–30 year archive goal, OpenSearch evaluation | AML/CFT, Singapore + Hong Kong, last 12–24 months. Archive is Stage 2 |
 | Kept unchanged | Exact citations, facts separate from inference, priority separate from confidence, dated versions, untrusted source text, draft/reviewed labels, reproducible runs, workspace RLS | Same |
 
 ---
@@ -75,7 +75,7 @@ The value claim rests on measured results from §11, not on assumed benefits.
 
 - Topic: AML/CFT.
 - Jurisdictions: Singapore (SG) and Hong Kong (HK). A third jurisdiction if time allows.
-- Period: last 12 to 24 months, as-of today. Historical as-of mode uses the existing v1 rules (§9 of v1) but is not demonstrated in the MVP.
+- Period: the product supports the last 12 to 24 months, as-of today. Evaluation (§11) and the M0 gate use a fixed 12-month window. Historical as-of mode uses the existing v1 rules (§9 of v1) but is not demonstrated in the MVP.
 - Sources: allow-listed regulator pages and a small set of approved industry publications (§5.3).
 - Runs are on demand. A re-run produces a diff against the previous run.
 - One workspace, Supabase Auth, existing roles.
@@ -84,8 +84,8 @@ The value claim rests on measured results from §11, not on assumed benefits.
 
 | Item | Stage | Reason |
 |---|---|---|
-| 20–30 year news and regulation archive, large backfills | Stage 2 *(Pending PO confirmation)* | Not in the DBS brief; large effort |
-| ThemeSuggestion and hybrid project creation (v1 RA09, OD01) | Stage 2 *(Pending PO confirmation)* | Not the brief's entry point |
+| 20–30 year news and regulation archive, large backfills | Stage 2 | Not in the DBS brief; large effort |
+| ThemeSuggestion and hybrid project creation (v1 RA09, OD01) | Stage 2 | Not the brief's entry point |
 | OpenSearch evaluation, capacity planning at 100M passages | Stage 2 | Not needed at MVP volume |
 | Scheduled monitoring; news-triggered investigations (v1 confirmed requirement) | Stretch / Stage 2 | Manual re-run covers the demo; the trigger reuses the re-run code path later |
 | Open web search | Off by default; optional, labelled fallback | Injection and quality risk |
@@ -125,9 +125,9 @@ The value claim rests on measured results from §11, not on assumed benefits.
 
 ### 5.1 Design principles
 
-1. **Orchestrator in code, judgement in LLMs.** A deterministic Python state machine runs the workflow, enforces budgets and records every step. Each agent role is one prompt with a fixed tool set. Agents do not talk to each other directly; they exchange typed records through the orchestrator.
+1. **Orchestrator in code, judgement in LLMs.** A deterministic Python state machine runs the workflow, enforces budgets and records every step. Each agent role is one prompt with a fixed tool set. Agents do not talk to each other directly; they exchange typed records through the orchestrator. The record formats are defined once, as Pydantic models in [`mira/contracts.py`](../mira/contracts.py), and every model output is validated against them. Models never see or write database IDs: they cite short labels (`P1`, `C1`) that code maps back to real IDs, and a cited label that was not handed out is rejected.
 2. **Use an agent only where judgement is needed.** Fetching, parsing, hashing, saving, passage splitting, date parsing, diffing and rendering are ordinary code exposed as tools.
-3. **Least privilege tools.** No agent can write to the database directly, change its own tools, call arbitrary URLs or see secrets. The orchestrator runs as a trusted server-side worker; it checks the initiating user's workspace role before each run and records that user as the actor. No service-role key is ever exposed to the browser (engineering guide, Roles and access).
+3. **Least privilege tools.** No agent can write to the database directly, change its own tools, call arbitrary URLs or see secrets. The orchestrator runs as a trusted server-side worker on a direct Postgres connection with elevated rights ([`mira/db.py`](../mira/db.py)). Each write is one transaction that sets the request claims to the initiating user, so `auth.uid()` and the audit trail record that user as the actor. Before each run the worker checks the user's workspace role with the database's own `private.has_workspace_role`. Because row-level security does not apply to this connection, worker code fills actor columns itself and filters every query by `workspace_id`. The elevated credentials never reach Streamlit or the browser.
 4. **Evidence store first.** Agents search saved passages before fetching; every fetched page is saved as a `document_version` before any agent reads it.
 5. **Independent checking.** The verifier never sees the analyst's reasoning, only the claim and the cited passage.
 
@@ -150,7 +150,7 @@ The reader role in the change proposal is merged into the scouts for the MVP. Th
 - `fetch_allowed(url)`: fetches only URLs whose host is in an active `sources` row (`base_url`) with `permitted_operations` that include fetching. Saves `documents`, `document_versions` (content hash) and `document_passages`, then returns passage IDs. Respects robots.txt and rate limits. Every redirect target is re-checked against the allow-list; private, loopback and link-local addresses are refused; only `http(s)` is allowed; response size and content types (HTML, PDF) are capped.
 - `search_passages` / `match_passages`: existing RPCs (full text and pgvector), always scoped to the workspace.
 - `quote_match(claim_quote, passage_id)`: deterministic normalised substring or fuzzy match ≥ 0.9.
-- Initial allow-list (to confirm, D4): MAS (mas.gov.sg), Singapore Statutes Online, HKMA (hkma.gov.hk), SFC (sfc.hk), HK e-Legislation, FATF (fatf-gafi.org), and a small set of approved industry sources (e.g. Wolfsberg Group, BIS publications).
+- Allow-list and draft expected-source list: [approved sources](mira_approved_sources.md) (D4 draft, URLs verified 26 October 2026). Regulators and legislation for SG and HK, international standard-setters (FATF, APG, BIS) and industry bodies (Wolfsberg Group, Egmont Group, ABS, HKAB). HK e-Legislation, Singapore Statutes Online, FATF and BIS refuse automated access, so their documents are imported by hand.
 - Open web search is not available to agents unless an administrator enables it for a run. Results from it are labelled as discovered via open search and cannot be cited unless the page is on the allow-list or approved by a curator.
 
 ### 5.4 Models
@@ -240,19 +240,24 @@ Every run stores: brief, plan, each agent step (role, model, prompt version, inp
 
 ## 8. Data model changes
 
-All existing tables and contracts stay. Changes are additive migrations owned by Saai.
+All existing tables and contracts stay. All changes are in one additive migration, [`20261026120000_mira_agentic_workflow.sql`](../supabase/migrations/20261026120000_mira_agentic_workflow.sql), owned by Saai.
 
 | Change | Purpose |
 |---|---|
-| `agent_steps` (run_id, step_no, role, status, model, prompt_version, input_refs jsonb, output_refs jsonb, tokens_in, tokens_out, started_at, finished_at, error) | Run trace for the live view and audit |
-| `research_plans` (run_id, version, plan jsonb, approved_by, approved_at) | Visible, versioned plan |
-| `expected_sources` (workspace_id, topic, jurisdiction_code, category, source_id, document_hint, list_version, is_active) | Completeness checklist |
-| `claim_checks` (finding_id, attempt, method `quote_match`/`llm`, verdict, reason, model, checked_at) | Verifier verdict history |
-| `coverage_results` (run_id, expected_source_id, status `found`/`no_change`/`missing`/`fetch_failed`/`out_of_budget`, note) | Completeness table for the report |
-| `analysis_runs.previous_run_id`; `analysis_runs.status` adds `cancelled` | Monitoring diff; user cancellation (the current check constraint has no cancelled state) |
-| `analysis_findings.finding_type` gains `obligation_summary`, `deadline`, `jurisdiction_comparison`, `trend`, `industry_development`, `opportunity`; add `jurisdiction_code`, `change_type` (`new`/`amended`/`upcoming`/`unchanged`) | New report sections |
+| `agent_steps` (run_id, step_no, role, jurisdiction, gap_round, status, contract_version, model, prompt_version, temperature, input_refs jsonb, output_refs jsonb, tokens_in, tokens_out, started_at, finished_at, error) | Run trace for the live view and audit |
+| `research_plans` (run_id, version, contract_version, plan jsonb, approved_by, approved_at) | Visible, versioned plan; an analyst may approve an unapproved plan once, as themselves |
+| `expected_sources` (workspace_id, list_version, topic, jurisdiction_code, category, source_id, document_hint, url_hint, is_active) | Completeness checklist, maintained by curators |
+| `claim_checks` (finding_id, attempt, method `quote_match`/`llm`/`inference_check`, verdict, reason, model, prompt_version, checked_at) | Verifier verdict history; `inference_check` is the "introduces no new fact" test (§6.3) |
+| `coverage_results` (run_id, expected_source_id, gap_round, status `found`/`no_change`/`missing`/`fetch_failed`/`out_of_budget`, document_version_id, note) | Completeness table for the report |
+| `finding_dependencies` (finding_id, depends_on_finding_id) | Links an inferred finding to the verified facts it rests on, so it falls if they fall (§6.3) |
+| `finding_evidence.supporting_quote` (required when `support_type = 'supports'`) | Input to `quote_match` (§6.3 step 2) |
+| `analysis_runs.previous_run_id`; `analysis_runs.status` adds `cancelled` | Monitoring diff; user cancellation |
+| `analysis_findings.finding_type` gains `obligation_summary`, `deadline`, `jurisdiction_comparison`, `trend`, `industry_development`, `opportunity`; adds `jurisdiction_code`, `change_type` (`new`/`amended`/`upcoming`/`unchanged`), `industry_category`, `is_inference`, `evidence_confidence_reason`, `key_date` + `key_date_kind`, `regulation_id`, `document_id`, `diff_key` | New report sections, timeline, facts vs inference, priority and confidence reasons kept separate, re-run diff key (§6.5) |
+| `sources.permitted_operations` limited to `metadata`, `fetch`, `store_text`, `quote`, `embed` | Lets `fetch_allowed` check permission before fetching (G7) |
 
-New tables follow the existing conventions: `workspace_id` on every row, composite foreign keys, RLS policies, no hard delete for app users, audit triggers.
+New tables follow the existing conventions: `workspace_id` on every row, composite foreign keys, RLS policies, no hard delete for app users, audit triggers. Tables only the worker writes (`agent_steps`, `claim_checks`, `coverage_results`, and new `research_plans` rows) are read-only for app users.
+
+The sentence-to-claim mapping needed by AG10 is stored in `reports.evidence_snapshot`, in the `ReportSnapshot` shape from [`mira/contracts.py`](../mira/contracts.py).
 
 Unused in the MVP but kept: `theme_suggestions*`, large-scale `source_coverage` by year.
 
@@ -313,7 +318,13 @@ v1 IDs that remain in force are listed in Appendix B. New requirements:
 
 Retrieval metrics from v1 (recall@20, top-5 relevance) remain as diagnostics, not headline results.
 
-**Gate before M1 (riskiest assumption):** one-day spike. Hand-list SG and HK AML developments for 12 months, run a single-agent prototype on the allow-list, and measure recall. If recall is below 50%, invest in curated regulator index pages before building more agents.
+**Gate before M1 (riskiest assumption): run the M0 test before any full build.**
+
+1. Hand-list the real SG and HK AML developments in the 12-month window. Build this list before seeing any system output; it is the ground truth for coverage.
+2. Run a single-agent prototype restricted to the allow-list ([approved sources](mira_approved_sources.md)).
+3. Measure recall: the share of hand-listed developments the prototype finds.
+
+**If recall is below 50%, the project halts before the full build.** M1 does not start; the team reviews the result and decides whether to change the approach. At 50% or above, M1 proceeds.
 
 ---
 
@@ -321,7 +332,7 @@ Retrieval metrics from v1 (recall@20, top-5 relevance) remain as diagnostics, no
 
 | Milestone | Content | Exit condition |
 |---|---|---|
-| M0 Spike (1–2 days) | §11 gate; labelled development list; expected-source list draft | Recall measured; allow-list agreed |
+| M0 Spike (1–2 days) | §11 gate; labelled development list; expected-source list draft | Recall ≥ 50% and allow-list agreed. Below 50%: project halts before the full build |
 | M1 Thin end-to-end | Brief → planner → 1 scout (SG) → analyst → verifier → writer → HTML report; `agent_steps` | One verified report on real MAS content |
 | M2 Multi-agent | HK scout, industry scout, completeness checker, gap round, comparison and timeline sections, run view | AG01–AG10 pass |
 | M3 Guardrails and evaluation | Injection fixtures, seeded false claims, three-way comparison, review UI, re-run diff | §11 metrics reported; AG11–AG14 pass |
@@ -340,7 +351,7 @@ Ownership by existing strengths:
 
 | Criterion (weight) | Evidence in this PRD |
 |---|---|
-| Feasibility, Value and Application (15%) | §2 business case; §3 narrow MVP; §12 plan; [feasibility analysis](mira_agentic_feasibility.md) |
+| Feasibility, Value and Application (15%) | §2 business case; §3 narrow MVP; §12 plan; [feasibility analysis](archive/mira_agentic_feasibility.md) |
 | Governance, Risk and Ethics (25%) | §6.3–6.4 guardrails; §7 risk register, non-claims, traceability |
 | Problem Framing and Industry Relevance (20%) | §1; §3.1 clause-by-clause mapping to the DBS brief |
 | Technical Design and Prototype (15%) | §5 architecture; §6 workflows; §8 data model; agent value test in §11 |
@@ -353,10 +364,8 @@ Ownership by existing strengths:
 
 | ID | Decision | Recommendation | Owner |
 |---|---|---|---|
-| D1 | 20–30 year archive in MVP? | Stage 2 | Product owner |
-| D2 | Move hybrid project creation (v1 OD01, confirmed) out of MVP | Yes; keep tables | Product owner |
 | D3 | Hosted LLM for public data; model; cost cap per run | Approve with public-data-only rule | Product owner + team |
-| D4 | Allow-list and expected-source list for SG and HK AML | Draft at M0 | Nathaniel + Saai |
+| D4 | Allow-list and expected-source list for SG and HK AML | Drafted in [approved sources](mira_approved_sources.md); open: MAS written permission to store text, manual imports for AMLO, FATF and BIS | Nathaniel + Saai |
 | D5 | Reviewer roles for sign-off (v1 OD08) | Senior auditor proxy from mentors | Product owner |
 
 ---
@@ -382,7 +391,6 @@ Items checked and left unchanged:
 - **Scope vs brief.** Every MVP capability in §3.2 traces to a row in §3.1. Out-of-scope items in §3.3 are either absent from the brief (archive, OpenSearch, theme discovery) or are bank-deployment conditions. No feature in the MVP lacks a brief requirement.
 - **Regions.** The brief says "jurisdictions/regions". Region expansion already exists (`market_region_mappings`) and is now exposed in AG01.
 - **Human oversight.** Plan visibility, finding-level review and sign-off keep the auditor in charge, matching the brief's "support proactive decision-making" rather than replacing it.
-- **Product-owner decisions.** Changes to v1 confirmed items (OD01, archive) remain marked *Pending PO confirmation*; this PRD does not override them unilaterally.
 - **Targets.** All numbers in §11 are labelled as proposals.
 
 ## Appendix B. v1 requirements status
@@ -405,7 +413,7 @@ Items checked and left unchanged:
 | RA06 Evidence verification | Replaced by AG08 |
 | RA07 Bounded research | Replaced by AG03 |
 | RA08 Structured analysis and review | Kept (AG13) |
-| RA09 Theme discovery | Stage 2 *(Pending PO confirmation)* |
+| RA09 Theme discovery | Stage 2 |
 | DB01–DB02 Storage | Kept |
 | DB03 Hybrid retrieval | Kept (agent tool) |
 | DB04 Index consistency | Kept |
