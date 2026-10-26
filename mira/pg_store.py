@@ -107,12 +107,13 @@ def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
                       brief_from_rows(revision, run), budget, run["previous_run_id"])
 
 
-def claim_next_run(conn: psycopg.Connection) -> UUID | None:
-    """Take the oldest queued run, marking it running so no other worker takes it."""
+def claim_next_run(conn: psycopg.Connection, workspace_id: UUID) -> UUID | None:
+    """Take the workspace's oldest queued run, marking it running so no other worker takes it."""
     with conn.transaction():
         row = conn.execute(
-            """select id, created_by from public.analysis_runs where status = 'queued'
-               order by created_at limit 1 for update skip locked"""
+            """select id, created_by from public.analysis_runs where workspace_id = %s and status = 'queued'
+               order by created_at limit 1 for update skip locked""",
+            (workspace_id,),
         ).fetchone()
         if row is None:
             return None

@@ -27,7 +27,8 @@ Each row becomes a `sources` row: `source_type`, `base_url` (the host `fetch_all
 
 | Status | Sources | What it means for M0 |
 |---|---|---|
-| Fetchable | MAS, HKMA, SFC (www and RSS), JFIU, FSTB, APG, Wolfsberg, Egmont, ABS, HKAB, Basel Institute | Scouts can fetch directly |
+| Fetchable | HKMA (www, RSS and `brdr.hkma.gov.hk`), SFC (www and RSS), JFIU, FSTB, APG, Wolfsberg, Egmont, ABS, HKAB, Basel Institute | Scouts can fetch directly |
+| Serves a block page to automated requests (checked 26 Oct 2026) | MAS (`www.mas.gov.sg`): pages, `sitemap.xml` and PDFs return HTTP 200 with "Sorry, this service is currently unavailable", although `robots.txt` allows all | Do not work around it. Mira detects the page and reports `fetch_failed`. Import MAS documents by hand, or ask MAS for access |
 | Fetchable but JavaScript-rendered | SFC enforcement news listing (`apps.sfc.hk`); MAS listing pages may filter client-side | Use the SFC RSS feeds; for MAS, follow links from the server-rendered AML and enforcement pages |
 | `robots.txt` disallows all | HK e-Legislation (`elegislation.gov.hk`) | Do not fetch. Import Cap. 615 by hand once (download, then `manual` source) |
 | Blocks automated requests (HTTP 403) | FATF (`fatf-gafi.org`), BIS (`bis.org`) | Do not fetch. Import the few needed documents by hand |

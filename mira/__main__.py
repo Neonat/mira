@@ -84,10 +84,11 @@ def main() -> None:
             print(_table(usage_by_role(conn, ctx.analysis_run_id)))
         elif args.command == "worker":
             from mira.pg_store import claim_next_run
-            from mira.runner import execute_run
+            from mira.runner import execute_run, workspace_id
 
+            workspace = workspace_id(conn)
             while True:
-                run_id = claim_next_run(conn)
+                run_id = claim_next_run(conn, workspace)
                 if run_id:
                     print(f"running {run_id}")
                     outcome = execute_run(conn, dsn, run_id)

@@ -15,17 +15,9 @@ import psycopg
 from mira.agents.scout import WebScout
 from mira.agents.verifier import LlmVerifier
 from mira.fetch import AllowList, Fetcher
-from mira.llm import ROLE_MODEL_ENV, AnthropicClient, LLMClient
+from mira.llm import ROLE_MODEL_ENV, AnthropicClient, LLMClient, estimated_cost
 from mira.orchestrator import Orchestrator, RunOutcome
 from mira.pg_store import PostgresStore, load_run
-
-# List prices in US dollars per million tokens (input, output), October 2026.
-# Used only to estimate run cost for the user; check current pricing before relying on it.
-PRICES: dict[str, tuple[float, float]] = {
-    "claude-opus-5-5": (4.0, 20.0),
-    "claude-sonnet-5-5": (2.0, 10.0),
-    "claude-haiku-5-5": (0.10, 0.50),
-}
 
 
 def workspace_id(conn: psycopg.Connection, slug: str = "mira") -> UUID:
@@ -68,6 +60,5 @@ def usage_by_role(conn: psycopg.Connection, run_id: UUID) -> list[dict[str, obje
         (run_id,),
     ).fetchall()
     for row in rows:
-        price_in, price_out = PRICES.get(row["model"], (0.0, 0.0))
-        row["cost_usd"] = round((row["tokens_in"] * price_in + row["tokens_out"] * price_out) / 1_000_000, 4)
+        row["cost_usd"] = round(estimated_cost(row["model"], row["tokens_in"], row["tokens_out"]), 4)
     return rows

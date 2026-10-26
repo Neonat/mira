@@ -34,6 +34,20 @@ ROLE_MODEL_ENV: dict[str, str] = {
     "writer": "MIRA_MODEL_WRITER",
 }
 
+# List prices in US dollars per million tokens (input, output), October 2026.
+# Used only to estimate run cost for people; check current pricing before relying on it.
+MODEL_PRICES: dict[str, tuple[float, float]] = {
+    "claude-opus-5-5": (4.0, 20.0),
+    "claude-sonnet-5-5": (2.0, 10.0),
+    "claude-haiku-5-5": (0.10, 0.50),
+}
+
+
+def estimated_cost(model: str | None, tokens_in: int, tokens_out: int) -> float:
+    price_in, price_out = MODEL_PRICES.get(model or "", (0.0, 0.0))
+    return (tokens_in * price_in + tokens_out * price_out) / 1_000_000
+
+
 # Server-side fallback when the requested model declines for policy reasons. The
 # model that actually answered is recorded per step, so a fallback stays visible.
 FALLBACK_BETA = "server-side-fallback-2026-07-01"

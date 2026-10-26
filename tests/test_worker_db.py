@@ -2,8 +2,8 @@
 
     MIRA_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres pytest
 
-Never point this at a shared database: it inserts test users and rows. Sources and
-expected sources are inserted inactive so a local development database stays usable.
+Never point this at a shared database: it inserts test users and rows. Each test
+gets its own throwaway workspace, so a local development database stays usable.
 """
 
 import os
@@ -26,7 +26,10 @@ def conn():
 
 @pytest.fixture()
 def workspace_id(conn):
-    return conn.execute("select id from public.workspaces where slug = 'mira'").fetchone()["id"]
+    return conn.execute(
+        "insert into public.workspaces (slug, name) values (%s, 'Worker test') returning id",
+        (f"t-{uuid.uuid4().hex[:12]}",),
+    ).fetchone()["id"]
 
 
 def make_user(conn, workspace_id, role):
@@ -52,10 +55,11 @@ def make_run(conn, workspace_id, user_id):
            returning id""",
         (workspace_id, project_id, user_id),
     ).fetchone()["id"]
+    # Created cancelled: a queued run in a development database would be picked up by the worker.
     return conn.execute(
         """insert into public.analysis_runs
-             (workspace_id, project_revision_id, idempotency_key, query_mode, as_of_date, created_by)
-           values (%s, %s, %s, 'current', current_date, %s) returning id""",
+             (workspace_id, project_revision_id, idempotency_key, query_mode, as_of_date, created_by, status, failure_summary)
+           values (%s, %s, %s, 'current', current_date, %s, 'cancelled', 'test fixture, never to run') returning id""",
         (workspace_id, revision_id, str(uuid.uuid4()), user_id),
     ).fetchone()["id"]
 
@@ -204,3 +208,62 @@ def test_only_curators_maintain_expected_sources(conn, workspace_id):
     with pytest.raises(psycopg.errors.InsufficientPrivilege), conn.transaction():
         as_app_user(conn, analyst)
         conn.execute(insert, (workspace_id, source_id, f"Notice 626 {uuid.uuid4()}"))
+
+
+def make_report(conn, workspace_id, analyst):
+    """A run with one finding and a draft report, written by the worker."""
+    with acting_as(conn, analyst):
+        run_id = make_run(conn, workspace_id, analyst)
+        revision_id = conn.execute(
+            """insert into public.analysis_revisions (workspace_id, analysis_run_id, revision_number, created_by)
+               values (%s, %s, 1, %s) returning id""",
+            (workspace_id, run_id, analyst),
+        ).fetchone()["id"]
+        finding_id = conn.execute(
+            """insert into public.analysis_findings (workspace_id, analysis_run_id, analysis_revision_id, finding_type,
+                 title, content, created_by)
+               values (%s, %s, %s, 'external_fact', 'HKMA guidance', 'HKMA issued guidance.', %s) returning id""",
+            (workspace_id, run_id, revision_id, analyst),
+        ).fetchone()["id"]
+        conn.execute(
+            """insert into public.reports (workspace_id, analysis_revision_id, report_version, format, template_version,
+                 evidence_snapshot, generated_by)
+               values (%s, %s, 1, 'html', 'report/1', '{}'::jsonb, %s)""",
+            (workspace_id, revision_id, analyst),
+        )
+    return revision_id, finding_id
+
+
+SIGN_OFF = """insert into public.reports (workspace_id, analysis_revision_id, report_version, format, review_status,
+                template_version, evidence_snapshot, generated_by, reviewed_by, reviewed_at)
+              values (%s, %s, 2, 'html', 'reviewed', 'report/1', '{}'::jsonb, %s, %s, now())"""
+
+
+def test_reviewer_records_decisions_and_signs_off(conn, workspace_id):
+    analyst = make_user(conn, workspace_id, "analyst")
+    reviewer = make_user(conn, workspace_id, "reviewer")
+    revision_id, finding_id = make_report(conn, workspace_id, analyst)
+    with conn.transaction():
+        as_app_user(conn, reviewer)
+        conn.execute(
+            """insert into public.finding_reviews (workspace_id, finding_id, decision, reviewer_note, reviewed_by)
+               values (%s, %s, 'accepted', 'matches the circular', %s)""",
+            (workspace_id, finding_id, reviewer),
+        )
+        conn.execute(SIGN_OFF, (workspace_id, revision_id, reviewer, reviewer))
+
+
+def test_only_reviewers_sign_off_and_only_as_themselves(conn, workspace_id):
+    analyst = make_user(conn, workspace_id, "analyst")
+    reviewer = make_user(conn, workspace_id, "reviewer")
+    revision_id, finding_id = make_report(conn, workspace_id, analyst)
+    with pytest.raises(psycopg.errors.InsufficientPrivilege), conn.transaction():
+        as_app_user(conn, analyst)
+        conn.execute(SIGN_OFF, (workspace_id, revision_id, analyst, analyst))
+    with pytest.raises(psycopg.errors.InsufficientPrivilege), conn.transaction():
+        as_app_user(conn, reviewer)
+        conn.execute(
+            """insert into public.finding_reviews (workspace_id, finding_id, decision, reviewed_by)
+               values (%s, %s, 'accepted', %s)""",
+            (workspace_id, finding_id, analyst),
+        )
