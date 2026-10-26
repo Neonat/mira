@@ -61,6 +61,7 @@ AgentRole = Literal[
     "completeness_checker", "writer",
 ]
 StepStatus = Literal["queued", "running", "succeeded", "failed", "skipped", "cancelled"]
+RunStatus = Literal["queued", "running", "partial", "failed", "cancelled", "draft", "reviewed", "superseded"]
 PermittedOperation = Literal["metadata", "fetch", "store_text", "quote", "embed"]
 ReportSectionKey = Literal[
     "executive_summary", "regulatory_developments", "deadlines_timeline", "jurisdiction_comparison",

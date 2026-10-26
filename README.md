@@ -2,7 +2,7 @@
 
 Mira is an agentic research assistant for internal auditors. An auditor picks a topic (for example AML/CFT) and the jurisdictions to cover. Mira then plans the research, gathers regulatory and industry developments from authoritative sources, checks every claim against a cited passage, and produces a structured draft report. The auditor reviews and signs off. Every source snapshot, plan, agent step, finding and report version is stored in Supabase Postgres so a reviewer can trace each statement back to its original publication.
 
-**Build status: the current build is a Prototype/Minimum Viable Product (MVP).** It is an academic prototype, not a bank production system. This repository contains the database foundation and the product documents. The agent workflow, source connectors, user interface and report renderer are specified in [PRD v2](docs/mira_PRD_v2.md) and are still to be built.
+**Build status: the current build is a Prototype/Minimum Viable Product (MVP).** It is an academic prototype, not a bank production system. This repository contains the database foundation, the product documents and the first M1 code: the orchestrator, the planner, analyst and writer agents, and the HTML report renderer. The scouts and fetch tools, the verifier, the Postgres run store and the user interface are specified in [PRD v2](docs/mira_PRD_v2.md) and are still to be built. The M0 recall gate (PRD v2 §11) has not been run.
 
 ## Start here
 
@@ -62,7 +62,25 @@ cp .env.example .env   # then add your API key
 .venv/bin/python -m pytest
 ```
 
-[`mira/contracts.py`](mira/contracts.py) defines the data formats passed between agents; [`mira/db.py`](mira/db.py) is the worker's database connection. The database tests in `tests/test_worker_db.py` run only when `MIRA_TEST_DATABASE_URL` points at a disposable local database with all migrations applied.
+The database tests in `tests/test_worker_db.py` run only when `MIRA_TEST_DATABASE_URL` points at a disposable local database with all migrations applied. Every other test runs offline with a scripted model. To call Claude, also install the `llm` extra: `.venv/bin/pip install -e ".[dev,llm]"`.
+
+## Code layout
+
+| Module | What it does | Owner (PRD v2 §12) |
+|---|---|---|
+| [`mira/contracts.py`](mira/contracts.py) | Data formats passed between agents, and the short labels models cite | Shared |
+| [`mira/db.py`](mira/db.py) | The worker's direct Postgres connection, acting as the initiating user | Saai |
+| [`mira/orchestrator.py`](mira/orchestrator.py) | State machine: plan, scout, analyse, verify, write; budgets, cancellation, one `agent_steps` row per step | Ewen |
+| [`mira/agents/`](mira/agents/) | Planner, analyst (including the rewrite of a partially supported claim) and writer prompts, with code checks on their output | Ewen |
+| [`mira/interfaces.py`](mira/interfaces.py) | `Scout` and `Verifier` interfaces the orchestrator calls | Nathaniel (scouts), Saai (verifier) |
+| [`mira/store.py`](mira/store.py) | `RunStore` interface to the evidence store, and an in-memory version for tests | Postgres version: Saai |
+| [`mira/llm.py`](mira/llm.py) | Structured-output calls to Claude per role (`MIRA_MODEL_<ROLE>`), one repair retry, and a scripted client | Ewen |
+| [`mira/budget.py`](mira/budget.py), [`mira/brief.py`](mira/brief.py) | Run budgets (§6.2); brief scope and storage (AG01) | Ewen |
+| [`mira/report.py`](mira/report.py) | HTML report from saved records, with citations and the evidence appendix | Ewen |
+
+Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered.
+
+Not built yet: waiting for plan approval, gap-filling rounds and the completeness check (M2), and the re-run diff (M3).
 
 ## Run the schema locally
 
