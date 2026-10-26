@@ -27,7 +27,7 @@ from mira.agents.common import NO_CONCLUSIONS_RULE, UNTRUSTED_TEXT_RULE, brief_t
 from mira.contracts import FetchAttempt, LabelMap, LinkSelection, ScoutReport, ScoutResult
 from mira.db import connect
 from mira.evidence import EvidenceWriter
-from mira.extract import Link, extract
+from mira.extract import Extracted, Link, extract
 from mira.fetch import Fetcher, FetchFailed, FetchRefused
 from mira.interfaces import ScoutOutcome, ScoutTask
 from mira.llm import LLMClient, LLMResult, call_checked
@@ -61,6 +61,11 @@ class _Visit:
     url: str
     version_id: UUID | None
     passage_ids: list[UUID] = field(default_factory=list)
+
+
+def _is_pdf(url: str) -> bool:
+    lowered = url.lower()
+    return lowered.split("?")[0].endswith(".pdf") or "getpdf" in lowered
 
 
 def _terms(text: str) -> set[str]:
@@ -100,20 +105,20 @@ class _ScoutRun:
 
     # --- Fetching -------------------------------------------------------------
 
-    def _fetch(self, url: str) -> None:
+    def _fetch(self, url: str) -> Extracted | None:
         if url in self.seen or self.allowance <= 0:
-            return
+            return None
         self.seen.add(url)
         now = datetime.now(UTC)
         try:
             page = self.scout.fetcher.fetch(url)
         except FetchRefused as exc:
             self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None, error=str(exc), attempted_at=now))
-            return
+            return None
         except FetchFailed as exc:
             self.allowance -= 1
             self.log.append(FetchAttempt(url=url, outcome="failed", document_version_id=None, error=str(exc), attempted_at=now))
-            return
+            return None
         self.allowance -= 1
         extracted = extract(page)
         saved = self.writer.save(page, extracted)
@@ -126,6 +131,16 @@ class _ScoutRun:
         for link in extracted.links:
             if link.url not in self.seen and self.scout.fetcher.allow.allows(link.url):
                 self.candidates.append(link)
+        return extracted
+
+    def _fetch_document(self, url: str) -> None:
+        """Fetch a chosen page and, if it is a landing page for a PDF, the PDF it links to."""
+        extracted = self._fetch(url)
+        if extracted is None:
+            return
+        pdf = next((link for link in extracted.links if _is_pdf(link.url) and self.scout.fetcher.allow.allows(link.url)), None)
+        if pdf is not None:
+            self._fetch(pdf.url)
 
     def _within_tokens(self) -> bool:
         limit = self.task.max_llm_tokens
@@ -212,7 +227,7 @@ class _ScoutRun:
                               output_type=LinkSelection, prompt_version=PROMPT_VERSION, check=check)
         self._used(result)
         for label in result.output.link_labels:
-            self._fetch(label_to_link[label].url)
+            self._fetch_document(label_to_link[label].url)
 
     def _passages(self) -> list[PassageRecord]:
         ids = [passage_id for visit in self.visits for passage_id in visit.passage_ids]
