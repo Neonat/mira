@@ -96,7 +96,7 @@ def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
                 (run["workspace_id"], run_id, run["created_by"]),
             ).fetchone()
     limits = run["source_limits"] or {}
-    default = RunBudget()
+    default = RunBudget.from_env()  # the configured caps, not the 2M-token class default
     budget = RunBudget(
         max_fetched_documents=int(limits.get("max_fetched_documents", default.max_fetched_documents)),
         max_llm_tokens=int(limits.get("max_llm_tokens", default.max_llm_tokens)),

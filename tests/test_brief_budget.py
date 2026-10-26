@@ -50,3 +50,21 @@ def test_document_allowance_never_goes_negative():
     tracker = BudgetTracker(RunBudget(max_fetched_documents=3))
     tracker.charge_documents(5)
     assert tracker.remaining_documents() == 0
+
+
+def test_report_file_stays_inside_the_reports_folder(tmp_path):
+    from mira.config import report_file
+
+    reports = tmp_path / "reports"
+    (reports / "run").mkdir(parents=True)
+    (reports / "run" / "report-v1.html").write_text("<p>ok</p>")
+    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=secret")
+    (tmp_path / "outside.html").write_text("<p>outside</p>")
+    assert report_file("run/report-v1.html", reports) == (reports / "run" / "report-v1.html").resolve()
+    for path in ("../.env", "../outside.html", "/etc/passwd", "run/missing.html", "", None):
+        assert report_file(path, reports) is None
+
+
+def test_blank_budget_values_fall_back_to_defaults():
+    budget = RunBudget.from_env({"MIRA_MAX_LLM_TOKENS": " ", "MIRA_MAX_FETCHED_DOCUMENTS": ""})
+    assert (budget.max_llm_tokens, budget.max_fetched_documents) == (RunBudget().max_llm_tokens, RunBudget().max_fetched_documents)

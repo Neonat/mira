@@ -91,8 +91,11 @@ def main() -> None:
                 run_id = claim_next_run(conn, workspace)
                 if run_id:
                     print(f"running {run_id}")
-                    outcome = execute_run(conn, dsn, run_id)
-                    print(f"{run_id}: {outcome.status}")
+                    try:
+                        outcome = execute_run(conn, dsn, run_id)
+                        print(f"{run_id}: {outcome.status}")
+                    except Exception as exc:  # one broken run must not stop the worker
+                        print(f"{run_id}: failed with {type(exc).__name__}: {exc}")
                 elif args.once:
                     break
                 else:

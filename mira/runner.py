@@ -14,6 +14,7 @@ import psycopg
 
 from mira.agents.scout import WebScout
 from mira.agents.verifier import LlmVerifier
+from mira.db import NotAuthorisedError, acting_as, require_role
 from mira.fetch import AllowList, Fetcher
 from mira.llm import ROLE_MODEL_ENV, AnthropicClient, LLMClient, estimated_cost
 from mira.orchestrator import Orchestrator, RunOutcome
@@ -47,7 +48,15 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
 
 
 def execute_run(conn: psycopg.Connection, dsn: str, run_id: UUID, client: LLMClient | None = None) -> RunOutcome:
+    """Run a saved run, after checking the user who queued it still holds a run role (§5.1)."""
     ctx = load_run(conn, run_id)
+    store = PostgresStore(conn)
+    try:
+        with acting_as(conn, ctx.user_id):
+            require_role(conn, ctx.workspace_id)
+    except NotAuthorisedError as exc:
+        store.set_run_status(ctx, "failed", f"not run: {exc}")
+        return RunOutcome("failed", [str(exc)], None, None)
     return build_orchestrator(conn, dsn, ctx.workspace_id, client).run(ctx)
 
 

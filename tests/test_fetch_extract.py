@@ -103,7 +103,7 @@ def test_html_extraction_keeps_text_links_and_dates_but_drops_chrome():
     body = b"""<html><head><title>AML circulars</title><script>var x = 1;</script></head><body>
       <nav><a href="/home">Home</a></nav>
       <main><h1>Circulars</h1>
-        <ul><li>12 Dec 2025 <a href="/doc/1">Guidance on combating high-end money laundering</a></li></ul>
+        <ul><li>12 Dec 2025 <a href="/doc/1">Example circular on AML controls</a></li></ul>
         <p>Banks should apply enhanced due diligence.</p></main>
       <footer>Copyright</footer></body></html>"""
     page = extract_html(body, "https://www.hkma.gov.hk/list")
@@ -114,10 +114,10 @@ def test_html_extraction_keeps_text_links_and_dates_but_drops_chrome():
 
 def test_feed_extraction():
     body = b"""<rss><channel><title>HKMA: Circulars</title>
-      <item><title>Remote on-boarding</title><link>https://brdr.hkma.gov.hk/x</link>
+      <item><title>Example feed item</title><link>https://brdr.hkma.gov.hk/x</link>
       <pubDate>Thu, 03 Sep 2026 08:00:00 +0800</pubDate></item></channel></rss>"""
     page = extract_feed(body, "https://www.hkma.gov.hk/rss.xml")
-    assert page.links[0].published == date(2026, 9, 3) and page.links[0].text == "Remote on-boarding"
+    assert page.links[0].published == date(2026, 9, 3) and page.links[0].text == "Example feed item"
 
 
 def test_quote_match():

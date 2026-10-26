@@ -14,6 +14,21 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 REPORTS_DIR = REPO_ROOT / "reports"
 
 
+def report_file(relative: str | None, reports_dir: Path = REPORTS_DIR) -> Path | None:
+    """The saved HTML report at ``relative``, or None if it is missing or outside ``reports_dir``.
+
+    ``reports.artifact_storage_path`` is written by app users too, so a stored
+    path is never trusted to stay inside the reports folder.
+    """
+    if not relative:
+        return None
+    root = reports_dir.resolve()
+    path = (root / relative).resolve()
+    if path.suffix != ".html" or not path.is_relative_to(root) or not path.is_file():
+        return None
+    return path
+
+
 def load_env(path: Path | None = None, keys: Collection[str] | None = None) -> None:
     """Copy ``KEY=value`` lines from ``.env`` into ``os.environ`` where not already set.
 

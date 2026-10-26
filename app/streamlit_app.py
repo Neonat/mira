@@ -22,7 +22,7 @@ from supabase import Client, create_client
 
 from mira.brief import MVP_JURISDICTIONS, analysis_run_fields, check_brief_scope, project_revision_fields
 from mira.budget import RunBudget
-from mira.config import REPORTS_DIR, load_env
+from mira.config import load_env, report_file
 from mira.contracts import Brief
 from mira.llm import ROLE_MODEL_ENV, estimated_cost
 from mira.report import TEMPLATE_VERSION
@@ -248,11 +248,11 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
 
     report_tab, findings_tab = st.tabs(["Report", f"Findings ({len(cited)} in report, {len(unresolved)} unresolved)"])
     with report_tab:
-        path = REPORTS_DIR / (report["artifact_storage_path"] or "")
-        if report["artifact_storage_path"] and path.is_file():
+        path = report_file(report["artifact_storage_path"])
+        if path is not None:
             components.html(path.read_text(encoding="utf-8"), height=900, scrolling=True)
         else:
-            st.info("The report file is on the worker machine; it is not available here.")
+            st.info("The report file is not available here.")
     with findings_tab:
         can_review = role in ("admin", "reviewer")
         for finding in findings:
