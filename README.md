@@ -6,13 +6,13 @@ Mira is an agentic research assistant for internal auditors. An auditor picks a 
 
 ## Start here
 
-- [PRD v2](docs/mira_PRD_v2.md): current product requirements, agent architecture, guardrails and MVP scope.
-- [Agentic feasibility analysis](docs/mira_agentic_feasibility.md): which of the proposed agentic changes are feasible and how they score against the rubric.
-- [Engineering guide](docs/mira-engineering-guide.md): database architecture, glossary, contracts, roles and local setup.
+- [PRD v2](docs/mira_PRD_v2.md): the primary, current product requirements, agent architecture, guardrails and MVP scope.
 - [`supabase/migrations/`](supabase/migrations/): canonical, ordered schema history.
 - [`supabase/config.toml`](supabase/config.toml): local Supabase development configuration.
 
-Background documents: [DBS problem statement](docs/dbs_project_statement.md), [grading rubric](docs/project_grading_rubrics.md), [PRD v1](docs/mira_PRD_v1.md) (superseded) and [proposed PRD changes](docs/mira_prd_changes.md).
+Background documents: [DBS problem statement](docs/dbs_project_statement.md), [grading rubric](docs/project_grading_rubrics.md) and [proposed PRD changes](docs/mira_prd_changes.md).
+
+Retired documents are kept in [`docs/archive/`](docs/archive/) for history only: PRD v1, the engineering guide and the agentic feasibility analysis. Where they disagree with PRD v2, PRD v2 wins.
 
 ## How Mira answers the DBS problem statement
 
@@ -50,6 +50,19 @@ The brief asks for an agentic tool that lets auditors select a topic and jurisdi
 | Technical Design and Prototype (15%) | PRD v2 §5, §6, §8 | Role-based multi-agent design, with an LLM used only where judgement is needed; reproducible runs; the Supabase evidence store as agent memory |
 | Communication and Presentation (15%) | This README, PRD v2 | One-page journey, architecture diagram, live demo of a run |
 | Content Quality and Evidence (10%) | PRD v2 §11 | Citation precision, coverage against a hand-labelled list of real developments, and a comparison of plain search, a single agent and multiple agents |
+
+## Python setup
+
+Python 3.11 or newer. From the repository root:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+cp .env.example .env   # then add your API key
+.venv/bin/python -m pytest
+```
+
+[`mira/contracts.py`](mira/contracts.py) defines the data formats passed between agents; [`mira/db.py`](mira/db.py) is the worker's database connection. The database tests in `tests/test_worker_db.py` run only when `MIRA_TEST_DATABASE_URL` points at a disposable local database with all migrations applied.
 
 ## Run the schema locally
 

@@ -1,0 +1,22 @@
+[project]
+name = "mira"
+version = "0.1.0"
+description = "Agentic external driver research for internal audit (MVP)"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.7",
+  "psycopg[binary]>=3.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["mira"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

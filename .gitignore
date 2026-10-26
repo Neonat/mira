@@ -7,3 +7,5 @@ __pycache__/
 .DS_Store
 supabase/.temp/
 supabase/.branches/
+*.egg-info/
+.pytest_cache/
