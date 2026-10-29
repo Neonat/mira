@@ -28,7 +28,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
-from typing import Literal
+from typing import Literal, Protocol
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -37,6 +37,7 @@ from mira.brief import check_brief_scope
 from mira.budget import BudgetExhausted, BudgetTracker
 from mira.completeness import coverage_rows
 from mira.contracts import (
+    Brief,
     CONTRACT_VERSION,
     AgentRole,
     CoverageRow,
@@ -61,6 +62,13 @@ class RunCancelled(Exception):
 
 class RunFailed(Exception):
     """A step the run cannot continue without failed. The message is the failure summary."""
+
+
+class PlanStrategy(Protocol):
+    def __call__(
+        self, client: LLMClient, brief: Brief, sources: Sequence[SourceRecord],
+        expected: Sequence[ExpectedSourceRecord], max_documents: int,
+    ) -> planner.PlannedRun: ...
 
 
 @dataclass(frozen=True)
@@ -94,6 +102,7 @@ class Orchestrator:
         clock: Callable[[], float] = time.monotonic,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
         max_parallel_scouts: int = 4,
+        plan_strategy: PlanStrategy | None = None,
     ) -> None:
         self.store = store
         self.client = client
@@ -102,6 +111,9 @@ class Orchestrator:
         self.clock = clock
         self.now = now
         self.max_parallel_scouts = max_parallel_scouts
+        # How the first plan is made. The default is the model planner (the multi-agent arm). The single-agent
+        # arm passes a code-built plan (mira.single_agent.code_plan), so no planner model is called.
+        self.plan_strategy: PlanStrategy = plan_strategy or planner.plan
 
     def run(self, ctx: RunContext) -> RunOutcome:
         check_brief_scope(ctx.brief)
@@ -267,7 +279,7 @@ class _Run:
         refs = {"source_ids": [str(s.id) for s in sources], "expected_source_ids": [str(e.id) for e in expected]}
         try:
             with self._step("planner", input_refs=refs) as step:
-                planned = planner.plan(self.o.client, brief, sources, expected, self.budget.remaining_documents())
+                planned = self.o.plan_strategy(self.o.client, brief, sources, expected, self.budget.remaining_documents())
                 self._used(step, planned.llm)
                 plan_id = self.store.save_plan(ctx, 1, planned.stored_plan(), step.id)
                 step.output_refs.update(research_plan_id=str(plan_id), tasks=len(planned.tasks))
