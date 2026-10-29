@@ -28,6 +28,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
+from typing import Literal
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -64,7 +65,8 @@ class RunFailed(Exception):
 
 @dataclass(frozen=True)
 class RunOutcome:
-    status: RunStatus
+    # ``awaiting_approval`` is an outcome only: the stored run goes back to ``queued`` (see execute).
+    status: RunStatus | Literal["awaiting_approval"]
     reasons: list[str]
     report_id: UUID | None
     snapshot: ReportSnapshot | None
@@ -103,8 +105,6 @@ class Orchestrator:
 
     def run(self, ctx: RunContext) -> RunOutcome:
         check_brief_scope(ctx.brief)
-        if ctx.brief.plan_requires_approval:
-            raise NotImplementedError("plan approval is not built yet; submit the brief with plan_requires_approval=False")
         return _Run(self, ctx).execute()
 
 
@@ -133,7 +133,7 @@ class _Run:
         self.store = orchestrator.store
         self.ctx = ctx
         self.budget = BudgetTracker(ctx.budget, orchestrator.clock)
-        self.step_no = 0
+        self.step_no = ctx.completed_steps
         self.reasons: list[str] = []
         self.tasks: tuple[ScoutTask, ...] = ()
         self.sources: dict[UUID, SourceRecord] = {}
@@ -154,6 +154,11 @@ class _Run:
         try:
             try:
                 self._plan()
+                if ctx.brief.plan_requires_approval and not ctx.plan_approved:
+                    # PRD v2 §4: the auditor approves the plan before any scouting. The run goes back to
+                    # queued and resumes once an approval is recorded (research_plans.approved_at).
+                    self.store.set_run_status(ctx, "queued", "waiting for plan approval")
+                    return RunOutcome("awaiting_approval", ["waiting for plan approval"], None, None)
                 self._scout(self.tasks)
                 self._check_coverage()
                 self._fill_gaps()
@@ -248,6 +253,17 @@ class _Run:
         expected = self.store.list_expected_sources(ctx.workspace_id, brief.topic, brief.jurisdictions)
         self.sources = {source.id: source for source in sources}
         self.expected = list(expected)
+        if ctx.plan_approved:
+            # A resumed run scouts the plan the auditor approved. It does not plan again, because a new
+            # plan would be one nobody reviewed (PRD v2 §4).
+            approved = self.store.approved_plan(ctx)
+            if approved is None:
+                raise RunFailed("the run is marked approved but no approved plan is stored")
+            try:
+                self.tasks = planner.tasks_from_stored(approved, brief)
+            except (ValueError, KeyError) as exc:
+                raise RunFailed(f"approved plan cannot be used: {exc}") from exc
+            return
         refs = {"source_ids": [str(s.id) for s in sources], "expected_source_ids": [str(e.id) for e in expected]}
         try:
             with self._step("planner", input_refs=refs) as step:

@@ -375,8 +375,53 @@ def test_brief_outside_controlled_lists_or_needing_approval_is_refused():
     orchestrator, *_ = make()
     with pytest.raises(ValueError):
         orchestrator.run(replace(context(), brief=BRIEF.model_copy(update={"jurisdictions": ["US"]})))
-    with pytest.raises(NotImplementedError):
-        orchestrator.run(replace(context(), brief=BRIEF.model_copy(update={"plan_requires_approval": True})))
+    # Approval-gated runs are supported now; see the plan approval tests below.
+
+
+def approval_brief():
+    return BRIEF.model_copy(update={"plan_requires_approval": True})
+
+
+def test_run_that_needs_approval_stops_after_planning_and_never_scouts():
+    scout = FakeScout()
+    orchestrator, store, client, _ = make(scout=scout)
+    run_context = replace(context(), brief=approval_brief())
+    outcome = orchestrator.run(run_context)
+
+    assert outcome.status == "awaiting_approval"
+    assert outcome.report_id is None and outcome.snapshot is None
+    assert scout.tasks == []  # nothing was fetched before the plan was approved (PRD v2 §4)
+    assert [r.role for r in steps(store)] == ["planner"]
+    assert len(store.plans) == 1
+
+
+def test_approved_plan_lets_the_run_continue_to_a_draft():
+    # A real resume: the plan was made and stored first, the auditor approved it, and the run resumes
+    # with that stored plan. The planner must not be called again.
+    first, store, *_ = make()
+    assert first.run(replace(context(), brief=approval_brief())).status == "awaiting_approval"
+    store.approved_stored_plan = store.plans[0]
+
+    scout = FakeScout()
+    orchestrator, store, client, _ = make(scout=scout, store=store)
+    planner_calls_before = len([c for c in client.calls if c.role == "planner"])
+    outcome = orchestrator.run(replace(context(), brief=approval_brief(), plan_approved=True))
+
+    assert outcome.status == "draft", outcome.reasons
+    assert [task.task_label for task in scout.tasks] == ["T1"]
+    assert len([c for c in client.calls if c.role == "planner"]) == planner_calls_before == 0
+
+
+def test_approved_run_without_a_stored_plan_fails_rather_than_planning_again():
+    orchestrator, store, client, _ = make()
+    outcome = orchestrator.run(replace(context(), brief=approval_brief(), plan_approved=True))
+    assert outcome.status == "failed"
+    assert "no approved plan is stored" in outcome.reasons[0]
+
+
+def test_approval_gate_does_not_pause_a_run_that_does_not_need_approval():
+    orchestrator, store, *_ = make()
+    assert orchestrator.run(context()).status == "draft"
 
 
 class ExpectedScout(FakeScout):
