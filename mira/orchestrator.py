@@ -49,6 +49,7 @@ from mira.contracts import (
 )
 from mira.interfaces import CheckOutcome, Scout, ScoutOutcome, ScoutTask, Verifier
 from mira.llm import LLMClient, LLMError, LLMResult
+from mira.diff import diff_key, diff_runs
 from mira.report import ReportContext, render_html
 from mira.store import ExpectedSourceRecord, PassageRecord, RunContext, RunStore, SourceRecord, StoredClaim
 
@@ -532,6 +533,10 @@ class _Run:
                 sections = writer.claim_sections(verified)
 
         status: RunStatus = "partial" if self.reasons else "draft"
+        self.store.save_diff_keys(self.ctx, {c.finding_id: self._diff_key(c) for c in verified})
+        changes = self._changes_section()
+        if changes is not None:
+            sections.append(changes)
         sections.append(self._coverage_section())
         snapshot = ReportSnapshot(
             contract_version=CONTRACT_VERSION,
@@ -552,6 +557,55 @@ class _Run:
         )
         report_id = self.store.save_report(self.ctx, snapshot, render_html(snapshot, context))
         return report_id, snapshot, status
+
+    def _changes_section(self) -> ReportSection | None:
+        """What changed since the previous run, from verified claims only (PRD v2 §6.5, AG11).
+
+        Returns None for a first run. Each sentence cites the verified claim it describes, or, for an
+        item no longer supported, is structural text that names the previous finding without citing it.
+        """
+        if self.ctx.previous_run_id is None:
+            return None
+        previous = self.store.previous_findings(self.ctx)
+        keyed = [(self._diff_key(claim), claim) for claim in self.claims if claim.finding_id in self.verified]
+        changes = diff_runs(previous, keyed)
+        if not changes:
+            return ReportSection(section="what_changed", sentences=[ReportSentence(
+                text="No new, amended or dropped items since the previous run.", finding_ids=[], structural=True,
+            )], no_verified_items=False)
+        claim_for_key = {key: claim for key, claim in keyed}
+        sentences = []
+        for change in changes:
+            if change.kind == "no_longer_supported":
+                # Not a verified claim in this run, so it is named but never cited (AG10).
+                sentences.append(ReportSentence(
+                    text=f"No longer supported in this run: {change.title}.", finding_ids=[], structural=True,
+                ))
+                continue
+            label = "New since the previous run" if change.kind == "new" else "Amended since the previous run"
+            sentences.append(ReportSentence(
+                text=f"{label}: {change.title}.", finding_ids=[claim_for_key[change.key].finding_id], structural=False,
+            ))
+        return ReportSection(section="what_changed", sentences=sentences, no_verified_items=False)
+
+    def _diff_key(self, claim: StoredClaim) -> str:
+        """Key a finding by the document it rests on (see ``mira.diff``).
+
+        A fact cites its own passage. An inference cites none and rests on the facts in ``depends_on``,
+        so its document comes from the first fact it rests on. The MVP does not set ``regulation_id``,
+        so the document is the anchor; industry items diff too.
+        """
+        document_id = self._anchor_document(claim)
+        return diff_key(claim.draft.finding_type, document_id, None, claim.draft.title)
+
+    def _anchor_document(self, claim: StoredClaim) -> UUID:
+        if claim.evidence:
+            return self.passages[claim.evidence[0].passage_id].document_id
+        by_id = {c.finding_id: c for c in self.claims}
+        for dependency in claim.depends_on:
+            if dependency in by_id:
+                return self._anchor_document(by_id[dependency])
+        raise ValueError(f"claim {claim.label} has no passage or fact to anchor its diff key")
 
     def _coverage_section(self) -> ReportSection:
         status = self.budget.status()

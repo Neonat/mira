@@ -13,11 +13,13 @@ from mira.interfaces import CheckOutcome, ScoutOutcome
 from mira.llm import ScriptedClient
 from mira.orchestrator import Orchestrator, split_documents
 from mira.report import ReportContext, render_html
+from mira.diff import diff_key
 from mira.store import (
     ClaimEvidence,
     ExpectedSourceRecord,
     InMemoryStore,
     PassageRecord,
+    PreviousFinding,
     RunContext,
     SourceRecord,
     StoredClaim,
@@ -514,6 +516,49 @@ def test_gap_round_planner_failure_is_a_limitation_and_the_report_is_still_writt
     assert outcome.status == "partial"
     assert any("gap round 1 planner failed" in reason for reason in outcome.reasons)
     assert outcome.report_id is not None and len(store.reports) == 1
+
+
+def rerun_context(previous_run_id, **budget):
+    budget.setdefault("max_gap_rounds", 0)
+    return RunContext(uuid4(), uuid4(), uuid4(), uuid4(), BRIEF, RunBudget(**budget), previous_run_id)
+
+
+def test_rerun_shows_a_changed_finding_as_amended_and_cites_the_new_claim():
+    # AG11: a changed fixture shows as "amended" in the diff (PRD v2 §10).
+    previous = [PreviousFinding(
+        diff_key("obligation_summary", DOCUMENT_ID, None, "C1 title"), "C1 title", "Banks must screen customers.",
+    )]
+    store = InMemoryStore(sources=[MAS], expected_sources=[E_RULE, E_ENFORCEMENT], passages=list(PASSAGES),
+                          previous=previous)
+    orchestrator, store, *_ = make(store=store)
+    outcome = orchestrator.run(rerun_context(uuid4()))
+
+    assert outcome.status == "draft"
+    section = next(s for s in outcome.snapshot.sections if s.section == "what_changed")
+    amended = [s for s in section.sentences if s.text.startswith("Amended since the previous run: C1 title")]
+    assert len(amended) == 1
+    assert amended[0].finding_ids == [finding(store, "C1").finding_id]
+    assert amended[0].structural is False
+
+
+def test_first_run_has_no_what_changed_section():
+    orchestrator, store, *_ = make()
+    outcome = orchestrator.run(context())
+    assert all(section.section != "what_changed" for section in outcome.snapshot.sections)
+
+
+def test_rerun_lists_a_dropped_finding_without_citing_it():
+    previous = [PreviousFinding(
+        diff_key("obligation_summary", DOCUMENT_ID, None, "Old circular"), "Old circular", "Superseded guidance.",
+    )]
+    store = InMemoryStore(sources=[MAS], expected_sources=[E_RULE, E_ENFORCEMENT], passages=list(PASSAGES),
+                          previous=previous)
+    orchestrator, store, *_ = make(store=store)
+    outcome = orchestrator.run(rerun_context(uuid4()))
+
+    section = next(s for s in outcome.snapshot.sections if s.section == "what_changed")
+    dropped = [s for s in section.sentences if "No longer supported in this run: Old circular" in s.text]
+    assert len(dropped) == 1 and dropped[0].finding_ids == [] and dropped[0].structural is True
 
 
 def test_report_escapes_source_text_and_refuses_non_http_links():
