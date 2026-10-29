@@ -94,6 +94,15 @@ class NewClaim:
 
 
 @dataclass(frozen=True)
+class PreviousFinding:
+    """One finding from the previous run, as stored, with the key the re-run diff matches on."""
+
+    key: str
+    title: str
+    content: str
+
+
+@dataclass(frozen=True)
 class StoredClaim:
     finding_id: UUID
     draft: ClaimDraft
@@ -132,6 +141,14 @@ class RunStore(Protocol):
 
     def save_report(self, ctx: RunContext, snapshot: ReportSnapshot, html: str) -> UUID: ...
 
+    def previous_findings(self, ctx: RunContext) -> list[PreviousFinding]:
+        """Findings of the run this one re-runs, keyed as in ``mira.diff``; empty for a first run."""
+        ...
+
+    def save_diff_keys(self, ctx: RunContext, keys: dict[UUID, str]) -> None:
+        """Store each finding's re-run diff key on analysis_findings.diff_key."""
+        ...
+
     def cancel_requested(self, ctx: RunContext) -> bool: ...
 
 
@@ -158,6 +175,8 @@ class InMemoryStore:
     coverage: list[CoverageRow] = field(default_factory=list)
     reports: list[SavedReport] = field(default_factory=list)
     cancel: bool = False
+    previous: list[PreviousFinding] = field(default_factory=list)
+    diff_keys: dict[UUID, str] = field(default_factory=dict)
 
     def list_sources(self, workspace_id: UUID) -> list[SourceRecord]:
         return list(self.sources)
@@ -215,6 +234,12 @@ class InMemoryStore:
         report = SavedReport(uuid4(), snapshot, html)
         self.reports.append(report)
         return report.id
+
+    def previous_findings(self, ctx: RunContext) -> list[PreviousFinding]:
+        return list(self.previous)
+
+    def save_diff_keys(self, ctx: RunContext, keys: dict[UUID, str]) -> None:
+        self.diff_keys.update(keys)
 
     def cancel_requested(self, ctx: RunContext) -> bool:
         return self.cancel
