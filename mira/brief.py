@@ -67,3 +67,15 @@ def brief_from_rows(revision: Mapping[str, object], run: Mapping[str, object]) -
         as_of_date=run["as_of_date"],
         plan_requires_approval=bool(run["retrieval_settings"].get("plan_requires_approval", False)),
     )
+
+
+RERUNNABLE_STATUSES: frozenset[str] = frozenset({"draft", "reviewed", "superseded"})
+
+
+def check_rerunnable(previous_status: str) -> None:
+    """Raise unless the previous run finished with a report, so the diff has something complete to compare.
+
+    A queued, running, failed or cancelled run has no complete findings, so a re-run must not diff against it.
+    """
+    if previous_status not in RERUNNABLE_STATUSES:
+        raise ValueError(f"a run with status {previous_status!r} cannot be re-run; re-run a finished run")

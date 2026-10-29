@@ -68,3 +68,14 @@ def test_report_file_stays_inside_the_reports_folder(tmp_path):
 def test_blank_budget_values_fall_back_to_defaults():
     budget = RunBudget.from_env({"MIRA_MAX_LLM_TOKENS": " ", "MIRA_MAX_FETCHED_DOCUMENTS": ""})
     assert (budget.max_llm_tokens, budget.max_fetched_documents) == (RunBudget().max_llm_tokens, RunBudget().max_fetched_documents)
+
+
+def test_rerun_is_allowed_only_after_a_finished_run():
+    from mira.brief import RERUNNABLE_STATUSES, check_rerunnable
+
+    for status in ("draft", "reviewed", "superseded"):
+        check_rerunnable(status)
+    for status in ("queued", "running", "partial", "failed", "cancelled"):
+        with pytest.raises(ValueError, match="cannot be re-run"):
+            check_rerunnable(status)
+    assert RERUNNABLE_STATUSES == {"draft", "reviewed", "superseded"}

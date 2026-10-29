@@ -18,7 +18,7 @@ from uuid import UUID
 import psycopg
 from psycopg.types.json import Jsonb
 
-from mira.brief import analysis_run_fields, brief_from_rows, project_revision_fields
+from mira.brief import RERUNNABLE_STATUSES, analysis_run_fields, brief_from_rows, check_rerunnable, project_revision_fields
 from mira.budget import RunBudget
 from mira.config import REPORTS_DIR
 from mira.contracts import CONTRACT_VERSION, Brief, CoverageRow, ReportSnapshot, RunStatus, StepRecord, Verdict
@@ -79,6 +79,43 @@ def create_run(
             (workspace_id, run_id, user_id),
         ).fetchone()["id"]
     return RunContext(workspace_id, user_id, run_id, analysis_revision_id, brief, budget, previous_run_id)
+
+
+def create_rerun(
+    conn: psycopg.Connection, workspace_id: UUID, user_id: UUID, previous_run_id: UUID, models: dict[str, str],
+) -> RunContext:
+    """Queue a re-run of a finished run on the same Project revision, so the brief is unchanged (PRD v2 §4, §6.5).
+
+    The previous run must be in this workspace and finished (``check_rerunnable``); the new run is linked to it
+    through ``previous_run_id`` and does not create a Project or revision of its own.
+    """
+    previous = conn.execute(
+        "select * from public.analysis_runs where id = %s and workspace_id = %s",
+        (previous_run_id, workspace_id),
+    ).fetchone()
+    if previous is None:
+        raise ValueError("the run to re-run is not in this workspace")
+    check_rerunnable(previous["status"])
+    previous_ctx = load_run(conn, previous_run_id)
+    budget = previous_ctx.budget
+    run = analysis_run_fields(previous_ctx.brief, budget, models)
+    with acting_as(conn, user_id):
+        require_role(conn, workspace_id)
+        run_id = conn.execute(
+            """insert into public.analysis_runs
+                 (workspace_id, project_revision_id, idempotency_key, query_mode, as_of_date, resolved_markets,
+                  source_limits, model_settings, retrieval_settings, previous_run_id, created_by)
+               values (%s, %s, %s, %s, %s, %s::char(2)[], %s, %s, %s, %s, %s) returning id""",
+            (workspace_id, previous["project_revision_id"], str(uuid.uuid4()), run["query_mode"], run["as_of_date"],
+             run["resolved_markets"], Jsonb(run["source_limits"]), Jsonb(run["model_settings"]),
+             Jsonb(run["retrieval_settings"]), previous_run_id, user_id),
+        ).fetchone()["id"]
+        analysis_revision_id = conn.execute(
+            """insert into public.analysis_revisions (workspace_id, analysis_run_id, revision_number, created_by)
+               values (%s, %s, 1, %s) returning id""",
+            (workspace_id, run_id, user_id),
+        ).fetchone()["id"]
+    return RunContext(workspace_id, user_id, run_id, analysis_revision_id, previous_ctx.brief, budget, previous_run_id)
 
 
 def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
@@ -208,9 +245,9 @@ class PostgresStore:
             """select f.diff_key, f.title, f.content from public.analysis_findings f
                join public.analysis_runs r on r.id = f.analysis_run_id and r.workspace_id = f.workspace_id
                where f.analysis_run_id = %s and f.workspace_id = %s and f.diff_key is not null
-                 and r.status in ('draft', 'reviewed', 'superseded')
+                 and r.status = any(%s)
                order by f.created_at""",
-            (ctx.previous_run_id, ctx.workspace_id),
+            (ctx.previous_run_id, ctx.workspace_id, sorted(RERUNNABLE_STATUSES)),
         ).fetchall()
         return [PreviousFinding(row["diff_key"], row["title"], row["content"]) for row in rows]
 

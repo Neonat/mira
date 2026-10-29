@@ -338,6 +338,51 @@ def test_rerun_never_diffs_against_an_incomplete_previous_run(conn, workspace, t
     assert store.previous_findings(rerun) == []
 
 
+def test_rerun_reuses_the_revision_and_links_the_previous_run(conn, workspace, tmp_path):
+    from mira.pg_store import create_rerun
+
+    workspace_id, user_id = workspace
+    first_ctx, first = run_hk(conn, workspace, tmp_path, analyst)
+    assert first.status == "draft", first.reasons
+    rerun = create_rerun(conn, workspace_id, user_id, first_ctx.analysis_run_id, {})
+
+    row = conn.execute(
+        "select project_revision_id, previous_run_id, status from public.analysis_runs where id = %s",
+        (rerun.analysis_run_id,),
+    ).fetchone()
+    original = conn.execute(
+        "select project_revision_id from public.analysis_runs where id = %s", (first_ctx.analysis_run_id,),
+    ).fetchone()
+    assert row["project_revision_id"] == original["project_revision_id"]  # same brief, same revision (PRD §4)
+    assert row["previous_run_id"] == first_ctx.analysis_run_id
+    assert row["status"] == "queued"
+
+
+def test_rerun_refuses_a_run_that_has_not_finished(conn, workspace, tmp_path):
+    from mira.pg_store import create_rerun
+
+    workspace_id, user_id = workspace
+    first_ctx, first = run_hk(conn, workspace, tmp_path, analyst)
+    assert first.status == "draft", first.reasons
+    conn.execute("update public.analysis_runs set status = 'running' where id = %s", (first_ctx.analysis_run_id,))
+    with pytest.raises(ValueError, match="cannot be re-run"):
+        create_rerun(conn, workspace_id, user_id, first_ctx.analysis_run_id, {})
+
+
+def test_rerun_refuses_a_run_from_another_workspace(conn, workspace, tmp_path):
+    from mira.pg_store import create_rerun
+
+    workspace_id, user_id = workspace
+    first_ctx, first = run_hk(conn, workspace, tmp_path, analyst)
+    assert first.status == "draft", first.reasons
+    other = conn.execute(
+        "insert into public.workspaces (slug, name) values (%s, 'Other') returning id",
+        (f"t-{uuid.uuid4().hex[:12]}",),
+    ).fetchone()["id"]
+    with pytest.raises(ValueError, match="not in this workspace"):
+        create_rerun(conn, other, user_id, first_ctx.analysis_run_id, {})
+
+
 def test_worker_refuses_a_run_whose_user_lost_their_role(conn, workspace):
     from mira.runner import execute_run
 
