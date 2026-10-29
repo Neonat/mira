@@ -59,3 +59,26 @@ def test_a_live_multi_agent_that_does_not_beat_the_single_agent_does_not_justify
     }
     verdict = decide(arms)
     assert verdict.ready and "does not yet justify its cost" in verdict.message
+
+
+def test_live_comes_from_the_client_type_so_scripted_output_cannot_claim_to_be_live():
+    from mira.llm import AnthropicClient, ScriptedClient
+    from compare import Measured
+
+    scripted_run = Measured.from_client("multi_agent", ScriptedClient({}), 0.9, 0.0, 1.0)
+    assert scripted_run.live is False  # a scripted run cannot be marked live
+    live_run = Measured.from_client("multi_agent", AnthropicClient(client=object()), 0.9, 1.0, 60.0)
+    assert live_run.live is True
+
+
+def test_a_scripted_run_built_through_the_factory_still_gets_no_verdict():
+    from mira.llm import ScriptedClient
+    from compare import Measured
+
+    arms = {
+        "plain_search": Measured.from_client("plain_search", ScriptedClient({}), 0.1, 0.0, 0.0),
+        "single_agent": Measured.from_client("single_agent", ScriptedClient({}), 0.4, 0.0, 0.0),
+        "multi_agent": Measured.from_client("multi_agent", ScriptedClient({}), 0.95, 0.0, 0.0),
+    }
+    verdict = decide(arms)
+    assert not verdict.ready and "without a live run" in verdict.message

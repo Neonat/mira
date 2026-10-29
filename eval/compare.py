@@ -19,13 +19,26 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Measured:
-    """One arm's measured results over the same briefs."""
+    """One arm's measured results over the same briefs.
+
+    Build it with ``from_client``, never directly: ``live`` must come from the model client that actually ran,
+    so a caller cannot mark scripted output as live.
+    """
 
     arm: str
-    live: bool  # True only for a real model run; scripted output is False
+    live: bool  # set only by from_client, from the client type
     coverage: float | None  # recall on the ground truth, 0..1, or None if not measured
     cost_usd: float | None
     seconds: float | None
+
+    @classmethod
+    def from_client(cls, arm: str, client: object, coverage: float | None, cost_usd: float | None,
+                    seconds: float | None) -> Measured:
+        # Imported here so eval/ does not import the worker at module load. Only a real Anthropic client is live.
+        from mira.llm import AnthropicClient
+
+        return cls(arm=arm, live=isinstance(client, AnthropicClient), coverage=coverage,
+                   cost_usd=cost_usd, seconds=seconds)
 
 
 @dataclass(frozen=True)
