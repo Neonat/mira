@@ -123,12 +123,23 @@ The development token cap is `MIRA_MAX_LLM_TOKENS=300000` per run. The first liv
 
 Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered.
 
-Not built yet:
-- waiting for plan approval (the orchestrator refuses a brief that asks for it)
-- a reviewed report rendered by the worker: sign-off is recorded in the database, but the HTML file still carries the draft watermark. A reviewed render must also name the reviewer and decision date (PRD v1 §RA08, PRD v2 §6.6)
+Built since the first MVP:
+- re-run from the app (Runs page) and the CLI (`python -m mira run --previous RUN_ID`): the same brief on the same Project revision, linked to the run it re-runs (PRD v2 §4 step 8, §6.5)
+- a "what changed since the previous run" section: new, amended and no-longer-supported findings, built from verified claims only (PRD v2 §6.5, AG11)
+- gap rounds: missing expected sources are re-planned and re-scouted, up to `MIRA_MAX_GAP_ROUNDS` (PRD v2 §6.4, AG09)
+- plan approval: a run that needs approval stops after planning, before any source is fetched; an analyst or admin approves the plan on the Runs page, and the worker then resumes it on the approved plan, without planning again (PRD v2 §4)
+- sign-off enforced in the database: a `reviewed` report cannot be inserted while a finding it cites has no reviewer decision (PRD v2 §6.6; migration `20261029120000`)
+- reviewed reports rendered by the worker from the saved snapshot: no DRAFT watermark, the reviewer named by email, and the decision date shown (PRD v2 §6.6)
+- guardrail fixtures: injected instructions in a fetched page have no effect, and seeded fabricated claims are caught by the quote check (PRD v2 §10 AG08, AG14)
+- M0 recall scorer with the 50% gate (`eval/score_recall.py`, run with `pytest eval/`)
+- the agent-design comparison harness (`eval/compare.py`) with the plain-search baseline (`eval/arms.py`)
 
-Built, but not yet run against live data:
-- the M0 recall scorer (`eval/score_recall.py`, run with `pytest eval/`): it needs the canonical URLs a real run cites, and no run has been made with a model key yet
+Not built yet, or not yet proven:
+- the **single-agent arm** of the three-way comparison (PRD v2 §11, arm b). The PRD does not fix its design, so it is not invented here. Plain search (arm a) is built.
+- the **comparison itself**: arm (c), the multi-agent system, exists but has not been run against the briefs. The harness refuses to report a verdict until every arm is a live, measured run.
+- **live results of any kind**: no run has been made with a model key, so there is no recall figure, no precision check and no cost figure yet. The M0 gate in particular has not been passed or failed.
+- **precision** (PRD v2 §11) needs a human to check sampled claims against their passages. It is not automated and is not estimated.
+- **the reviewed-report migration on a fresh Supabase stack**: migration `20261029120000` was applied to the local database and tested there, not yet to a freshly built stack.
 
 ## Run the schema locally
 
