@@ -16,8 +16,9 @@ only moves through its own values (running → draft, partial, failed or cancell
 After scouting, a code-only completeness check compares the expected-source
 list with what was actually saved (§6.4).
 
-Not built yet: waiting for plan approval, gap-filling rounds (M2), and the
-re-run diff (M3).
+Missing expected sources get gap rounds (§6.4): a targeted re-plan and re-scout, at
+most ``max_gap_rounds`` times. Not built yet: waiting for plan approval, claim-level
+re-scouting for unsupported claims (§6.3 step 4), and the re-run diff (M3).
 """
 
 from __future__ import annotations
@@ -117,6 +118,14 @@ def split_documents(maxima: Sequence[int], allowance: int) -> list[int]:
     return caps
 
 
+def _latest_rows(rows: Sequence[CoverageRow]) -> list[CoverageRow]:
+    """One row per expected source; the row from the latest gap round wins."""
+    latest: dict[UUID, CoverageRow] = {}
+    for row in rows:
+        latest[row.expected_source_id] = row
+    return list(latest.values())
+
+
 class _Run:
     def __init__(self, orchestrator: Orchestrator, ctx: RunContext) -> None:
         self.o = orchestrator
@@ -144,8 +153,9 @@ class _Run:
         try:
             try:
                 self._plan()
-                self._scout()
+                self._scout(self.tasks)
                 self._check_coverage()
+                self._fill_gaps()
                 self._analyse()
                 self._verify()
             except BudgetExhausted as exc:
@@ -200,8 +210,8 @@ class _Run:
         })
         self.store.finish_step(self.ctx, step.id, record)
 
-    def _skip(self, role: AgentRole, reason: str, *, jurisdiction: str | None = None) -> None:
-        step = self._start(role, jurisdiction=jurisdiction, status="skipped")
+    def _skip(self, role: AgentRole, reason: str, *, jurisdiction: str | None = None, gap_round: int = 0) -> None:
+        step = self._start(role, jurisdiction=jurisdiction, gap_round=gap_round, status="skipped")
         step.output_refs["reason"] = reason
         self.store.finish_step(self.ctx, step.id, step.record.model_copy(update={"output_refs": step.output_refs}))
 
@@ -248,13 +258,13 @@ class _Run:
             raise RunFailed(f"planner failed: {exc}") from exc
         self.tasks = planned.tasks
 
-    def _scout(self) -> None:
+    def _scout(self, tasks: Sequence[ScoutTask]) -> None:
         runnable: list[tuple[ScoutTask, Scout]] = []
-        for task in self.tasks:
+        for task in tasks:
             scout = self.o.scouts.get(task.role)
             if scout is None:
                 reason = f"task {task.task_label} not run: no {task.role.replace('_', ' ')} is available"
-                self._skip(task.role, reason, jurisdiction=task.jurisdiction_code)
+                self._skip(task.role, reason, jurisdiction=task.jurisdiction_code, gap_round=task.gap_round)
                 self.reasons.append(reason)
                 self.skipped[task.task_label] = reason
             else:
@@ -264,7 +274,7 @@ class _Run:
         for (task, scout), cap in zip(runnable, caps):
             if cap == 0:
                 reason = f"task {task.task_label} not run: document budget used"
-                self._skip(task.role, reason, jurisdiction=task.jurisdiction_code)
+                self._skip(task.role, reason, jurisdiction=task.jurisdiction_code, gap_round=task.gap_round)
                 self.reasons.append(reason)
                 self.skipped[task.task_label] = reason
             else:
@@ -348,6 +358,75 @@ class _Run:
             self.store.save_coverage(self.ctx, self.coverage)
             counts: dict[str, int] = {}
             for row in self.coverage:
+                counts[row.status] = counts.get(row.status, 0) + 1
+            step.output_refs.update(counts)
+
+    def _fill_gaps(self) -> None:
+        """Re-plan and re-scout for expected sources still missing, at most ``max_gap_rounds`` times (§6.4).
+
+        Only items whose coverage is ``missing`` on a source that may be fetched are retried. Fetch
+        failures, budget shortfalls and sources that refuse automated access are reported, not
+        retried. A round that cannot finish is stated as a limitation and the run carries on.
+        """
+        for gap_round in range(1, self.ctx.budget.max_gap_rounds + 1):
+            missing = self._missing_expected()
+            if not missing:
+                return
+            try:
+                self._check_cancel()
+                self.budget.check()
+                if self.budget.remaining_documents() == 0:
+                    raise BudgetExhausted("document budget used")
+                planned = self._plan_gap(gap_round, missing)
+                tasks = tuple(
+                    replace(task, task_label=f"G{gap_round}-{task.task_label}", gap_round=gap_round)
+                    for task in planned.tasks
+                )
+                self._scout(tasks)
+            except BudgetExhausted as exc:
+                self.reasons.append(f"gap round {gap_round} stopped: {exc}")
+                return
+            except (LLMError, ValueError) as exc:
+                self.reasons.append(f"gap round {gap_round} planner failed: {exc}")
+                return
+            self._check_gap_coverage(gap_round, missing, tasks)
+
+    def _missing_expected(self) -> list[ExpectedSourceRecord]:
+        latest = {row.expected_source_id: row for row in self.coverage}
+        missing = []
+        for item in self.expected:
+            row = latest.get(item.id)
+            source = self.sources.get(item.source_id)
+            if row is None or row.status != "missing" or source is None or "fetch" not in source.permitted_operations:
+                continue
+            missing.append(item)
+        return missing
+
+    def _plan_gap(self, gap_round: int, missing: Sequence[ExpectedSourceRecord]) -> planner.PlannedRun:
+        refs = {"gap_round": gap_round, "expected_source_ids": [str(e.id) for e in missing]}
+        with self._step("planner", gap_round=gap_round, input_refs=refs) as step:
+            planned = planner.plan(
+                self.o.client, self.ctx.brief, list(self.sources.values()), missing,
+                self.budget.remaining_documents(), gap_round=gap_round,
+            )
+            self._used(step, planned.llm)
+            plan_id = self.store.save_plan(self.ctx, gap_round + 1, planned.stored_plan(), step.id)
+            step.output_refs.update(research_plan_id=str(plan_id), tasks=len(planned.tasks))
+        return planned
+
+    def _check_gap_coverage(
+        self, gap_round: int, missing: Sequence[ExpectedSourceRecord], tasks: Sequence[ScoutTask],
+    ) -> None:
+        with self._step(
+            "completeness_checker", check_budget=False, gap_round=gap_round,
+            input_refs={"expected_source_ids": [str(e.id) for e in missing]},
+        ) as step:
+            rows = coverage_rows(missing, self.sources, tasks, self.scout_results, self.skipped,
+                                 gap_round=gap_round, passages=self.passages)
+            self.store.save_coverage(self.ctx, rows)
+            self.coverage = _latest_rows([*self.coverage, *rows])
+            counts: dict[str, int] = {}
+            for row in rows:
                 counts[row.status] = counts.get(row.status, 0) + 1
             step.output_refs.update(counts)
 

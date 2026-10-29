@@ -18,13 +18,13 @@ from mira.interfaces import ScoutTask
 from mira.llm import LLMClient, LLMResult, call_checked
 from mira.store import ExpectedSourceRecord, SourceRecord
 
-PROMPT_VERSION = "planner/2"
+PROMPT_VERSION = "planner/3"
 
 SYSTEM = """You plan research for Mira, a research assistant for bank internal auditors.
 Given a research brief, the allow-listed sources and the expected-source checklist, return a research plan made of scout tasks.
 
 Rules:
-- Give each jurisdiction in the brief at least one regulatory_scout task with jurisdiction_code set. A regulatory task may use only sources from its own jurisdiction or international sources.
+- Give each jurisdiction the plan must cover at least one regulatory_scout task with jurisdiction_code set. A regulatory task may use only sources from its own jurisdiction or international sources.
 - Use industry_scout tasks for industry developments: incidents, case studies, best practices and innovations. Their jurisdiction_code may be null.
 - Put every expected source in expected_source_labels of at least one task, and give that task the expected source's own source. A task with a jurisdiction_code may list only expected sources of that jurisdiction.
 - International sources serve every jurisdiction in the brief. Cover all expected sources that come from international sources in one industry_scout task with jurisdiction_code null, and do not repeat those sources in per-jurisdiction tasks.
@@ -54,11 +54,16 @@ def plan(
     sources: Sequence[SourceRecord],
     expected: Sequence[ExpectedSourceRecord],
     max_documents: int,
+    *,
+    gap_round: int = 0,
 ) -> PlannedRun:
     """Ask for a plan within ``max_documents`` pages in total.
 
     The total is guidance for the model, not a check: the orchestrator shares the
     run's real document budget across tasks whatever the plan asks for.
+
+    In a gap round (``gap_round`` >= 1), ``expected`` holds only the items still missing,
+    and the plan must cover those items and the jurisdictions they belong to.
     """
     labels = LabelMap()
     source_labels = {labels.add("S", source.id): source for source in sources}
@@ -76,8 +81,22 @@ def plan(
         for label, row in expected_labels.items()
     ]
     list_version = max((row.list_version for row in expected), default=0)
+    # A gap round needs regulatory coverage only for jurisdictions with a missing regulatory item.
+    regulatory_gap_jurisdictions = {
+        row.jurisdiction_code for row in expected
+        if (label_of_source.get(row.source_id) is not None
+            and source_labels[label_of_source[row.source_id]].jurisdiction_code is not None)
+    }
+    jurisdictions = (
+        sorted(regulatory_gap_jurisdictions & set(brief.jurisdictions)) if gap_round else list(brief.jurisdictions)
+    )
+    gap_note = [
+        f"Gap round {gap_round}: an earlier round did not find the expected sources listed below. "
+        "Plan tasks only for them, and write each question so it names the item it targets.",
+    ] if gap_round else []
     user = "\n\n".join([
         brief_text(brief),
+        *gap_note,
         f"Document budget: the run may fetch at most {max_documents} pages in total.",
         "Sources:\n" + "\n".join(source_lines),
         f"Expected sources (checklist v{list_version}):\n" + ("\n".join(expected_lines) or "none"),
@@ -121,7 +140,7 @@ def plan(
         missing = sorted(set(expected_labels) - covered, key=lambda label: int(label[1:]))
         if missing:
             raise ValueError(f"expected sources not assigned to any task: {', '.join(missing)}")
-        uncovered = sorted(set(brief.jurisdictions) - regulatory_jurisdictions)
+        uncovered = sorted(set(jurisdictions) - regulatory_jurisdictions)
         if uncovered:
             raise ValueError(f"no regulatory task for {', '.join(uncovered)}")
 

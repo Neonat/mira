@@ -146,7 +146,7 @@ def test_full_run_on_postgres(conn, workspace, tmp_path):
     workspace_id, user_id = workspace
     brief = Brief(topic="AML/CFT", jurisdictions=["HK"], period_start=date(2025, 10, 26), period_end=date(2026, 10, 26),
                   as_of_date=date(2026, 10, 26), plan_requires_approval=False)
-    ctx = create_run(conn, workspace_id, user_id, brief, RunBudget(max_fetched_documents=30), {})
+    ctx = create_run(conn, workspace_id, user_id, brief, RunBudget(max_fetched_documents=30, max_gap_rounds=0), {})
     store = PostgresStore(conn, reports_dir=tmp_path)
     client = ScriptedClient({
         "planner": [planner_for("HK")],
@@ -202,6 +202,71 @@ def test_full_run_on_postgres(conn, workspace, tmp_path):
     html = (tmp_path / report["artifact_storage_path"]).read_text()
     assert "Example circular on AML controls" in html and "Expected sources" in html
     assert report["evidence_snapshot"]["contract_version"] == "1.1"
+
+
+def first_pass_scout(prompt):
+    """Reports nothing found on the first pass, so every expected source starts missing (AG09).
+
+    Only the report answer carries ``expected_source_statuses``; the link-selection answer must not.
+    """
+    response = scout(prompt)
+    if "expected_source_statuses" in response:
+        response["expected_source_statuses"] = []
+    return response
+
+
+def gap_planner_for(code):
+    """Re-plans the missing item with a question the gap scout recognises."""
+    base = planner_for(code)
+
+    def respond(prompt):
+        plan = base(prompt)
+        for task in plan["tasks"]:
+            task["question"] = "AML gap check: the circular for the missing HKMA item"
+        return plan
+
+    return respond
+
+
+def test_gap_round_finds_an_item_the_first_pass_missed_and_stores_it(conn, workspace, tmp_path):
+    workspace_id, user_id = workspace
+    brief = Brief(topic="AML/CFT", jurisdictions=["HK"], period_start=date(2025, 10, 26), period_end=date(2026, 10, 26),
+                  as_of_date=date(2026, 10, 26), plan_requires_approval=False)
+    ctx = create_run(conn, workspace_id, user_id, brief, RunBudget(max_fetched_documents=30, max_gap_rounds=1), {})
+    store = PostgresStore(conn, reports_dir=tmp_path)
+    client = ScriptedClient({
+        "planner": [planner_for("HK"), gap_planner_for("HK")],
+        "regulatory_scout": [first_pass_scout, first_pass_scout, scout, scout],
+        "industry_scout": [scout, scout],
+        "analyst": [analyst],
+        "verifier": [{"verdict": "supported", "reason": "stated in the passage"},
+                     {"introduces_new_fact": False, "new_facts": [], "reason": "no new facts"}],
+        "writer": [writer],
+    })
+    fetcher = Fetcher(AllowList(store.list_sources(workspace_id)), transport=FakeWeb(),
+                      resolver=lambda host: ["93.184.216.34"], sleep=lambda s: None)
+    web_scout = WebScout(DSN, client, fetcher)
+    outcome = Orchestrator(store, client, {"regulatory_scout": web_scout, "industry_scout": web_scout},
+                           LlmVerifier(client)).run(ctx)
+
+    assert outcome.status == "draft", outcome.reasons
+    planners = conn.execute(
+        "select gap_round, status from public.agent_steps where analysis_run_id = %s and role = 'planner' order by step_no",
+        (ctx.analysis_run_id,),
+    ).fetchall()
+    assert [(p["gap_round"], p["status"]) for p in planners] == [(0, "succeeded"), (1, "succeeded")]
+    plans = conn.execute(
+        "select version from public.research_plans where analysis_run_id = %s order by version", (ctx.analysis_run_id,),
+    ).fetchall()
+    assert [p["version"] for p in plans] == [1, 2]
+    coverage = conn.execute(
+        "select gap_round, status from public.coverage_results where analysis_run_id = %s and status in ('found', 'missing') "
+        "order by gap_round, status", (ctx.analysis_run_id,),
+    ).fetchall()
+    by_round = {}
+    for row in coverage:
+        by_round.setdefault(row["gap_round"], []).append(row["status"])
+    assert "found" in by_round.get(1, []), by_round
 
 
 def test_worker_refuses_a_run_whose_user_lost_their_role(conn, workspace):
@@ -296,7 +361,7 @@ def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspa
 
     brief = Brief(topic="AML/CFT", jurisdictions=["SG"], period_start=date(2025, 10, 26), period_end=date(2026, 10, 26),
                   as_of_date=date(2026, 10, 26), plan_requires_approval=False)
-    ctx = create_run(conn, workspace_id, user_id, brief, RunBudget(max_fetched_documents=30), {})
+    ctx = create_run(conn, workspace_id, user_id, brief, RunBudget(max_fetched_documents=30, max_gap_rounds=0), {})
     store = PostgresStore(conn, reports_dir=tmp_path / "reports")
     client = ScriptedClient({
         "planner": [planner_for("SG")],

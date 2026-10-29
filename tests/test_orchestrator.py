@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from mira.budget import RunBudget
-from mira.contracts import Brief, FetchAttempt, ScoutDocumentDraft, ScoutReport, ScoutResult, Verdict
+from mira.contracts import Brief, ExpectedSourceStatusDraft, FetchAttempt, ScoutDocumentDraft, ScoutReport, ScoutResult, Verdict
 from mira.interfaces import CheckOutcome, ScoutOutcome
 from mira.llm import ScriptedClient
 from mira.orchestrator import Orchestrator, split_documents
@@ -49,6 +49,8 @@ BRIEF = Brief(
 
 
 def context(**budget):
+    # Single-pass by default: gap rounds have their own tests and need scripted planner answers.
+    budget.setdefault("max_gap_rounds", 0)
     return RunContext(uuid4(), uuid4(), uuid4(), uuid4(), BRIEF, RunBudget(**budget))
 
 
@@ -373,6 +375,145 @@ def test_brief_outside_controlled_lists_or_needing_approval_is_refused():
         orchestrator.run(replace(context(), brief=BRIEF.model_copy(update={"jurisdictions": ["US"]})))
     with pytest.raises(NotImplementedError):
         orchestrator.run(replace(context(), brief=BRIEF.model_copy(update={"plan_requires_approval": True})))
+
+
+class ExpectedScout(FakeScout):
+    """Reports each expected source in a task as found when ``found_in(task)`` is true (AG09)."""
+
+    def __init__(self, found_in=lambda task: False, **kwargs):
+        super().__init__(**kwargs)
+        self.found_in = found_in
+
+    def run(self, ctx, step_id, task):
+        self.tasks.append(task)
+        labels = {**self.labels, **{f"E{i}": item for i, item in enumerate(task.expected_source_ids, 1)}}
+        expected_labels = [label for label in labels if label.startswith("E")]
+        statuses = [
+            ExpectedSourceStatusDraft(expected_source_label=label, status="found", note=None)
+            for label in expected_labels
+        ] if self.found_in(task) else []
+        report = ScoutReport(
+            documents=[ScoutDocumentDraft(
+                document_label="D1", instrument_type="notice", industry_category=None, title="Notice 626",
+                published_date=None, effective_date=None, change_type="amended",
+                relevant_passage_labels=[label for label in labels if label.startswith("P")],
+                expected_source_labels=[],
+            )],
+            expected_source_statuses=statuses, notes=None,
+        )
+        fetch = FetchAttempt(url="https://www.mas.gov.sg/notice-626", outcome="saved", document_version_id=VERSION_ID,
+                             error=None, attempted_at=datetime.now(UTC))
+        result = ScoutResult(
+            analysis_run_id=ctx.analysis_run_id, agent_step_id=step_id, role=task.role,
+            jurisdiction_code=task.jurisdiction_code, report=report, fetch_log=[fetch], labels=labels,
+        )
+        return ScoutOutcome(result, "scripted", "scout/test", 0, 0)
+
+
+def gap_plan(expected):
+    return {"tasks": [plan_task(label="T1", expected=expected)], "notes": None}
+
+
+def mas_expected_store():
+    return InMemoryStore(sources=[MAS], expected_sources=[E_RULE, E_ENFORCEMENT], passages=list(PASSAGES))
+
+
+def test_missing_expected_sources_get_a_gap_round_and_are_found_there():
+    scout = ExpectedScout(found_in=lambda task: task.gap_round == 1)
+    responses = {"planner": [{"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}, gap_plan(("E1", "E2"))]}
+    orchestrator, store, client, _ = make(responses, scout=scout, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=1))
+
+    assert outcome.status == "draft" and outcome.reasons == []
+    assert [task.task_label for task in scout.tasks] == ["T1", "G1-T1"]
+    assert [r.role for r in steps(store) if r.gap_round == 1] == ["planner", "regulatory_scout", "completeness_checker"]
+    assert [(row.gap_round, row.status) for row in store.coverage] == [
+        (0, "missing"), (0, "missing"), (1, "found"), (1, "found"),
+    ]
+    # Each round saves its own plan version: research_plans is unique on (run, version).
+    assert [p["plan"]["tasks"][0]["task_label"] for p in store.plans] == ["T1", "T1"]
+    assert len(store.plans) == 2
+    assert sorted(row.status for row in outcome.snapshot.coverage) == ["found", "found"]
+
+
+def test_no_gap_round_when_every_expected_source_is_found_in_the_first_pass():
+    scout = ExpectedScout(found_in=lambda task: True)
+    responses = {"planner": [{"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}]}
+    orchestrator, store, client, _ = make(responses, scout=scout, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=2))
+
+    assert outcome.status == "draft"
+    assert all(r.gap_round == 0 for r in steps(store))
+    assert [task.task_label for task in scout.tasks] == ["T1"]
+
+
+
+    hostile = replace(PASSAGES[0], title="<script>alert(1)</script>", source_url="javascript:alert(1)")
+    from mira.contracts import ClaimDraft, ReportSection, ReportSentence, ReportSnapshot
+
+    draft = ClaimDraft(**claim("C1", "obligation_summary", "P1", "x", content="<img src=x onerror=alert(1)>"))
+    stored = StoredClaim(uuid4(), draft, (ClaimEvidence(hostile.id, "x"),), ())
+    snapshot = ReportSnapshot(
+        contract_version="1.0", analysis_run_id=uuid4(), analysis_revision_id=uuid4(), coverage=[],
+        unresolved_finding_ids=[],
+        sections=[ReportSection(section="regulatory_developments", no_verified_items=False, sentences=[
+            ReportSentence(text=draft.content, finding_ids=[stored.finding_id], structural=False)
+        ])],
+    )
+    html = render_html(snapshot, ReportContext(
+        BRIEF, "draft", {stored.finding_id: stored}, {hostile.id: hostile}, {}, datetime.now(UTC)
+    ))
+    assert "<script>" not in html and "<img" not in html
+    assert 'href="javascript' not in html
+
+
+def test_source_that_refuses_automated_access_is_reported_and_never_retried():
+    sso = SourceRecord(uuid4(), "Singapore Statutes Online", "manual", None, "SG", ("metadata",))
+    refused = ExpectedSourceRecord(uuid4(), 1, "SG", "legislation", sso.id, "CDSA")
+    store = InMemoryStore(sources=[MAS, sso], expected_sources=[E_RULE, refused], passages=list(PASSAGES))
+    first = {"tasks": [plan_task(expected=("E1", "E2"), sources=("S1", "S2"))], "notes": None}
+    scout = ExpectedScout(found_in=lambda task: task.gap_round == 1)
+    orchestrator, store, client, _ = make({"planner": [first, gap_plan(("E1",))]}, scout=scout, store=store)
+    outcome = orchestrator.run(context(max_gap_rounds=1))
+
+    gap_planner = next(r for r in steps(store) if r.role == "planner" and r.gap_round == 1)
+    assert gap_planner.input_refs["expected_source_ids"] == [str(E_RULE.id)]
+    assert [task.task_label for task in scout.tasks] == ["T1", "G1-T1"]
+    refused_row = next(row for row in store.coverage if row.expected_source_id == refused.id)
+    assert refused_row.status == "missing" and "manual import" in refused_row.note
+    assert outcome.status == "draft"
+
+
+def test_gap_rounds_stop_at_the_configured_limit():
+    first = {"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}
+    still_missing = gap_plan(("E1", "E2"))
+    orchestrator, store, client, _ = make({"planner": [first, still_missing, still_missing]}, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=2))
+
+    assert [r.gap_round for r in steps(store) if r.role == "planner"] == [0, 1, 2]
+    assert outcome.status == "draft"
+    assert [row.status for row in store.coverage if row.gap_round == 2] == ["missing", "missing"]
+
+
+def test_gap_round_stops_with_a_stated_reason_when_the_token_budget_runs_out():
+    # Each scripted planner call costs 150 tokens. Room to start round 1 (150 < 151) but not to scout (300 >= 151).
+    first = {"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}
+    orchestrator, store, client, _ = make({"planner": [first, gap_plan(("E1", "E2"))]}, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=1, max_llm_tokens=151))
+
+    assert outcome.status == "partial"
+    assert any(reason.startswith("gap round 1 stopped") for reason in outcome.reasons)
+    assert [r.role for r in steps(store) if r.gap_round == 1] == ["planner"]
+
+
+def test_gap_round_planner_failure_is_a_limitation_and_the_report_is_still_written():
+    first = {"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}
+    orchestrator, store, client, _ = make({"planner": [first]}, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=1))
+
+    assert outcome.status == "partial"
+    assert any("gap round 1 planner failed" in reason for reason in outcome.reasons)
+    assert outcome.report_id is not None and len(store.reports) == 1
 
 
 def test_report_escapes_source_text_and_refuses_non_http_links():
