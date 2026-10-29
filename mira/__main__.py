@@ -107,8 +107,16 @@ def main() -> None:
             from mira.pg_store import claim_next_run
             from mira.runner import execute_run, workspace_id
 
+            from mira.render_job import render_pending
+
             workspace = workspace_id(conn)
             while True:
+                # Sign-offs first: a reviewed file is a small render, and the reviewer is waiting for it.
+                try:
+                    for report_id in render_pending(conn, workspace):
+                        print(f"rendered reviewed report {report_id}")
+                except Exception as exc:  # one bad sign-off must not stop the worker or other sign-offs
+                    print(f"render failed with {type(exc).__name__}: {exc}")
                 run_id = claim_next_run(conn, workspace)
                 if run_id:
                     print(f"running {run_id}")

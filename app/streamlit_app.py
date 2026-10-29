@@ -374,7 +374,9 @@ def _sign_off(workspace_id: str, user_id: str, report: dict[str, Any], run_id: s
         "workspace_id": workspace_id, "analysis_revision_id": report["analysis_revision_id"],
         "report_version": report["report_version"] + 1, "format": report["format"], "review_status": "reviewed",
         "template_version": report["template_version"] or TEMPLATE_VERSION, "evidence_snapshot": report["evidence_snapshot"],
-        "artifact_storage_path": report["artifact_storage_path"], "generated_by": user_id, "reviewed_by": user_id,
+        # The reviewed file is rendered by the worker from the snapshot (mira.render). Leaving the path empty
+        # means this row never points at the draft file, which still says DRAFT.
+        "artifact_storage_path": None, "generated_by": user_id, "reviewed_by": user_id,
         "reviewed_at": datetime.now(UTC).isoformat(),
     }).execute()
     try:
