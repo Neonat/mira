@@ -45,6 +45,8 @@ def main() -> None:
     run.add_argument("--months", type=int, default=12)
     run.add_argument("--max-documents", type=int)
     run.add_argument("--max-tokens", type=int)
+    run.add_argument("--previous", type=UUID, metavar="RUN_ID",
+                     help="re-run a finished run with the same brief and show what changed (PRD v2 §6.5)")
     worker = commands.add_parser("worker")
     worker.add_argument("--once", action="store_true")
     worker.add_argument("--poll-seconds", type=float, default=5.0)
@@ -82,10 +84,16 @@ def main() -> None:
                 budget = replace(budget, max_fetched_documents=args.max_documents)
             if args.max_tokens:
                 budget = replace(budget, max_llm_tokens=args.max_tokens)
-            brief = Brief(topic="AML/CFT", jurisdictions=args.jurisdictions,
-                          period_start=args.as_of - timedelta(days=round(args.months * 365 / 12)),
-                          period_end=args.as_of, as_of_date=args.as_of, plan_requires_approval=False)
-            ctx = create_run(conn, workspace_id(conn), dev_user_id(conn), brief, budget, models_from_env())
+            if args.previous:
+                from mira.pg_store import create_rerun
+
+                ctx = create_rerun(conn, workspace_id(conn), dev_user_id(conn), args.previous, models_from_env())
+                brief = ctx.brief
+            else:
+                brief = Brief(topic="AML/CFT", jurisdictions=args.jurisdictions,
+                              period_start=args.as_of - timedelta(days=round(args.months * 365 / 12)),
+                              period_end=args.as_of, as_of_date=args.as_of, plan_requires_approval=False)
+                ctx = create_run(conn, workspace_id(conn), dev_user_id(conn), brief, budget, models_from_env())
             print(f"run {ctx.analysis_run_id}: {brief.jurisdictions} {brief.period_start} to {brief.period_end}, "
                   f"budget {budget.max_llm_tokens} tokens / {budget.max_fetched_documents} documents")
             outcome = execute_run(conn, dsn, ctx.analysis_run_id)

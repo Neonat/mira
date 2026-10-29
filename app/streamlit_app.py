@@ -20,7 +20,14 @@ import streamlit as st
 import streamlit.components.v1 as components
 from supabase import Client, create_client
 
-from mira.brief import MVP_JURISDICTIONS, analysis_run_fields, check_brief_scope, project_revision_fields
+from mira.brief import (
+    MVP_JURISDICTIONS,
+    RERUNNABLE_STATUSES,
+    analysis_run_fields,
+    check_brief_scope,
+    check_rerunnable,
+    project_revision_fields,
+)
 from mira.budget import RunBudget
 from mira.config import load_env, report_file
 from mira.contracts import Brief
@@ -85,6 +92,28 @@ def queue_run(workspace_id: str, user_id: str, brief: Brief, budget: RunBudget) 
     run = sb.table("analysis_runs").insert(jsonable({
         "workspace_id": workspace_id, "project_revision_id": revision["id"], "idempotency_key": str(uuid.uuid4()),
         "created_by": user_id, **analysis_run_fields(brief, budget, models),
+    })).execute().data[0]
+    sb.table("analysis_revisions").insert(
+        {"workspace_id": workspace_id, "analysis_run_id": run["id"], "revision_number": 1, "created_by": user_id}
+    ).execute()
+    return run["id"]
+
+
+def queue_rerun(workspace_id: str, user_id: str, previous: dict[str, Any]) -> str:
+    """Queue a re-run of a finished run on the same Project revision (PRD v2 §4, §6.5).
+
+    Only the run row is inserted, so the brief stays the one the auditor approved. The worker
+    checks the previous run again before it starts, so this check is not the only guard.
+    """
+    check_rerunnable(previous["status"])
+    sb = client()
+    models = {role: os.environ.get(var, "") for role, var in ROLE_MODEL_ENV.items()}
+    run = sb.table("analysis_runs").insert(jsonable({
+        "workspace_id": workspace_id, "project_revision_id": previous["project_revision_id"],
+        "idempotency_key": str(uuid.uuid4()), "created_by": user_id, "previous_run_id": previous["id"],
+        "query_mode": previous["query_mode"], "as_of_date": previous["as_of_date"],
+        "resolved_markets": previous["resolved_markets"], "source_limits": previous["source_limits"],
+        "model_settings": models, "retrieval_settings": previous["retrieval_settings"],
     })).execute().data[0]
     sb.table("analysis_revisions").insert(
         {"workspace_id": workspace_id, "analysis_run_id": run["id"], "revision_number": 1, "created_by": user_id}
@@ -171,6 +200,15 @@ def runs_page(workspace_id: str) -> None:
         if right.button("Cancel run"):
             sb.table("analysis_runs").update({"status": "cancelled"}).eq("id", run["id"]).execute()
             st.rerun()
+
+    if run["status"] in RERUNNABLE_STATUSES:
+        if st.button("Re-run with the same brief", help="Queues a new run on the same Project revision and "
+                                                       "shows what changed since this run."):
+            new_run = queue_rerun(workspace_id, st.session_state.user_id, run)
+            st.session_state.selected_run = new_run
+            st.rerun()
+    elif run["status"] in ACTIVE:
+        st.caption("Re-run is available once this run has finished.")
 
     st.subheader("Steps")
     st.dataframe([{
