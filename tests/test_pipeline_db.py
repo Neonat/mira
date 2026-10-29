@@ -269,6 +269,75 @@ def test_gap_round_finds_an_item_the_first_pass_missed_and_stores_it(conn, works
     assert "found" in by_round.get(1, []), by_round
 
 
+def amended_analyst(prompt):
+    """The same finding as ``analyst``, with changed content and a retitled wording that differs only in
+    case and punctuation: the AG11 fixture. Matching must survive that, so the diff key is normalised."""
+    response = analyst(prompt)
+    response["claims"][0]["title"] = "EXAMPLE HKMA AML GUIDANCE."
+    response["claims"][0]["content"] = "HKMA expects enhanced due diligence for customers linked to example schemes, and reviews it annually."
+    return response
+
+
+def run_hk(conn, workspace, tmp_path, analyst_fn, previous_run_id=None):
+    workspace_id, user_id = workspace
+    brief = Brief(topic="AML/CFT", jurisdictions=["HK"], period_start=date(2025, 10, 26), period_end=date(2026, 10, 26),
+                  as_of_date=date(2026, 10, 26), plan_requires_approval=False)
+    ctx = create_run(conn, workspace_id, user_id, brief, RunBudget(max_fetched_documents=30, max_gap_rounds=0), {},
+                     previous_run_id=previous_run_id)
+    store = PostgresStore(conn, reports_dir=tmp_path)
+    client = ScriptedClient({
+        "planner": [planner_for("HK")],
+        "regulatory_scout": [scout, scout],
+        "industry_scout": [scout, scout],
+        "analyst": [analyst_fn],
+        "verifier": [{"verdict": "supported", "reason": "stated in the passage"},
+                     {"introduces_new_fact": False, "new_facts": [], "reason": "no new facts"}],
+        "writer": [writer],
+    })
+    fetcher = Fetcher(AllowList(store.list_sources(workspace_id)), transport=FakeWeb(),
+                      resolver=lambda host: ["93.184.216.34"], sleep=lambda s: None)
+    web_scout = WebScout(DSN, client, fetcher)
+    outcome = Orchestrator(store, client, {"regulatory_scout": web_scout, "industry_scout": web_scout},
+                           LlmVerifier(client)).run(ctx)
+    return ctx, outcome
+
+
+def test_rerun_stores_diff_keys_and_reports_a_changed_finding_as_amended(conn, workspace, tmp_path):
+    first_ctx, first = run_hk(conn, workspace, tmp_path, analyst)
+    assert first.status == "draft", first.reasons
+    first_keys = conn.execute(
+        "select diff_key from public.analysis_findings where analysis_run_id = %s and diff_key is not null",
+        (first_ctx.analysis_run_id,),
+    ).fetchall()
+    assert first_keys, "the first run must store diff keys"
+
+    second_ctx, second = run_hk(conn, workspace, tmp_path, amended_analyst, previous_run_id=first_ctx.analysis_run_id)
+    assert second.status == "draft", second.reasons
+    second_keys = conn.execute(
+        "select diff_key from public.analysis_findings where analysis_run_id = %s and diff_key is not null",
+        (second_ctx.analysis_run_id,),
+    ).fetchall()
+    # Same document, type and title, so the findings match across runs.
+    assert {row["diff_key"] for row in first_keys} == {row["diff_key"] for row in second_keys}
+
+    section = next(s for s in second.snapshot.sections if s.section == "what_changed")
+    amended = [s for s in section.sentences if s.text.startswith("Amended since the previous run:")]
+    assert len(amended) == 1 and amended[0].finding_ids, [s.text for s in section.sentences]
+
+
+def test_rerun_never_diffs_against_an_incomplete_previous_run(conn, workspace, tmp_path):
+    first_ctx, first = run_hk(conn, workspace, tmp_path, analyst)
+    assert first.status == "draft", first.reasons
+    # Mark the previous run as failed: its findings must not be read as "no longer supported".
+    conn.execute("update public.analysis_runs set status = 'failed' where id = %s", (first_ctx.analysis_run_id,))
+    store = PostgresStore(conn, reports_dir=tmp_path)
+    rerun = create_run(conn, workspace[0], workspace[1], Brief(
+        topic="AML/CFT", jurisdictions=["HK"], period_start=date(2025, 10, 26), period_end=date(2026, 10, 26),
+        as_of_date=date(2026, 10, 26), plan_requires_approval=False), RunBudget(max_gap_rounds=0), {},
+        previous_run_id=first_ctx.analysis_run_id)
+    assert store.previous_findings(rerun) == []
+
+
 def test_worker_refuses_a_run_whose_user_lost_their_role(conn, workspace):
     from mira.runner import execute_run
 
