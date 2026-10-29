@@ -340,6 +340,54 @@ def test_rerun_never_diffs_against_an_incomplete_previous_run(conn, workspace, t
     assert store.previous_findings(rerun) == []
 
 
+def test_approval_gated_run_is_paused_skipped_until_approved_then_completes(conn, workspace, tmp_path):
+    from mira.pg_store import claim_next_run, load_run
+
+    workspace_id, user_id = workspace
+    brief = Brief(topic="AML/CFT", jurisdictions=["HK"], period_start=date(2025, 10, 26), period_end=date(2026, 10, 26),
+                  as_of_date=date(2026, 10, 26), plan_requires_approval=True)
+    ctx = create_run(conn, workspace_id, user_id, brief, RunBudget(max_fetched_documents=30, max_gap_rounds=0), {})
+    store = PostgresStore(conn, reports_dir=tmp_path)
+    client = ScriptedClient({
+        "planner": [planner_for("HK")],
+        "regulatory_scout": [scout, scout],
+        "industry_scout": [scout, scout],
+        "analyst": [analyst],
+        "verifier": [{"verdict": "supported", "reason": "stated in the passage"},
+                     {"introduces_new_fact": False, "new_facts": [], "reason": "no new facts"}],
+        "writer": [writer],
+    })
+    fetcher = Fetcher(AllowList(store.list_sources(workspace_id)), transport=FakeWeb(),
+                      resolver=lambda host: ["93.184.216.34"], sleep=lambda s: None)
+    web_scout = WebScout(DSN, client, fetcher)
+    orchestrator = Orchestrator(store, client, {"regulatory_scout": web_scout, "industry_scout": web_scout},
+                                LlmVerifier(client))
+
+    # 1. The worker claims the run, plans it, and pauses before any scouting.
+    assert claim_next_run(conn, workspace_id) == ctx.analysis_run_id
+    paused = orchestrator.run(load_run(conn, ctx.analysis_run_id))
+    assert paused.status == "awaiting_approval"
+    row = conn.execute("select status from public.analysis_runs where id = %s", (ctx.analysis_run_id,)).fetchone()
+    assert row["status"] == "queued"  # back in the queue, not failed and not running
+    scouting = conn.execute(
+        "select count(*) as n from public.agent_steps where analysis_run_id = %s and role = 'regulatory_scout'",
+        (ctx.analysis_run_id,),
+    ).fetchone()["n"]
+    assert scouting == 0
+
+    # 2. Unapproved, the worker must not claim it again (no loop).
+    assert claim_next_run(conn, workspace_id) is None
+
+    # 3. An analyst approves the plan as themselves; the worker can now claim and complete it.
+    conn.execute(
+        "update public.research_plans set approved_by = %s, approved_at = now() where analysis_run_id = %s",
+        (user_id, ctx.analysis_run_id),
+    )
+    assert claim_next_run(conn, workspace_id) == ctx.analysis_run_id
+    finished = orchestrator.run(load_run(conn, ctx.analysis_run_id))
+    assert finished.status == "draft", finished.reasons
+
+
 def test_rerun_reuses_the_revision_and_links_the_previous_run(conn, workspace, tmp_path):
     from mira.pg_store import create_rerun
 

@@ -141,16 +141,45 @@ def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
         max_run_minutes=float(limits.get("max_run_minutes", default.max_run_minutes)),
         max_gap_rounds=int(limits.get("max_gap_rounds", default.max_gap_rounds)),
     )
+    approved = conn.execute(
+        """select approved_at is not null as approved from public.research_plans
+           where analysis_run_id = %s and workspace_id = %s order by version desc limit 1""",
+        (run_id, run["workspace_id"]),
+    ).fetchone()
+    steps = conn.execute(
+        "select coalesce(max(step_no), 0) as last from public.agent_steps where analysis_run_id = %s",
+        (run_id,),
+    ).fetchone()
     return RunContext(run["workspace_id"], run["created_by"], run_id, analysis_revision["id"],
-                      brief_from_rows(revision, run), budget, run["previous_run_id"])
+                      brief_from_rows(revision, run), budget, run["previous_run_id"],
+                      plan_approved=bool(approved and approved["approved"]),
+                      completed_steps=int(steps["last"]))
 
 
 def claim_next_run(conn: psycopg.Connection, workspace_id: UUID) -> UUID | None:
-    """Take the workspace's oldest queued run, marking it running so no other worker takes it."""
+    """Take the workspace's oldest queued run, marking it running so no other worker takes it.
+
+    A run whose brief needs plan approval is skipped until its latest plan is approved. Otherwise a run
+    waiting for approval, which stays ``queued``, would be claimed and paused again in a loop.
+    """
     with conn.transaction():
         row = conn.execute(
-            """select id, created_by from public.analysis_runs where workspace_id = %s and status = 'queued'
-               order by created_at limit 1 for update skip locked""",
+            """select r.id, r.created_by from public.analysis_runs r
+               where r.workspace_id = %s and r.status = 'queued'
+                 and (
+                   -- No approval needed, or not yet planned: the worker must claim it to plan it.
+                   not (r.retrieval_settings @> '{"plan_requires_approval": true}')
+                   or not exists (select 1 from public.research_plans p where p.analysis_run_id = r.id)
+                   -- Planned: claimable only once the latest plan is approved.
+                   or exists (
+                     select 1 from public.research_plans p
+                     where p.analysis_run_id = r.id and p.workspace_id = r.workspace_id
+                       and p.approved_at is not null
+                       and p.version = (select max(v.version) from public.research_plans v
+                                        where v.analysis_run_id = r.id)
+                   )
+                 )
+               order by r.created_at limit 1 for update of r skip locked""",
             (workspace_id,),
         ).fetchone()
         if row is None:
@@ -234,6 +263,17 @@ class PostgresStore:
                     "update public.analysis_findings set diff_key = %s where id = %s and workspace_id = %s",
                     (key, finding_id, ctx.workspace_id),
                 )
+
+    def approved_plan(self, ctx: RunContext) -> dict[str, object] | None:
+        """The latest plan if it is approved. An older approved plan does not count once a newer one exists."""
+        row = self.conn.execute(
+            """select plan, approved_at from public.research_plans
+               where analysis_run_id = %s and workspace_id = %s order by version desc limit 1""",
+            (ctx.analysis_run_id, ctx.workspace_id),
+        ).fetchone()
+        if row is None or row["approved_at"] is None:
+            return None
+        return row["plan"]
 
     def previous_findings(self, ctx: RunContext) -> list[PreviousFinding]:
         """The previous run's findings with the diff key stored when they were saved (PRD v2 §6.5)."""
