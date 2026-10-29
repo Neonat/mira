@@ -10,7 +10,9 @@ import re
 import uuid
 from datetime import date
 
+import psycopg
 import pytest
+from psycopg.types.json import Jsonb
 
 from mira.agents.scout import WebScout
 from mira.agents.verifier import LlmVerifier
@@ -367,6 +369,67 @@ def test_rerun_refuses_a_run_that_has_not_finished(conn, workspace, tmp_path):
     conn.execute("update public.analysis_runs set status = 'running' where id = %s", (first_ctx.analysis_run_id,))
     with pytest.raises(ValueError, match="cannot be re-run"):
         create_rerun(conn, workspace_id, user_id, first_ctx.analysis_run_id, {})
+
+
+def draft_report_row(conn, run_id):
+    return conn.execute(
+        """select r.workspace_id, r.analysis_revision_id, r.report_version, r.evidence_snapshot,
+                  r.artifact_storage_path, r.template_version, r.generated_by
+           from public.reports r join public.analysis_revisions a on a.id = r.analysis_revision_id
+           where a.analysis_run_id = %s order by r.report_version desc limit 1""",
+        (run_id,),
+    ).fetchone()
+
+
+def insert_reviewed(conn, draft, reviewer_id, version):
+    conn.execute(
+        """insert into public.reports (workspace_id, analysis_revision_id, report_version, format, review_status,
+               template_version, evidence_snapshot, artifact_storage_path, generated_by, reviewed_by, reviewed_at)
+           values (%s, %s, %s, 'html', 'reviewed', %s, %s, %s, %s, %s, now())""",
+        (draft["workspace_id"], draft["analysis_revision_id"], version, draft["template_version"],
+         Jsonb(draft["evidence_snapshot"]), draft["artifact_storage_path"], draft["generated_by"], reviewer_id),
+    )
+
+
+def test_database_refuses_signoff_while_a_cited_finding_is_undecided(conn, workspace, tmp_path):
+    # PRD v2 §6.6, enforced by the database and not only the app: no decision, no reviewed report.
+    workspace_id, user_id = workspace
+    ctx, outcome = run_hk(conn, workspace, tmp_path, analyst)
+    assert outcome.status == "draft", outcome.reasons
+    draft = draft_report_row(conn, ctx.analysis_run_id)
+    assert draft["evidence_snapshot"]["sections"]  # the report cites findings
+    with pytest.raises(psycopg.errors.CheckViolation, match="no reviewer decision"):
+        insert_reviewed(conn, draft, user_id, draft["report_version"] + 1)
+
+
+def test_database_allows_signoff_once_every_cited_finding_has_a_decision(conn, workspace, tmp_path):
+    workspace_id, user_id = workspace
+    ctx, outcome = run_hk(conn, workspace, tmp_path, analyst)
+    assert outcome.status == "draft", outcome.reasons
+    draft = draft_report_row(conn, ctx.analysis_run_id)
+    cited = {
+        fid for section in draft["evidence_snapshot"]["sections"]
+        for sentence in section["sentences"] for fid in sentence["finding_ids"]
+    }
+    for finding_id in cited:
+        conn.execute(
+            "insert into public.finding_reviews (workspace_id, finding_id, decision, reviewed_by) "
+            "values (%s, %s, 'accepted', %s)",
+            (workspace_id, finding_id, user_id),
+        )
+    insert_reviewed(conn, draft, user_id, draft["report_version"] + 1)
+    status = conn.execute(
+        "select review_status from public.reports where workspace_id = %s and report_version = %s and "
+        "analysis_revision_id = %s", (workspace_id, draft["report_version"] + 1, draft["analysis_revision_id"]),
+    ).fetchone()
+    assert status["review_status"] == "reviewed"
+
+
+def test_database_never_blocks_a_draft_report(conn, workspace, tmp_path):
+    # Drafts are the normal case; the decision rule only applies when a report is marked reviewed.
+    ctx, outcome = run_hk(conn, workspace, tmp_path, analyst)
+    assert outcome.status == "draft", outcome.reasons
+    assert draft_report_row(conn, ctx.analysis_run_id)["evidence_snapshot"]["sections"]
 
 
 def test_rerun_refuses_a_run_from_another_workspace(conn, workspace, tmp_path):
