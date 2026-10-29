@@ -28,6 +28,7 @@ from mira.store import (
     ExpectedSourceRecord,
     NewClaim,
     PassageRecord,
+    PreviousFinding,
     RunContext,
     SourceRecord,
     StoredClaim,
@@ -188,6 +189,30 @@ class PostgresStore:
                           row["imported"])
             for row in rows
         ]
+
+    def save_diff_keys(self, ctx: RunContext, keys: dict[UUID, str]) -> None:
+        with acting_as(self.conn, ctx.user_id):
+            for finding_id, key in keys.items():
+                self.conn.execute(
+                    "update public.analysis_findings set diff_key = %s where id = %s and workspace_id = %s",
+                    (key, finding_id, ctx.workspace_id),
+                )
+
+    def previous_findings(self, ctx: RunContext) -> list[PreviousFinding]:
+        """The previous run's findings with the diff key stored when they were saved (PRD v2 §6.5)."""
+        if ctx.previous_run_id is None:
+            return []
+        # Diff only against a run that finished with a report. A failed or cancelled run is incomplete,
+        # so its findings would show things as "no longer supported" that were never checked.
+        rows = self.conn.execute(
+            """select f.diff_key, f.title, f.content from public.analysis_findings f
+               join public.analysis_runs r on r.id = f.analysis_run_id and r.workspace_id = f.workspace_id
+               where f.analysis_run_id = %s and f.workspace_id = %s and f.diff_key is not null
+                 and r.status in ('draft', 'reviewed', 'superseded')
+               order by f.created_at""",
+            (ctx.previous_run_id, ctx.workspace_id),
+        ).fetchall()
+        return [PreviousFinding(row["diff_key"], row["title"], row["content"]) for row in rows]
 
     def cancel_requested(self, ctx: RunContext) -> bool:
         row = self.conn.execute(
