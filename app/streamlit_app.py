@@ -176,7 +176,31 @@ def pick_run(workspace_id: str) -> dict[str, Any] | None:
     return next(run for run in runs if run["id"] == run_id)
 
 
-def runs_page(workspace_id: str) -> None:
+def _plan_approval(sb: Client, run: dict[str, Any], plans: list[dict[str, Any]], role: str) -> None:
+    """Let an analyst or admin approve the latest plan of a run that waits for approval (PRD v2 §4).
+
+    The approval is written as the signed-in user, and the policy allows it only once, for an
+    unapproved plan. The worker then picks the run up from the queue on its own.
+    """
+    latest = plans[-1]
+    if latest.get("approved_at") is not None:
+        st.caption(f"Plan approved on {latest['approved_at'][:16].replace('T', ' ')}.")
+        return
+    if not run["retrieval_settings"].get("plan_requires_approval") or run["status"] != "queued":
+        return
+    if role not in ("admin", "analyst"):
+        st.caption(f"Your role is {role}; analysts and admins approve plans.")
+        return
+    st.info("This run waits for plan approval before any source is fetched. Review the plan, then approve it.")
+    if st.button("Approve plan", type="primary"):
+        sb.table("research_plans").update({
+            "approved_by": st.session_state.user_id,
+            "approved_at": datetime.now(UTC).isoformat(),
+        }).eq("analysis_run_id", run["id"]).eq("version", latest["version"]).execute()
+        st.rerun()
+
+
+def runs_page(workspace_id: str, role: str) -> None:
     st.header("Runs")
     run = pick_run(workspace_id)
     if run is None:
@@ -217,12 +241,13 @@ def runs_page(workspace_id: str) -> None:
         "seconds": _seconds(s), "detail": s["error"] or _detail(s["output_refs"]),
     } for s in steps], hide_index=True, use_container_width=True)
 
-    plans = rows(sb.table("research_plans").select("plan,version").eq("analysis_run_id", run["id"]).order("version"))
+    plans = rows(sb.table("research_plans").select("plan,version,approved_at").eq("analysis_run_id", run["id"]).order("version"))
     if plans:
         with st.expander("Research plan"):
             for task in plans[-1]["plan"]["plan"]["tasks"]:
                 st.markdown(f"**{task['task_label']}** · {task['scout'].replace('_', ' ')} · "
                             f"{task['jurisdiction_code'] or 'all'} · up to {task['max_documents']} documents  \n{task['question']}")
+        _plan_approval(sb, run, plans, role)
 
     coverage = rows(sb.table("coverage_results").select("*").eq("analysis_run_id", run["id"]))
     if coverage:
@@ -390,7 +415,7 @@ def main() -> None:
         else:
             st.info("Only analysts and admins can start runs.")
     elif page == "Runs":
-        runs_page(workspace_id)
+        runs_page(workspace_id, role)
     else:
         review_page(workspace_id, st.session_state.user_id, role)
 
