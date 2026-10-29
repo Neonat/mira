@@ -56,6 +56,9 @@ class ReportContext:
     unresolved: Mapping[UUID, str]
     generated_at: datetime
     expected: Mapping[UUID, ExpectedSourceRecord] = field(default_factory=dict)
+    # Sign-off record for a reviewed report (PRD v2 §6.6). Required when run_status is "reviewed".
+    reviewer: str | None = None
+    decided_at: datetime | None = None
 
 
 def _link(url: str) -> str:
@@ -91,8 +94,16 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
         return f"<p>{escape(text)}{marks}{tag}</p>"
 
     brief = context.brief
+    if context.run_status == "reviewed" and (context.reviewer is None or context.decided_at is None):
+        # A reviewed label without a named reviewer and decision date would be a claim nobody made.
+        raise ValueError("a reviewed report must name the reviewer and the decision date")
     label = {"partial": "Draft (partial run), not reviewed", "reviewed": "Reviewed"}.get(
         context.run_status, "Draft, not reviewed"
+    )
+    signoff = (
+        f"<tr><td>Reviewed by</td><td>{escape(context.reviewer)}</td></tr>"
+        f"<tr><td>Decision date</td><td>{context.decided_at.date().isoformat()}</td></tr>"
+        if context.run_status == "reviewed" else ""
     )
     parts = [
         "<!doctype html>",
@@ -106,6 +117,7 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
         f"<h1>{escape(brief.topic)} developments: {escape(', '.join(brief.jurisdictions))}</h1>",
         '<table class="meta">',
         f"<tr><td>Status</td><td>{label}</td></tr>",
+        signoff,
         f"<tr><td>Period</td><td>{brief.period_start.isoformat()} to {brief.period_end.isoformat()}</td></tr>",
         f"<tr><td>As of</td><td>{brief.as_of_date.isoformat()}</td></tr>",
         f"<tr><td>Run</td><td>{snapshot.analysis_run_id}</td></tr>",

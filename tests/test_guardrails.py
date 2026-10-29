@@ -121,3 +121,55 @@ SEEDED_FALSE = [
     "The guideline applies to insurers from 1 July 2026.",
     "Enhanced due diligence is mandatory for all cross-border payments.",
 ]
+
+
+def reviewed_context(**overrides):
+    from datetime import UTC, datetime
+
+    from mira.report import ReportContext
+    from mira.contracts import Brief
+
+    brief = Brief(topic="AML/CFT", jurisdictions=["SG"], period_start=date(2025, 10, 1), period_end=date(2026, 9, 30),
+                  as_of_date=date(2026, 10, 26), plan_requires_approval=False)
+    fields = dict(
+        brief=brief, run_status="reviewed", claims={}, passages={}, unresolved={},
+        generated_at=datetime(2026, 10, 29, tzinfo=UTC), reviewer="Reviewer A",
+        decided_at=datetime(2026, 10, 30, 9, 0, tzinfo=UTC),
+    )
+    fields.update(overrides)
+    return ReportContext(**fields)
+
+
+def empty_snapshot():
+    from mira.contracts import ReportSnapshot
+
+    return ReportSnapshot(
+        contract_version="1.1", analysis_run_id=uuid4(), analysis_revision_id=uuid4(), sections=[],
+        coverage=[], unresolved_finding_ids=[],
+    )
+
+
+def test_reviewed_report_has_no_draft_watermark_and_names_the_reviewer_and_date():
+    from mira.report import render_html
+
+    html = render_html(empty_snapshot(), reviewed_context())
+    assert 'class="watermark"' not in html and "DRAFT</div>" not in html
+    assert "Reviewed by" in html and "Reviewer A" in html and "2026-10-30" in html
+    assert "Reviewed</td>" in html
+
+
+def test_draft_report_keeps_the_watermark_and_names_no_reviewer():
+    from mira.report import render_html
+
+    html = render_html(empty_snapshot(), reviewed_context(run_status="draft", reviewer=None, decided_at=None))
+    assert '<div class="watermark">DRAFT</div>' in html
+    assert "Reviewed by" not in html
+
+
+def test_reviewed_report_without_a_named_reviewer_is_refused():
+    import pytest
+
+    from mira.report import render_html
+
+    with pytest.raises(ValueError, match="name the reviewer"):
+        render_html(empty_snapshot(), reviewed_context(reviewer=None))
