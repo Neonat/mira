@@ -429,13 +429,14 @@ def draft_report_row(conn, run_id):
     ).fetchone()
 
 
-def insert_reviewed(conn, draft, reviewer_id, version):
+def insert_reviewed(conn, draft, reviewer_id, version, path=None):
+    # The app records a sign-off with no file (path=None); the worker renders the file afterwards.
     conn.execute(
         """insert into public.reports (workspace_id, analysis_revision_id, report_version, format, review_status,
                template_version, evidence_snapshot, artifact_storage_path, generated_by, reviewed_by, reviewed_at)
            values (%s, %s, %s, 'html', 'reviewed', %s, %s, %s, %s, %s, now())""",
         (draft["workspace_id"], draft["analysis_revision_id"], version, draft["template_version"],
-         Jsonb(draft["evidence_snapshot"]), draft["artifact_storage_path"], draft["generated_by"], reviewer_id),
+         Jsonb(draft["evidence_snapshot"]), path, draft["generated_by"], reviewer_id),
     )
 
 
@@ -471,6 +472,82 @@ def test_database_allows_signoff_once_every_cited_finding_has_a_decision(conn, w
         "analysis_revision_id = %s", (workspace_id, draft["report_version"] + 1, draft["analysis_revision_id"]),
     ).fetchone()
     assert status["review_status"] == "reviewed"
+
+
+def test_worker_renders_a_signed_off_report_without_the_draft_watermark(conn, workspace, tmp_path):
+    # PRD v2 §6.6: a reviewed report is rendered by the worker from its snapshot, names the reviewer by
+    # email and carries no DRAFT watermark. The sign-off row points at no file until the worker writes one.
+    from mira.render_job import pending_signoffs, render_pending
+
+    workspace_id, user_id = workspace
+    ctx, outcome = run_hk(conn, workspace, tmp_path, analyst)
+    assert outcome.status == "draft", outcome.reasons
+    draft = draft_report_row(conn, ctx.analysis_run_id)
+    cited = {
+        fid for section in draft["evidence_snapshot"]["sections"]
+        for sentence in section["sentences"] for fid in sentence["finding_ids"]
+    }
+    for finding_id in cited:
+        conn.execute(
+            "insert into public.finding_reviews (workspace_id, finding_id, decision, reviewed_by) "
+            "values (%s, %s, 'accepted', %s)", (workspace_id, finding_id, user_id),
+        )
+    insert_reviewed(conn, draft, user_id, draft["report_version"] + 1)  # the app's sign-off: no file yet
+
+    assert len(pending_signoffs(conn, workspace_id)) == 1
+    rendered = render_pending(conn, workspace_id, reports_dir=tmp_path / "reports")
+    assert len(rendered) == 1
+    assert pending_signoffs(conn, workspace_id) == []  # nothing left to render
+
+    row = conn.execute(
+        "select artifact_storage_path from public.reports where id = %s", (rendered[0],),
+    ).fetchone()
+    assert row["artifact_storage_path"].endswith("-reviewed.html")
+    html = (tmp_path / "reports" / row["artifact_storage_path"]).read_text(encoding="utf-8")
+    assert 'class="watermark"' not in html
+    assert "Reviewed by" in html and f"{user_id}@test.local" in html  # named by email, not a raw ID
+    assert "Reviewed</td>" in html
+    # The reviewed report carries the sentences the draft cited, with their citation, not just the chrome.
+    # The fixture writer puts its one sentence in the executive summary, and the render prints that sentence.
+    assert "HKMA issued guidance." in html
+    assert 'href="#e1"' in html  # the sentence links to its evidence appendix entry
+
+
+def test_one_bad_signoff_is_not_rendered_and_does_not_block_the_others(conn, workspace, tmp_path):
+    # A sign-off whose snapshot cites a finding the store does not have is refused, stays pending for a
+    # retry, and the sign-off after it still renders.
+    import json
+    from uuid import uuid4
+
+    from mira.render_job import pending_signoffs, render_pending
+
+    workspace_id, user_id = workspace
+    ctx, outcome = run_hk(conn, workspace, tmp_path, analyst)
+    assert outcome.status == "draft", outcome.reasons
+    draft = draft_report_row(conn, ctx.analysis_run_id)
+    cited = {
+        fid for section in draft["evidence_snapshot"]["sections"]
+        for sentence in section["sentences"] for fid in sentence["finding_ids"]
+    }
+    for finding_id in cited:
+        conn.execute(
+            "insert into public.finding_reviews (workspace_id, finding_id, decision, reviewed_by) "
+            "values (%s, %s, 'accepted', %s)", (workspace_id, finding_id, user_id),
+        )
+    insert_reviewed(conn, draft, user_id, draft["report_version"] + 1)
+    insert_reviewed(conn, draft, user_id, draft["report_version"] + 2)
+    first, second = pending_signoffs(conn, workspace_id)
+
+    bad_snapshot = json.loads(json.dumps(first["evidence_snapshot"]))
+    bad_snapshot["sections"][0]["sentences"][0]["finding_ids"] = [str(uuid4())]
+    conn.execute(
+        "update public.reports set evidence_snapshot = %s where id = %s",
+        (json.dumps(bad_snapshot), first["id"]),
+    )
+
+    rendered = render_pending(conn, workspace_id, reports_dir=tmp_path / "reports")
+    assert rendered == [second["id"]]
+    assert [row["id"] for row in pending_signoffs(conn, workspace_id)] == [first["id"]]
 
 
 def test_database_never_blocks_a_draft_report(conn, workspace, tmp_path):
