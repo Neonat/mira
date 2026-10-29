@@ -48,6 +48,37 @@ class PlannedRun:
         }
 
 
+def tasks_from_stored(stored: dict[str, object], brief: Brief) -> tuple[ScoutTask, ...]:
+    """Rebuild the scout tasks of an approved plan from research_plans.plan, without calling the model.
+
+    A resumed run must scout the plan the auditor approved, not a new one, so this resolves the same
+    labels the planner resolved the first time. ``stored`` is what ``PlannedRun.stored_plan`` saved.
+    """
+    plan_body = ResearchPlan.model_validate(stored["plan"])
+    saved: dict[str, str] = {str(label): str(real_id) for label, real_id in dict(stored["labels"]).items()}  # type: ignore[call-overload]
+    # Labels are handed out in order (S1, S2 ... then E1, E2 ...), so re-adding the saved IDs in
+    # label order rebuilds exactly the labels the planner used. A mismatch means the stored plan is
+    # not the one that was approved, so it is refused.
+    labels = LabelMap()
+    for label in sorted(saved, key=lambda item: (item[0], int(item[1:]))):
+        rebuilt = labels.add(label[0], UUID(saved[label]))
+        if rebuilt != label:
+            raise ValueError(f"stored plan labels do not rebuild: expected {label}, got {rebuilt}")
+    tasks = tuple(
+        ScoutTask(
+            task_label=task.task_label,
+            role=task.scout,
+            jurisdiction_code=task.jurisdiction_code,
+            question=task.question,
+            source_ids=tuple(labels.resolve_all(task.source_labels, "S")),
+            expected_source_ids=tuple(labels.resolve_all(task.expected_source_labels, "E")),
+            max_documents=task.max_documents,
+        )
+        for task in plan_body.tasks
+    )
+    return tasks
+
+
 def plan(
     client: LLMClient,
     brief: Brief,

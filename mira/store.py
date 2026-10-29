@@ -40,6 +40,12 @@ class RunContext:
     brief: Brief
     budget: RunBudget
     previous_run_id: UUID | None = None
+    # True once an auditor has approved this run's plan (research_plans.approved_at). Defaults to
+    # False, the safe direction: a run that needs approval and has none does not scout.
+    plan_approved: bool = False
+    # Steps already recorded for this run. A resumed run continues numbering after them, because
+    # agent_steps is unique on (analysis_run_id, step_no).
+    completed_steps: int = 0
 
 
 @dataclass(frozen=True)
@@ -149,6 +155,10 @@ class RunStore(Protocol):
         """Store each finding's re-run diff key on analysis_findings.diff_key."""
         ...
 
+    def approved_plan(self, ctx: RunContext) -> dict[str, object] | None:
+        """The latest stored plan if an auditor approved it (research_plans.plan), else None."""
+        ...
+
     def cancel_requested(self, ctx: RunContext) -> bool: ...
 
 
@@ -177,6 +187,7 @@ class InMemoryStore:
     cancel: bool = False
     previous: list[PreviousFinding] = field(default_factory=list)
     diff_keys: dict[UUID, str] = field(default_factory=dict)
+    approved_stored_plan: dict[str, object] | None = None
 
     def list_sources(self, workspace_id: UUID) -> list[SourceRecord]:
         return list(self.sources)
@@ -240,6 +251,9 @@ class InMemoryStore:
 
     def save_diff_keys(self, ctx: RunContext, keys: dict[UUID, str]) -> None:
         self.diff_keys.update(keys)
+
+    def approved_plan(self, ctx: RunContext) -> dict[str, object] | None:
+        return self.approved_stored_plan
 
     def cancel_requested(self, ctx: RunContext) -> bool:
         return self.cancel
