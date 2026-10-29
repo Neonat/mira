@@ -124,12 +124,11 @@ The development token cap is `MIRA_MAX_LLM_TOKENS=300000` per run. The first liv
 Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered.
 
 Not built yet:
-- waiting for plan approval
-- gap-filling rounds
-- the re-run "what changed" diff
-- prompt-injection fixtures (AG14)
-- the M0 recall scorer
-- a reviewed report rendered without the draft watermark (sign-off is recorded as a new report version)
+- waiting for plan approval (the orchestrator refuses a brief that asks for it)
+- a reviewed report rendered by the worker: sign-off is recorded in the database, but the HTML file still carries the draft watermark. A reviewed render must also name the reviewer and decision date (PRD v1 §RA08, PRD v2 §6.6)
+
+Built, but not yet run against live data:
+- the M0 recall scorer (`eval/score_recall.py`, run with `pytest eval/`): it needs the canonical URLs a real run cites, and no run has been made with a model key yet
 
 ## Run the schema locally
 
