@@ -50,3 +50,24 @@ class WorkbenchTests(unittest.TestCase):
             run = run_batch(directory, run['run_id'], processor=fail)
             run = run_batch(directory, run['run_id'], processor=fail, retry_failed=True, item_ids=[run['items'][0]['input']['id']])
             self.assertEqual([len(i['attempts']) for i in run['items']], [2, 1])
+
+    def test_import_package_preserves_original_and_rejects_demo(self):
+        import io
+        import zipfile
+        from mira.workbench import import_package
+        from mira.manual_import import read_manifest
+        with tempfile.TemporaryDirectory() as directory:
+            run = create_intake(directory, uploads=[self.upload()])
+            run_batch(directory, run['run_id'])
+            entries, _ = library_entries(directory, read_runs(directory)[0])
+            with zipfile.ZipFile(io.BytesIO(import_package(directory, entries[0]))) as archive:
+                unpacked = Path(directory) / 'handoff'
+                archive.extractall(unpacked)
+            items = read_manifest(unpacked / 'manifest.csv')
+            self.assertEqual(len(items), 1)
+            self.assertEqual(items[0].path.read_bytes(), self.upload()['data'])
+            self.assertEqual(items[0].url, URL)
+            self.assertIsNone(items[0].published)
+            entries[0]['item']['input']['origin'] = 'fixture'
+            with self.assertRaisesRegex(ValueError, 'Synthetic'):
+                import_package(directory, entries[0])

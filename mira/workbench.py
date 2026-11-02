@@ -119,3 +119,39 @@ def original_bytes(directory, bundle):
     if not expected or hashlib.sha256(data).hexdigest() != expected:
         raise IngestionError('Original snapshot failed its integrity check; preview is blocked.')
     return data
+
+
+def import_package(directory, entry):
+    """Portable original + CSV for the trusted importer; never a database payload."""
+    import csv
+    import io
+    from datetime import datetime
+    import zipfile
+
+    # Reload the checkpoint-verified bundle instead of trusting UI-cached metadata.
+    bundle = load_bundle(directory, entry['item'])
+    version = bundle['document_version']
+    if entry['item']['input'].get('origin') == 'fixture' or version['metadata'].get('origin') == 'fixture':
+        raise IngestionError('Synthetic demo evidence cannot be exported for workspace import.')
+    data = original_bytes(directory, bundle)
+    suffix = 'pdf' if version['metadata'].get('raw_pdf_sha256') else 'html'
+    filename = f"{hashlib.sha256(data).hexdigest()}.{suffix}"
+    manifest = io.StringIO(newline='')
+    writer = csv.writer(manifest)
+    writer.writerow(['file', 'url', 'title', 'published'])
+    published = version.get('published_at')
+    writer.writerow([filename, checked_url(version['source_url']), version['title'],
+                     datetime.fromisoformat(published).date().isoformat() if published else ''])
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(filename, data)
+        archive.writestr('manifest.csv', manifest.getvalue())
+        archive.writestr('README.txt',
+            'Mira local staging handoff\n\n'
+            'Extract this archive into a local folder. From the repository, run:\n'
+            'python -m mira import mas --manifest /absolute/path/to/manifest.csv\n\n'
+            'Requires the worker database configuration and a curator/admin identity.\n'
+            'The importer checks workspace permissions and source policy, re-extracts the original,\n'
+            'and assigns database document/version/passage IDs. Local IDs are not database IDs.\n'
+            'Only import sources approved for the destination workspace. This export does not sync data.\n')
+    return output.getvalue()

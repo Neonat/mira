@@ -1,0 +1,626 @@
+"""End-to-end runs with a scripted model, a fake scout and a fake verifier."""
+
+import re
+from dataclasses import replace
+from datetime import UTC, date, datetime
+from uuid import uuid4
+
+import pytest
+
+from mira.budget import RunBudget
+from mira.contracts import Brief, ExpectedSourceStatusDraft, FetchAttempt, ScoutDocumentDraft, ScoutReport, ScoutResult, Verdict
+from mira.interfaces import CheckOutcome, ScoutOutcome
+from mira.llm import ScriptedClient
+from mira.orchestrator import Orchestrator, split_documents
+from mira.report import ReportContext, render_html
+from mira.diff import diff_key
+from mira.store import (
+    ClaimEvidence,
+    ExpectedSourceRecord,
+    InMemoryStore,
+    PassageRecord,
+    PreviousFinding,
+    RunContext,
+    SourceRecord,
+    StoredClaim,
+)
+
+MAS = SourceRecord(uuid4(), "MAS", "regulator", "https://www.mas.gov.sg", "SG", ("metadata", "fetch", "store_text"))
+E_RULE = ExpectedSourceRecord(uuid4(), 1, "SG", "rule", MAS.id, "MAS Notice 626 and amendments")
+E_ENFORCEMENT = ExpectedSourceRecord(uuid4(), 1, "SG", "enforcement", MAS.id, "MAS enforcement actions")
+VERSION_ID, DOCUMENT_ID = uuid4(), uuid4()
+
+
+def passage(number, content):
+    return PassageRecord(
+        uuid4(), VERSION_ID, DOCUMENT_ID, MAS.id, "MAS", "SG", "Notice 626 amendments",
+        "https://www.mas.gov.sg/notice-626", date(2026, 3, 1), number, content,
+    )
+
+
+PASSAGES = [
+    passage(1, "Banks must screen customers against sanctions lists before onboarding."),
+    passage(2, "The amended notice takes effect on 1 July 2026."),
+    passage(3, "MAS imposed a penalty of S$1 million on Bank X for AML breaches."),
+]
+
+BRIEF = Brief(
+    topic="AML/CFT", jurisdictions=["SG"], period_start=date(2025, 10, 1), period_end=date(2026, 9, 30),
+    as_of_date=date(2026, 10, 26), plan_requires_approval=False,
+)
+
+
+def context(**budget):
+    # Single-pass by default: gap rounds have their own tests and need scripted planner answers.
+    budget.setdefault("max_gap_rounds", 0)
+    return RunContext(uuid4(), uuid4(), uuid4(), uuid4(), BRIEF, RunBudget(**budget))
+
+
+def plan_task(label="T1", scout="regulatory_scout", jurisdiction="SG", expected=("E1", "E2"), sources=("S1",)):
+    return {
+        "task_label": label, "scout": scout, "jurisdiction_code": jurisdiction, "question": "AML changes at MAS",
+        "source_labels": list(sources), "expected_source_labels": list(expected), "max_documents": 10,
+    }
+
+
+def claim(label, finding_type, passage_label=None, quote=None, **overrides):
+    fields = dict(
+        claim_label=label, finding_type=finding_type, title=f"{label} title", content=f"{label} content",
+        jurisdiction_code="SG", change_type=None, industry_category=None, key_date=None, key_date_kind=None,
+        is_inference=False, citations=[{"passage_label": passage_label, "supporting_quote": quote}] if passage_label else [],
+        depends_on=[], priority="medium", priority_reason=None, evidence_confidence="high",
+        evidence_confidence_reason=None,
+    )
+    fields.update(overrides)
+    return fields
+
+
+def analyst_output(*claims_):
+    if not claims_:
+        claims_ = (
+            claim("C1", "obligation_summary", "P1", "Banks must screen customers", change_type="amended"),
+            claim("C2", "deadline", "P2", "takes effect on 1 July 2026", key_date=date(2026, 7, 1), key_date_kind="effective"),
+            claim("C3", "external_fact", "P3", "penalty of S$1 million"),
+            claim("C4", "risk_implication", is_inference=True, depends_on=["C1", "C3"]),
+        )
+    return {"claims": list(claims_)}
+
+
+def writer_output(extra_labels=(), uncited_fact=False):
+    """Cites every claim label the writer was shown, plus ``extra_labels``."""
+
+    def respond(prompt):
+        labels = re.findall(r"^(C\d+) \[", prompt, flags=re.MULTILINE) + list(extra_labels)
+        developments = [{"text": "MAS amended Notice 626.", "claim_labels": labels[:1], "structural": False}]
+        if uncited_fact:
+            developments.append({"text": "MAS fined Bank Y S$5m.", "claim_labels": [], "structural": True})
+        sections = [
+            {"section": "executive_summary", "sentences": [{"text": "Summary.", "claim_labels": labels, "structural": False}], "no_verified_items": False},
+            {"section": "regulatory_developments", "sentences": developments, "no_verified_items": False},
+        ]
+        for key in ("deadlines_timeline", "jurisdiction_comparison", "supervisory_trends", "industry_developments", "impact_assessment"):
+            sections.append({"section": key, "sentences": [], "no_verified_items": True})
+        return {"sections": sections}
+
+    return respond
+
+
+class FakeScout:
+    def __init__(self, labels=None, error=None, on_run=None):
+        self.labels = labels or {f"P{i}": p.id for i, p in enumerate(PASSAGES, 1)}
+        self.error = error
+        self.on_run = on_run
+        self.tasks = []
+
+    def run(self, ctx, step_id, task):
+        self.tasks.append(task)
+        if self.on_run:
+            self.on_run()
+        if self.error:
+            raise self.error
+        report = ScoutReport(
+            documents=[ScoutDocumentDraft(
+                document_label="D1", instrument_type="notice", industry_category=None, title="Notice 626",
+                published_date=None, effective_date=None, change_type="amended",
+                relevant_passage_labels=list(self.labels), expected_source_labels=[],
+            )],
+            expected_source_statuses=[], notes=None,
+        )
+        fetch = FetchAttempt(url="https://www.mas.gov.sg/notice-626", outcome="saved", document_version_id=VERSION_ID, error=None, attempted_at=datetime.now(UTC))
+        result = ScoutResult(
+            analysis_run_id=ctx.analysis_run_id, agent_step_id=step_id, role=task.role,
+            jurisdiction_code=task.jurisdiction_code, report=report, fetch_log=[fetch], labels=self.labels,
+        )
+        return ScoutOutcome(result, "scripted", "scout/test", 0, 0)
+
+
+class FakeVerifier:
+    """Verdicts by claim label, one per attempt; ``supported`` when not listed."""
+
+    def __init__(self, verdicts=None, tokens=10):
+        self.verdicts = verdicts or {}
+        self.tokens = tokens
+        self.calls = []
+
+    def _outcome(self, claim_, attempt, method):
+        self.calls.append((claim_.label, attempt, method))
+        verdict = self.verdicts.get(claim_.label, ["supported", "supported"])[attempt - 1]
+        check = Verdict(finding_id=claim_.finding_id, attempt=attempt, method=method, verdict=verdict, reason=f"{verdict} by test", model="scripted", prompt_version="verifier/test")
+        return CheckOutcome(verdict, (check,), "scripted", "verifier/test", self.tokens, self.tokens)
+
+    def check_fact(self, claim_, passages, attempt):
+        assert {p.id for p in passages} == {item.passage_id for item in claim_.evidence}
+        return self._outcome(claim_, attempt, "llm")
+
+    def check_inference(self, claim_, facts, attempt):
+        return self._outcome(claim_, attempt, "inference_check")
+
+
+def make(responses=None, scout=None, verifier=None, store=None):
+    responses = responses or {}
+    responses.setdefault("planner", [{"tasks": [plan_task()], "notes": None}])
+    responses.setdefault("analyst", [analyst_output()])
+    responses.setdefault("writer", [writer_output()])
+    store = store or InMemoryStore(sources=[MAS], expected_sources=[E_RULE, E_ENFORCEMENT], passages=list(PASSAGES))
+    client = ScriptedClient(responses)
+    verifier = verifier or FakeVerifier()
+    orchestrator = Orchestrator(store, client, {"regulatory_scout": scout or FakeScout()}, verifier)
+    return orchestrator, store, client, verifier
+
+
+def steps(store):
+    return sorted(store.steps.values(), key=lambda record: record.step_no)
+
+
+def finding(store, label):
+    return next(c for c in store.claims.values() if c.label == label)
+
+
+def test_full_run_produces_a_verified_draft_report():
+    orchestrator, store, client, verifier = make()
+    outcome = orchestrator.run(context())
+
+    assert outcome.status == "draft" and outcome.reasons == []
+    assert [status for status, _ in store.statuses] == ["running", "draft"]
+    records = steps(store)
+    assert [r.step_no for r in records] == list(range(1, len(records) + 1))
+    assert [r.role for r in records] == (
+        ["planner", "regulatory_scout", "completeness_checker", "analyst"] + ["verifier"] * 4 + ["writer"]
+    )
+    # The fake scout reports no expected-source status, so both items stay missing.
+    assert [row.status for row in store.coverage] == ["missing", "missing"]
+    assert all(r.status == "succeeded" and r.finished_at for r in records)
+    assert records[0].model == "scripted" and records[0].tokens_in == 100
+    # Facts are checked before the inference that rests on them.
+    assert [call[0] for call in verifier.calls] == ["C1", "C2", "C3", "C4"]
+    assert verifier.calls[-1][2] == "inference_check"
+
+    snapshot = store.reports[0].snapshot
+    verified = {finding(store, label).finding_id for label in ("C1", "C2", "C3", "C4")}
+    cited = {fid for section in snapshot.sections for s in section.sentences for fid in s.finding_ids}
+    assert cited and cited <= verified
+    assert snapshot.unresolved_finding_ids == []
+    assert snapshot.sections[-1].section == "coverage_limitations"
+    assert store.plans[0]["labels"]["S1"] == str(MAS.id)
+    html = store.reports[0].html
+    assert "Draft, not reviewed" in html and "https://www.mas.gov.sg/notice-626" in html
+    assert 'class="tag">includes inference' in html
+
+
+def test_invented_passage_label_fails_the_analyst_and_the_run():
+    bad = analyst_output(claim("C1", "obligation_summary", "P9", "Banks must"))
+    orchestrator, store, *_ = make({"analyst": [bad, bad]})
+    outcome = orchestrator.run(context())
+
+    assert outcome.status == "failed" and store.status == "failed"
+    analyst_step = next(r for r in steps(store) if r.role == "analyst")
+    assert analyst_step.status == "failed" and "P9" in analyst_step.error
+    assert analyst_step.tokens_in == 200  # both attempts are charged
+    assert store.reports == [] and store.claims == {}
+
+
+def test_analyst_gets_one_repair_attempt():
+    bad = analyst_output(claim("C1", "obligation_summary", "P9", "Banks must"))
+    orchestrator, store, client, _ = make({"analyst": [bad, analyst_output()]})
+    assert orchestrator.run(context()).status == "draft"
+    analyst_prompts = [call.user for call in client.calls if call.role == "analyst"]
+    assert "rejected" in analyst_prompts[1] and "P9" in analyst_prompts[1]
+
+
+def test_plan_must_assign_every_expected_source():
+    incomplete = {"tasks": [plan_task(expected=("E1",))], "notes": None}
+    orchestrator, store, *_ = make({"planner": [incomplete, incomplete]})
+    outcome = orchestrator.run(context())
+    assert outcome.status == "failed"
+    assert "E2" in store.statuses[-1][1]
+
+
+def test_writer_cannot_cite_an_unverified_claim():
+    verifier = FakeVerifier({"C3": ["unsupported"]})
+    orchestrator, store, *_ = make({"writer": [writer_output(["C3"]), writer_output(["C3"])]}, verifier=verifier)
+    outcome = orchestrator.run(context())
+
+    assert outcome.status == "partial"
+    assert any("writer failed" in reason for reason in outcome.reasons)
+    # The inference resting on the dropped fact is dropped without a verifier call.
+    assert [call[0] for call in verifier.calls] == ["C1", "C2", "C3"]
+    unresolved = {finding(store, "C3").finding_id, finding(store, "C4").finding_id}
+    snapshot = store.reports[0].snapshot
+    assert set(snapshot.unresolved_finding_ids) == unresolved
+    cited = {fid for section in snapshot.sections for s in section.sentences for fid in s.finding_ids}
+    assert cited == {finding(store, "C1").finding_id, finding(store, "C2").finding_id}
+    assert "rests on a claim that was not verified" in store.reports[0].html
+
+
+def test_writer_cannot_slip_in_an_uncited_structural_sentence():
+    orchestrator, store, *_ = make({"writer": [writer_output(uncited_fact=True), writer_output(uncited_fact=True)]})
+    outcome = orchestrator.run(context())
+    assert outcome.status == "partial" and any("writer failed" in reason for reason in outcome.reasons)
+    assert "Bank Y" not in store.reports[0].html
+
+
+def test_planner_is_told_the_document_budget():
+    orchestrator, store, client, _ = make()
+    orchestrator.run(context(max_fetched_documents=25))
+    assert "at most 25 pages" in client.calls[0].user
+
+
+def test_international_sources_go_to_one_jurisdiction_free_task():
+    apg = SourceRecord(uuid4(), "APG", "website", "https://apgml.org", None, ("metadata", "fetch"))
+    e_apg = ExpectedSourceRecord(uuid4(), 1, "SG", "industry", apg.id, "APG mutual evaluation reports")
+    store = InMemoryStore(sources=[MAS, apg], expected_sources=[E_RULE, E_ENFORCEMENT, e_apg], passages=list(PASSAGES))
+    per_jurisdiction = {"tasks": [plan_task(), plan_task("T2", "industry_scout", "SG", ("E3",), ("S2",))], "notes": None}
+    shared = {"tasks": [plan_task(), plan_task("T2", "industry_scout", None, ("E3",), ("S2",))], "notes": None}
+    orchestrator, store, client, _ = make({"planner": [per_jurisdiction, shared]}, store=store)
+
+    assert orchestrator.run(context()).status == "partial"  # no industry scout in this test
+    assert "international source S2" in client.calls[1].user
+    assert store.plans[0]["plan"]["tasks"][1]["jurisdiction_code"] is None
+
+
+def test_plan_task_must_be_able_to_read_its_expected_sources():
+    sso = SourceRecord(uuid4(), "Singapore Statutes Online", "manual", None, "SG", ("metadata",))
+    store = InMemoryStore(sources=[MAS, sso], expected_sources=[E_RULE, E_ENFORCEMENT], passages=list(PASSAGES))
+    wrong = {"tasks": [plan_task(sources=("S2",))], "notes": None}
+    orchestrator, store, *_ = make({"planner": [wrong, wrong]}, store=store)
+    assert orchestrator.run(context()).status == "failed"
+    assert "not its source S1" in store.statuses[-1][1]
+
+
+def test_verifier_input_leaves_out_the_analysts_ratings():
+    from mira.interfaces import checkable
+
+    orchestrator, store, *_ = make()
+    orchestrator.run(context())
+    shown = checkable(finding(store, "C1"))
+    assert shown.content == "C1 content" and shown.evidence
+    assert not any("priority" in name or "confidence" in name for name in vars(shown))
+
+
+def test_partially_supported_fact_is_rewritten_and_checked_again():
+    narrowed = claim("C1", "obligation_summary", "P1", "Banks must screen customers", content="narrowed", change_type="amended")
+    verifier = FakeVerifier({"C1": ["partially_supported", "supported"]})
+    orchestrator, store, client, _ = make({"analyst": [analyst_output(), narrowed]}, verifier=verifier)
+    assert orchestrator.run(context()).status == "draft"
+
+    c1 = finding(store, "C1")
+    assert c1.draft.content == "narrowed"
+    assert [(v.attempt, v.verdict) for _, v in store.checks if v.finding_id == c1.finding_id] == [(1, "partially_supported"), (2, "supported")]
+    assert [call.output_type.__name__ for call in client.calls if call.role == "analyst"] == ["AnalystOutput", "ClaimDraft"]
+
+
+def test_budget_exhaustion_still_produces_a_partial_report():
+    # planner 150 + analyst 150 + one verifier call 200 = 500 tokens >= 450 before the second check.
+    orchestrator, store, *_ = make(verifier=FakeVerifier(tokens=100))
+    outcome = orchestrator.run(context(max_llm_tokens=450))
+
+    assert outcome.status == "partial" and "token budget" in outcome.reasons[0]
+    assert len(store.checks) == 1
+    snapshot = store.reports[0].snapshot
+    assert len(snapshot.unresolved_finding_ids) == 3
+    assert "not checked" in store.reports[0].html
+    assert steps(store)[-1].role == "writer"
+
+
+def test_failed_scout_is_recorded_and_the_run_is_partial():
+    orchestrator, store, *_ = make(scout=FakeScout(error=RuntimeError("MAS returned 503")))
+    outcome = orchestrator.run(context())
+
+    assert outcome.status == "partial"
+    scout_step = next(r for r in steps(store) if r.role == "regulatory_scout")
+    assert scout_step.status == "failed" and "503" in scout_step.error
+    assert [r.status for r in steps(store) if r.role in ("analyst", "writer")] == ["skipped", "skipped"]
+    assert store.reports[0].snapshot.sections[0].no_verified_items
+
+
+def test_scout_citing_an_unsaved_passage_fails_its_step():
+    labels = {"P1": PASSAGES[0].id, "P2": uuid4()}
+    orchestrator, store, *_ = make(scout=FakeScout(labels=labels))
+    outcome = orchestrator.run(context())
+    assert outcome.status == "partial"
+    assert "not saved" in next(r for r in steps(store) if r.role == "regulatory_scout").error
+
+
+def test_task_without_a_scout_is_skipped():
+    plan = {"tasks": [plan_task(), plan_task("T2", "industry_scout", None, expected=())], "notes": None}
+    orchestrator, store, *_ = make({"planner": [plan]})
+    outcome = orchestrator.run(context())
+    assert outcome.status == "partial"
+    skipped = [r for r in steps(store) if r.status == "skipped"]
+    assert [r.role for r in skipped] == ["industry_scout"]
+
+
+def test_cancel_stops_the_run_without_a_report():
+    store = InMemoryStore(sources=[MAS], expected_sources=[E_RULE, E_ENFORCEMENT], passages=list(PASSAGES))
+    scout = FakeScout(on_run=lambda: setattr(store, "cancel", True))
+    orchestrator, store, *_ = make(scout=scout, store=store)
+    outcome = orchestrator.run(context())
+    assert outcome.status == "cancelled" and store.status == "cancelled"
+    assert store.reports == []
+
+
+def test_scouts_get_a_share_of_the_document_budget():
+    orchestrator, store, _, _ = make()
+    scout = orchestrator.scouts["regulatory_scout"]
+    orchestrator.run(context(max_fetched_documents=4, max_llm_tokens=1000))
+    assert scout.tasks[0].max_documents == 4
+    assert scout.tasks[0].max_llm_tokens == 850  # what the planner left
+    assert scout.tasks[0].max_minutes > 0
+    assert split_documents([10, 10], 5) == [3, 2]
+    assert split_documents([1, 10], 5) == [1, 4]
+    assert split_documents([5], 0) == [0]
+
+
+def test_brief_outside_controlled_lists_or_needing_approval_is_refused():
+    orchestrator, *_ = make()
+    with pytest.raises(ValueError):
+        orchestrator.run(replace(context(), brief=BRIEF.model_copy(update={"jurisdictions": ["US"]})))
+    # Approval-gated runs are supported now; see the plan approval tests below.
+
+
+def approval_brief():
+    return BRIEF.model_copy(update={"plan_requires_approval": True})
+
+
+def test_run_that_needs_approval_stops_after_planning_and_never_scouts():
+    scout = FakeScout()
+    orchestrator, store, client, _ = make(scout=scout)
+    run_context = replace(context(), brief=approval_brief())
+    outcome = orchestrator.run(run_context)
+
+    assert outcome.status == "awaiting_approval"
+    assert outcome.report_id is None and outcome.snapshot is None
+    assert scout.tasks == []  # nothing was fetched before the plan was approved (PRD v2 §4)
+    assert [r.role for r in steps(store)] == ["planner"]
+    assert len(store.plans) == 1
+
+
+def test_approved_plan_lets_the_run_continue_to_a_draft():
+    # A real resume: the plan was made and stored first, the auditor approved it, and the run resumes
+    # with that stored plan. The planner must not be called again.
+    first, store, *_ = make()
+    assert first.run(replace(context(), brief=approval_brief())).status == "awaiting_approval"
+    store.approved_stored_plan = store.plans[0]
+
+    scout = FakeScout()
+    orchestrator, store, client, _ = make(scout=scout, store=store)
+    planner_calls_before = len([c for c in client.calls if c.role == "planner"])
+    outcome = orchestrator.run(replace(context(), brief=approval_brief(), plan_approved=True))
+
+    assert outcome.status == "draft", outcome.reasons
+    assert [task.task_label for task in scout.tasks] == ["T1"]
+    assert len([c for c in client.calls if c.role == "planner"]) == planner_calls_before == 0
+
+
+def test_approved_run_without_a_stored_plan_fails_rather_than_planning_again():
+    orchestrator, store, client, _ = make()
+    outcome = orchestrator.run(replace(context(), brief=approval_brief(), plan_approved=True))
+    assert outcome.status == "failed"
+    assert "no approved plan is stored" in outcome.reasons[0]
+
+
+def test_approval_gate_does_not_pause_a_run_that_does_not_need_approval():
+    orchestrator, store, *_ = make()
+    assert orchestrator.run(context()).status == "draft"
+
+
+class ExpectedScout(FakeScout):
+    """Reports each expected source in a task as found when ``found_in(task)`` is true (AG09)."""
+
+    def __init__(self, found_in=lambda task: False, **kwargs):
+        super().__init__(**kwargs)
+        self.found_in = found_in
+
+    def run(self, ctx, step_id, task):
+        self.tasks.append(task)
+        labels = {**self.labels, **{f"E{i}": item for i, item in enumerate(task.expected_source_ids, 1)}}
+        expected_labels = [label for label in labels if label.startswith("E")]
+        statuses = [
+            ExpectedSourceStatusDraft(expected_source_label=label, status="found", note=None)
+            for label in expected_labels
+        ] if self.found_in(task) else []
+        report = ScoutReport(
+            documents=[ScoutDocumentDraft(
+                document_label="D1", instrument_type="notice", industry_category=None, title="Notice 626",
+                published_date=None, effective_date=None, change_type="amended",
+                relevant_passage_labels=[label for label in labels if label.startswith("P")],
+                expected_source_labels=[],
+            )],
+            expected_source_statuses=statuses, notes=None,
+        )
+        fetch = FetchAttempt(url="https://www.mas.gov.sg/notice-626", outcome="saved", document_version_id=VERSION_ID,
+                             error=None, attempted_at=datetime.now(UTC))
+        result = ScoutResult(
+            analysis_run_id=ctx.analysis_run_id, agent_step_id=step_id, role=task.role,
+            jurisdiction_code=task.jurisdiction_code, report=report, fetch_log=[fetch], labels=labels,
+        )
+        return ScoutOutcome(result, "scripted", "scout/test", 0, 0)
+
+
+def gap_plan(expected):
+    return {"tasks": [plan_task(label="T1", expected=expected)], "notes": None}
+
+
+def mas_expected_store():
+    return InMemoryStore(sources=[MAS], expected_sources=[E_RULE, E_ENFORCEMENT], passages=list(PASSAGES))
+
+
+def test_missing_expected_sources_get_a_gap_round_and_are_found_there():
+    scout = ExpectedScout(found_in=lambda task: task.gap_round == 1)
+    responses = {"planner": [{"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}, gap_plan(("E1", "E2"))]}
+    orchestrator, store, client, _ = make(responses, scout=scout, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=1))
+
+    assert outcome.status == "draft" and outcome.reasons == []
+    assert [task.task_label for task in scout.tasks] == ["T1", "G1-T1"]
+    assert [r.role for r in steps(store) if r.gap_round == 1] == ["planner", "regulatory_scout", "completeness_checker"]
+    assert [(row.gap_round, row.status) for row in store.coverage] == [
+        (0, "missing"), (0, "missing"), (1, "found"), (1, "found"),
+    ]
+    # Each round saves its own plan version: research_plans is unique on (run, version).
+    assert [p["plan"]["tasks"][0]["task_label"] for p in store.plans] == ["T1", "T1"]
+    assert len(store.plans) == 2
+    assert sorted(row.status for row in outcome.snapshot.coverage) == ["found", "found"]
+
+
+def test_no_gap_round_when_every_expected_source_is_found_in_the_first_pass():
+    scout = ExpectedScout(found_in=lambda task: True)
+    responses = {"planner": [{"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}]}
+    orchestrator, store, client, _ = make(responses, scout=scout, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=2))
+
+    assert outcome.status == "draft"
+    assert all(r.gap_round == 0 for r in steps(store))
+    assert [task.task_label for task in scout.tasks] == ["T1"]
+
+
+
+    hostile = replace(PASSAGES[0], title="<script>alert(1)</script>", source_url="javascript:alert(1)")
+    from mira.contracts import ClaimDraft, ReportSection, ReportSentence, ReportSnapshot
+
+    draft = ClaimDraft(**claim("C1", "obligation_summary", "P1", "x", content="<img src=x onerror=alert(1)>"))
+    stored = StoredClaim(uuid4(), draft, (ClaimEvidence(hostile.id, "x"),), ())
+    snapshot = ReportSnapshot(
+        contract_version="1.0", analysis_run_id=uuid4(), analysis_revision_id=uuid4(), coverage=[],
+        unresolved_finding_ids=[],
+        sections=[ReportSection(section="regulatory_developments", no_verified_items=False, sentences=[
+            ReportSentence(text=draft.content, finding_ids=[stored.finding_id], structural=False)
+        ])],
+    )
+    html = render_html(snapshot, ReportContext(
+        BRIEF, "draft", {stored.finding_id: stored}, {hostile.id: hostile}, {}, datetime.now(UTC)
+    ))
+    assert "<script>" not in html and "<img" not in html
+    assert 'href="javascript' not in html
+
+
+def test_source_that_refuses_automated_access_is_reported_and_never_retried():
+    sso = SourceRecord(uuid4(), "Singapore Statutes Online", "manual", None, "SG", ("metadata",))
+    refused = ExpectedSourceRecord(uuid4(), 1, "SG", "legislation", sso.id, "CDSA")
+    store = InMemoryStore(sources=[MAS, sso], expected_sources=[E_RULE, refused], passages=list(PASSAGES))
+    first = {"tasks": [plan_task(expected=("E1", "E2"), sources=("S1", "S2"))], "notes": None}
+    scout = ExpectedScout(found_in=lambda task: task.gap_round == 1)
+    orchestrator, store, client, _ = make({"planner": [first, gap_plan(("E1",))]}, scout=scout, store=store)
+    outcome = orchestrator.run(context(max_gap_rounds=1))
+
+    gap_planner = next(r for r in steps(store) if r.role == "planner" and r.gap_round == 1)
+    assert gap_planner.input_refs["expected_source_ids"] == [str(E_RULE.id)]
+    assert [task.task_label for task in scout.tasks] == ["T1", "G1-T1"]
+    refused_row = next(row for row in store.coverage if row.expected_source_id == refused.id)
+    assert refused_row.status == "missing" and "manual import" in refused_row.note
+    assert outcome.status == "draft"
+
+
+def test_gap_rounds_stop_at_the_configured_limit():
+    first = {"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}
+    still_missing = gap_plan(("E1", "E2"))
+    orchestrator, store, client, _ = make({"planner": [first, still_missing, still_missing]}, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=2))
+
+    assert [r.gap_round for r in steps(store) if r.role == "planner"] == [0, 1, 2]
+    assert outcome.status == "draft"
+    assert [row.status for row in store.coverage if row.gap_round == 2] == ["missing", "missing"]
+
+
+def test_gap_round_stops_with_a_stated_reason_when_the_token_budget_runs_out():
+    # Each scripted planner call costs 150 tokens. Room to start round 1 (150 < 151) but not to scout (300 >= 151).
+    first = {"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}
+    orchestrator, store, client, _ = make({"planner": [first, gap_plan(("E1", "E2"))]}, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=1, max_llm_tokens=151))
+
+    assert outcome.status == "partial"
+    assert any(reason.startswith("gap round 1 stopped") for reason in outcome.reasons)
+    assert [r.role for r in steps(store) if r.gap_round == 1] == ["planner"]
+
+
+def test_gap_round_planner_failure_is_a_limitation_and_the_report_is_still_written():
+    first = {"tasks": [plan_task(expected=("E1", "E2"))], "notes": None}
+    orchestrator, store, client, _ = make({"planner": [first]}, store=mas_expected_store())
+    outcome = orchestrator.run(context(max_gap_rounds=1))
+
+    assert outcome.status == "partial"
+    assert any("gap round 1 planner failed" in reason for reason in outcome.reasons)
+    assert outcome.report_id is not None and len(store.reports) == 1
+
+
+def rerun_context(previous_run_id, **budget):
+    budget.setdefault("max_gap_rounds", 0)
+    return RunContext(uuid4(), uuid4(), uuid4(), uuid4(), BRIEF, RunBudget(**budget), previous_run_id)
+
+
+def test_rerun_shows_a_changed_finding_as_amended_and_cites_the_new_claim():
+    # AG11: a changed fixture shows as "amended" in the diff (PRD v2 §10).
+    previous = [PreviousFinding(
+        diff_key("obligation_summary", DOCUMENT_ID, None, "C1 title"), "C1 title", "Banks must screen customers.",
+    )]
+    store = InMemoryStore(sources=[MAS], expected_sources=[E_RULE, E_ENFORCEMENT], passages=list(PASSAGES),
+                          previous=previous)
+    orchestrator, store, *_ = make(store=store)
+    outcome = orchestrator.run(rerun_context(uuid4()))
+
+    assert outcome.status == "draft"
+    section = next(s for s in outcome.snapshot.sections if s.section == "what_changed")
+    amended = [s for s in section.sentences if s.text.startswith("Amended since the previous run: C1 title")]
+    assert len(amended) == 1
+    assert amended[0].finding_ids == [finding(store, "C1").finding_id]
+    assert amended[0].structural is False
+
+
+def test_first_run_has_no_what_changed_section():
+    orchestrator, store, *_ = make()
+    outcome = orchestrator.run(context())
+    assert all(section.section != "what_changed" for section in outcome.snapshot.sections)
+
+
+def test_rerun_lists_a_dropped_finding_without_citing_it():
+    previous = [PreviousFinding(
+        diff_key("obligation_summary", DOCUMENT_ID, None, "Old circular"), "Old circular", "Superseded guidance.",
+    )]
+    store = InMemoryStore(sources=[MAS], expected_sources=[E_RULE, E_ENFORCEMENT], passages=list(PASSAGES),
+                          previous=previous)
+    orchestrator, store, *_ = make(store=store)
+    outcome = orchestrator.run(rerun_context(uuid4()))
+
+    section = next(s for s in outcome.snapshot.sections if s.section == "what_changed")
+    dropped = [s for s in section.sentences if "No longer supported in this run: Old circular" in s.text]
+    assert len(dropped) == 1 and dropped[0].finding_ids == [] and dropped[0].structural is True
+
+
+def test_report_escapes_source_text_and_refuses_non_http_links():
+    hostile = replace(PASSAGES[0], title="<script>alert(1)</script>", source_url="javascript:alert(1)")
+    from mira.contracts import ClaimDraft, ReportSection, ReportSentence, ReportSnapshot
+
+    draft = ClaimDraft(**claim("C1", "obligation_summary", "P1", "x", content="<img src=x onerror=alert(1)>"))
+    stored = StoredClaim(uuid4(), draft, (ClaimEvidence(hostile.id, "x"),), ())
+    snapshot = ReportSnapshot(
+        contract_version="1.0", analysis_run_id=uuid4(), analysis_revision_id=uuid4(), coverage=[],
+        unresolved_finding_ids=[],
+        sections=[ReportSection(section="regulatory_developments", no_verified_items=False, sentences=[
+            ReportSentence(text=draft.content, finding_ids=[stored.finding_id], structural=False)
+        ])],
+    )
+    html = render_html(snapshot, ReportContext(
+        BRIEF, "draft", {stored.finding_id: stored}, {hostile.id: hostile}, {}, datetime.now(UTC)
+    ))
+    assert "<script>" not in html and "<img" not in html
+    assert 'href="javascript' not in html

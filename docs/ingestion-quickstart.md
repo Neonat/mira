@@ -1,6 +1,6 @@
 # Nat's local ingestion workbench
 
-This implements a local slice of IN02/IN03/IN07 and AG06/AG12: HTML and PDF extraction, resumable batch attempts and a Streamlit source inspector. It needs no Supabase or LLM credentials. Run commands from the repository root on macOS/Linux with Python 3.10+.
+This implements a local slice of IN02/IN03/IN07 and AG06/AG12: HTML and PDF extraction, resumable batch attempts and a Streamlit source inspector. It needs no Supabase or LLM credentials. Run commands from the repository root on macOS/Linux with Python 3.11+.
 
 ## Setup and open the screen
 
@@ -109,8 +109,19 @@ The checked-in PDF fixtures are synthetic. `scripts/make_pdf_fixtures.py` regene
 
 ## Supabase handoff and remaining work
 
-The staging JSON is not a direct insert payload. The next shared interface must resolve `workspace_id` and `source_id`, validate the initiating actor, assign database IDs/version numbers, and save document/version/passages in one transaction. The existing schema deduplicates versions by `(document_id, content_sha256)`; metadata-only changes still need an agreed persistence policy. Local envelopes retain those observations separately.
+The workbench and the authenticated research app are both available. Keep local intake on port 8501 (`streamlit run app.py`) and research on 8502 (`streamlit run app/streamlit_app.py --server.port 8502`) when using both.
 
-Ingestion requires curator/admin permissions; authenticated search requires workspace membership. Do not use elevated credentials to bypass a missing role. Saai owns migrations and shared persistence, while Nat owns extraction semantics. This work changes no migrations and writes nothing to Supabase.
+For a non-demo document, open **Evidence details & export → Download workspace import package**. Extract the ZIP into a local folder, then use the trusted importer:
 
-Still separate: OCR, source discovery, incident construction, embeddings, formal curator/reviewer decisions, source/year coverage assessment, the agent workflow and production hosting. Inspecting or downloading evidence does not mark a report reviewed.
+```sh
+python -m pip install -e '.[dev,ui,llm]'
+python -m mira import mas --manifest /absolute/path/to/manifest.csv
+```
+
+The package contains a verified original and CSV, not a database insert payload. The importer requires worker database configuration and a curator/admin identity. It re-extracts the source under the shared source policy, assigns database document/version/passage IDs, and records ingestion outcomes. Local text hashes and passage IDs are not reused as database identities. The shared writer hashes original bytes; local staging also tracks extracted-text hashes. Publication dates in the CSV are dates, retaining the explicitly supplied source calendar day. The shared importer stores that date at UTC midnight.
+
+Synthetic demo items cannot be exported through this handoff. Downloading a package does not publish it, grant source permissions, or sync the library. Re-importing unchanged bytes deduplicates at the database layer. Revisit metadata-only corrections separately; unchanged originals currently reuse their stored version.
+
+Ingestion requires curator/admin permissions; authenticated search requires workspace membership. Do not use elevated credentials to bypass a missing role. Saai owns migrations and shared persistence, while Nat owns extraction semantics. The local UI neither loads worker credentials nor writes to Supabase. The explicit CLI import performs the database writes.
+
+The research pipeline now provides scouts, an agent workflow, coverage checks and report review. OCR, semantic embeddings, production hosting and measured live evaluation remain separate work. Inspecting or downloading evidence does not mark a report reviewed.

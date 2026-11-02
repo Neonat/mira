@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import streamlit as st
 from mira.batch import create_run
-from mira.workbench import create_intake, submit_run, job_state, read_runs, library_entries, original_bytes
+from mira.workbench import create_intake, submit_run, job_state, read_runs, library_entries, original_bytes, import_package
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.environ.get('MIRA_DATA_DIR', ROOT / 'data/ingestion')).resolve()
@@ -62,6 +62,15 @@ def detail(entry):
         st.code(version['content_sha256'], language=None)
         st.text(version['extraction_version'])
         st.download_button('Download evidence JSON', json.dumps(bundle, indent=2, ensure_ascii=False), file_name=entry['key'], mime='application/json')
+        if entry['item']['input'].get('origin') != 'fixture':
+            st.caption('Workspace handoff includes the original and an import manifest. A curator/admin imports it through the trusted CLI; local passage IDs are not reused.')
+            try:
+                package = import_package(DATA, entry)
+                st.download_button('Download workspace import package', package,
+                                   file_name='mira-import.zip', mime='application/zip')
+            except (OSError, ValueError) as error:
+                st.error(str(error))
+
 
 
 def library(runs):
