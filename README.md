@@ -99,6 +99,24 @@ For sources that refuse automated access, MAS included, download documents in yo
 
 The development token cap is `MIRA_MAX_LLM_TOKENS=300000` per run. The first live HK run (15 documents) used about 125,000 tokens, roughly US$0.55 at list prices.
 
+## Run the comparison
+
+Stop the worker first, then:
+
+```sh
+.venv/bin/python eval/run_live.py run --jurisdictions SG HK      # the three arms, about 3x one run's cost
+```
+
+The arms run in a fixed order: multi-agent, then single agent, then plain search. They share one evidence store, and a later arm reuses pages an earlier one saved, so this order gives any advantage to the single agent. Plain search runs last, over everything saved.
+
+Then label precision. Open `eval/results/<time>/precision_worksheet.csv` and fill in the `label` column for every row with `supported`, `partially_supported`, `unsupported` or `contradicted`, and add a note where useful. Hide the `arm` column while labelling so you do not know which arm wrote the claim. When every row is labelled:
+
+```sh
+.venv/bin/python eval/run_live.py score eval/results/<time>
+```
+
+This writes `summary.md` with recall (all, fetchable, regulatory), precision, cost, time and the verdict.
+
 ## Code layout
 
 | Module | What it does |
@@ -134,11 +152,12 @@ Built since the first MVP:
 - reviewed reports rendered by the worker from the saved snapshot: no DRAFT watermark, the reviewer named by email, and the decision date shown (PRD v2 §6.6)
 - guardrail fixtures: injected instructions in a fetched page have no effect, and seeded fabricated claims are caught by the quote check (PRD v2 §10 AG08, AG14)
 - M0 recall scorer with the 50% gate (`eval/score_recall.py`, run with `pytest eval/`)
-- the agent-design comparison harness: all three arms of PRD v2 §11 are built. Plain search is in `eval/arms.py`. The single agent is in `mira/single_agent.py`: a code-built plan and a quote-only verifier, run through the same orchestrator, as set out in the [single-agent design](docs/single_agent_arm_design.md). The multi-agent system is the default orchestrator. `eval/run_comparison.py` scores every arm with the same recall scorer, and `eval/compare.py` applies the decision rule. It refuses a verdict unless every arm ran with a live model client.
+- the agent-design comparison harness: all three arms of PRD v2 §11 are built. Plain search is in `eval/arms.py`. The single agent is in `mira/single_agent.py`: a code-built plan and a quote-only verifier, run through the same orchestrator, as set out in the [single-agent design](docs/single_agent_arm_design.md). The multi-agent system is the default orchestrator. `eval/run_comparison.py` scores every arm with the same recall scorer, and `eval/compare.py` applies the decision rule: multi-agent must beat the single agent on coverage *or* precision. It refuses a verdict unless every arm ran with a live model client, and gives none while precision is unlabelled and coverage alone does not settle it.
+- live comparison runner (`eval/run_live.py`): runs all three arms on one brief against the real database and Claude, and writes `eval/results/<time>/` (gitignored). That folder holds each arm's cited URLs, recall, cost, time and report, plus one precision worksheet for both model arms. See "Run the comparison" below.
 - precision worksheet (`eval/precision.py`): a fixed-seed sample of report claims with their cited passages. It is scored from human labels only, and reports no figure while any row is unlabelled.
 
 Not built yet, or not yet proven:
-- the **comparison itself**: the three arms have not been run against the briefs, so there is no verdict.
+- the **comparison itself**: `eval/run_live.py` exists but has not been run against the live database, so there is no verdict. Its database path is untested until then; only its pure parts have tests.
 - **measured results**: the only live run so far was a development run on Hong Kong (15 documents, about 125,000 tokens; see "Run Mira"). It was made to check cost, not scored. There is no recall figure yet, and the M0 gate has not been passed or failed.
 - **precision labels** (PRD v2 §11): the sample and worksheet are built, but no human has labelled any claims yet, so there is no precision figure.
 - **the reviewed-report migration on a fresh Supabase stack**: migration `20261029120000` was applied to the local database and tested there, not yet to a freshly built stack.

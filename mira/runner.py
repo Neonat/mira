@@ -8,6 +8,7 @@ under row-level security and the worker picks them up (PRD v2 §5.1).
 from __future__ import annotations
 
 import os
+from typing import Literal
 from uuid import UUID
 
 import psycopg
@@ -19,6 +20,9 @@ from mira.fetch import AllowList, Fetcher
 from mira.llm import ROLE_MODEL_ENV, AnthropicClient, LLMClient, estimated_cost
 from mira.orchestrator import Orchestrator, RunOutcome
 from mira.pg_store import PostgresStore, load_run
+from mira.single_agent import QuoteOnlyVerifier, code_plan
+
+Arm = Literal["multi_agent", "single_agent"]
 
 
 def workspace_id(conn: psycopg.Connection, slug: str = "mira") -> UUID:
@@ -47,7 +51,24 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
     return Orchestrator(store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client))
 
 
-def execute_run(conn: psycopg.Connection, dsn: str, run_id: UUID, client: LLMClient | None = None) -> RunOutcome:
+def build_single_agent_orchestrator(
+    conn: psycopg.Connection, dsn: str, workspace: UUID, client: LLMClient | None = None,
+) -> Orchestrator:
+    """The single-agent comparison arm (docs/single_agent_arm_design.md §5): same store, scout and fetcher;
+    a code-built plan, one scout and the quote-only verifier. Its runs must be created with no gap rounds."""
+    client = client or AnthropicClient()
+    store = PostgresStore(conn)
+    fetcher = Fetcher(AllowList(store.list_sources(workspace)))
+    return Orchestrator(
+        store, client, {"regulatory_scout": WebScout(dsn, client, fetcher)}, QuoteOnlyVerifier(),
+        plan_strategy=lambda client, brief, sources, expected, max_documents: code_plan(
+            brief, sources, expected, max_documents),
+    )
+
+
+def execute_run(
+    conn: psycopg.Connection, dsn: str, run_id: UUID, client: LLMClient | None = None, arm: Arm = "multi_agent",
+) -> RunOutcome:
     """Run a saved run, after checking the user who queued it still holds a run role (§5.1)."""
     ctx = load_run(conn, run_id)
     store = PostgresStore(conn)
@@ -57,7 +78,8 @@ def execute_run(conn: psycopg.Connection, dsn: str, run_id: UUID, client: LLMCli
     except NotAuthorisedError as exc:
         store.set_run_status(ctx, "failed", f"not run: {exc}")
         return RunOutcome("failed", [str(exc)], None, None)
-    return build_orchestrator(conn, dsn, ctx.workspace_id, client).run(ctx)
+    build = build_single_agent_orchestrator if arm == "single_agent" else build_orchestrator
+    return build(conn, dsn, ctx.workspace_id, client).run(ctx)
 
 
 def usage_by_role(conn: psycopg.Connection, run_id: UUID) -> list[dict[str, object]]:
