@@ -51,14 +51,59 @@ def test_a_live_multi_agent_that_beats_the_single_agent_is_reported_with_the_pre
     assert verdict.ready and "beats the single agent" in verdict.message and "human check" in verdict.message
 
 
-def test_a_live_multi_agent_that_does_not_beat_the_single_agent_does_not_justify_its_cost():
+def labelled(arm, coverage, precision):
+    return Measured(arm=arm, live=True, coverage=coverage, cost_usd=1.0, seconds=60.0, precision=precision)
+
+
+def test_no_coverage_win_gets_no_verdict_until_precision_is_labelled():
+    # The rule is "coverage or precision": without precision the multi-agent arm could still win.
     arms = {
         "plain_search": live("plain_search", 0.2),
         "single_agent": live("single_agent", 0.6),
         "multi_agent": live("multi_agent", 0.6),
     }
     verdict = decide(arms)
-    assert verdict.ready and "does not yet justify its cost" in verdict.message
+    assert not verdict.ready and "precision is not labelled" in verdict.message
+
+
+def test_one_labelled_arm_is_not_enough():
+    arms = {
+        "plain_search": live("plain_search", 0.2),
+        "single_agent": labelled("single_agent", 0.6, 0.90),
+        "multi_agent": live("multi_agent", 0.6),
+    }
+    verdict = decide(arms)
+    assert not verdict.ready and "multi_agent" in verdict.message
+
+
+def test_a_multi_agent_that_wins_only_on_precision_justifies_its_cost():
+    arms = {
+        "plain_search": live("plain_search", 0.2),
+        "single_agent": labelled("single_agent", 0.6, 0.85),
+        "multi_agent": labelled("multi_agent", 0.6, 0.97),
+    }
+    verdict = decide(arms)
+    assert verdict.ready and "beats the single agent on precision" in verdict.message
+
+
+def test_a_multi_agent_that_wins_on_neither_does_not_justify_its_cost():
+    arms = {
+        "plain_search": live("plain_search", 0.2),
+        "single_agent": labelled("single_agent", 0.6, 0.95),
+        "multi_agent": labelled("multi_agent", 0.55, 0.95),
+    }
+    verdict = decide(arms)
+    assert verdict.ready and "does not justify its cost" in verdict.message
+
+
+def test_a_coverage_win_reports_precision_when_it_is_labelled():
+    arms = {
+        "plain_search": live("plain_search", 0.2),
+        "single_agent": labelled("single_agent", 0.5, 0.90),
+        "multi_agent": labelled("multi_agent", 0.7, 0.95),
+    }
+    verdict = decide(arms)
+    assert verdict.ready and "coverage" in verdict.message and "95% vs 90%" in verdict.message
 
 
 def test_live_comes_from_the_client_type_so_scripted_output_cannot_claim_to_be_live():

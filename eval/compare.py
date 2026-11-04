@@ -7,14 +7,18 @@ This module will not produce a verdict from anything that is not a live run. Eac
 a winner from scripted output would be a fabricated result, so that is refused here rather than left to
 the reader.
 
-Precision is not computed here. It needs a human to check each sampled claim against its passage (PRD §11),
-so this module records it as a pending human step rather than estimating it.
+Precision is never computed here. It needs a human to check each sampled claim against its passage (PRD §11);
+``eval/precision.py`` scores the labelled worksheet and the result is passed in. Because the rule is "coverage
+or precision", a multi-agent arm that does not win on coverage gets no verdict until precision is labelled for
+both model arms: it could still win on precision.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+
+SCRIPTED_MODEL = "scripted"  # mira.llm.ScriptedClient.model; kept here so eval/ does not import the worker at load
 
 
 @dataclass(frozen=True)
@@ -30,15 +34,29 @@ class Measured:
     coverage: float | None  # recall on the ground truth, 0..1, or None if not measured
     cost_usd: float | None
     seconds: float | None
+    precision: float | None = None  # from a fully labelled worksheet, 0..1, or None while any row is unlabelled
 
     @classmethod
     def from_client(cls, arm: str, client: object, coverage: float | None, cost_usd: float | None,
-                    seconds: float | None) -> Measured:
+                    seconds: float | None, precision: float | None = None) -> Measured:
         # Imported here so eval/ does not import the worker at module load. Only a real Anthropic client is live.
         from mira.llm import AnthropicClient
 
         return cls(arm=arm, live=isinstance(client, AnthropicClient), coverage=coverage,
-                   cost_usd=cost_usd, seconds=seconds)
+                   cost_usd=cost_usd, seconds=seconds, precision=precision)
+
+    @classmethod
+    def from_recorded_models(cls, arm: str, models: Sequence[str | None], coverage: float | None,
+                             cost_usd: float | None, seconds: float | None,
+                             precision: float | None = None) -> Measured:
+        """For re-scoring a finished run later: ``live`` comes from the models its ``agent_steps`` recorded.
+
+        Those rows are written by the client that answered, so a run is live only if at least one step names a
+        real model and none names the scripted client. A results file cannot mark a run live.
+        """
+        named = [model for model in models if model]
+        live = bool(named) and all(model != SCRIPTED_MODEL for model in named)
+        return cls(arm=arm, live=live, coverage=coverage, cost_usd=cost_usd, seconds=seconds, precision=precision)
 
 
 @dataclass(frozen=True)
@@ -63,7 +81,25 @@ def decide(arms: Mapping[str, Measured]) -> Verdict:
     multi, single = arms["multi_agent"], arms["single_agent"]
     coverage_gain = multi.coverage - single.coverage
     if coverage_gain > 0:
-        return Verdict(True, f"multi-agent beats the single agent on coverage by {coverage_gain:.0%} "
-                             "(precision still needs its human check, PRD §11)")
-    return Verdict(True, "multi-agent does not beat the single agent on coverage; precision is a human check. "
-                         "Under the PRD rule it does not yet justify its cost.")
+        return Verdict(True, f"multi-agent beats the single agent on coverage by {coverage_gain:.0%}"
+                             f"{_precision_note(multi, single)}")
+    if multi.precision is None or single.precision is None:
+        unlabelled = [m.arm for m in (single, multi) if m.precision is None]
+        return Verdict(False, "not decided: multi-agent does not beat the single agent on coverage "
+                              f"({multi.coverage:.0%} vs {single.coverage:.0%}), and precision is not labelled for: "
+                              f"{', '.join(unlabelled)}. It could still win on precision (PRD §11).")
+    precision_gain = multi.precision - single.precision
+    if precision_gain > 0:
+        return Verdict(True, f"multi-agent beats the single agent on precision by {precision_gain:.0%} "
+                             f"({multi.precision:.0%} vs {single.precision:.0%}), though not on coverage "
+                             f"({multi.coverage:.0%} vs {single.coverage:.0%})")
+    return Verdict(True, "multi-agent beats the single agent on neither coverage "
+                         f"({multi.coverage:.0%} vs {single.coverage:.0%}) nor precision "
+                         f"({multi.precision:.0%} vs {single.precision:.0%}). "
+                         "Under the PRD rule it does not justify its cost.")
+
+
+def _precision_note(multi: Measured, single: Measured) -> str:
+    if multi.precision is None or single.precision is None:
+        return " (precision still needs its human check, PRD §11)"
+    return f"; precision {multi.precision:.0%} vs {single.precision:.0%}"
