@@ -119,6 +119,8 @@ The development token cap is `MIRA_MAX_LLM_TOKENS=300000` per run. The first liv
 | [`mira/pg_store.py`](mira/pg_store.py), [`mira/runner.py`](mira/runner.py), [`mira/__main__.py`](mira/__main__.py) | Postgres run store, run creation and pick-up, and the `python -m mira` command line |
 | [`mira/seed.py`](mira/seed.py) | Allow-list and expected-source list v1 |
 | [`mira/manual_import.py`](mira/manual_import.py) | `python -m mira import`: documents downloaded by hand, saved like fetched pages and cited by their original URL |
+| [`mira/single_agent.py`](mira/single_agent.py) | Single-agent comparison arm: a code-built plan and a quote-only verifier, run through the same orchestrator ([design](docs/single_agent_arm_design.md)) |
+| [`eval/`](eval/) | Ground truth, recall scorer, precision worksheet, the three comparison arms and the decision rule |
 | [`app/streamlit_app.py`](app/streamlit_app.py) | Streamlit app: brief, live run view, report, finding review and sign-off |
 
 Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered.
@@ -132,13 +134,13 @@ Built since the first MVP:
 - reviewed reports rendered by the worker from the saved snapshot: no DRAFT watermark, the reviewer named by email, and the decision date shown (PRD v2 §6.6)
 - guardrail fixtures: injected instructions in a fetched page have no effect, and seeded fabricated claims are caught by the quote check (PRD v2 §10 AG08, AG14)
 - M0 recall scorer with the 50% gate (`eval/score_recall.py`, run with `pytest eval/`)
-- the agent-design comparison harness (`eval/compare.py`) with the plain-search baseline (`eval/arms.py`)
+- the agent-design comparison harness: all three arms of PRD v2 §11 are built. Plain search is in `eval/arms.py`. The single agent is in `mira/single_agent.py`: a code-built plan and a quote-only verifier, run through the same orchestrator, as set out in the [single-agent design](docs/single_agent_arm_design.md). The multi-agent system is the default orchestrator. `eval/run_comparison.py` scores every arm with the same recall scorer, and `eval/compare.py` applies the decision rule. It refuses a verdict unless every arm ran with a live model client.
+- precision worksheet (`eval/precision.py`): a fixed-seed sample of report claims with their cited passages. It is scored from human labels only, and reports no figure while any row is unlabelled.
 
 Not built yet, or not yet proven:
-- the **single-agent arm** of the three-way comparison (PRD v2 §11, arm b). The PRD does not fix its design, so it is not invented here. Plain search (arm a) is built.
-- the **comparison itself**: arm (c), the multi-agent system, exists but has not been run against the briefs. The harness refuses to report a verdict until every arm is a live, measured run.
-- **live results of any kind**: no run has been made with a model key, so there is no recall figure, no precision check and no cost figure yet. The M0 gate in particular has not been passed or failed.
-- **precision** (PRD v2 §11) needs a human to check sampled claims against their passages. It is not automated and is not estimated.
+- the **comparison itself**: the three arms have not been run against the briefs, so there is no verdict.
+- **measured results**: the only live run so far was a development run on Hong Kong (15 documents, about 125,000 tokens; see "Run Mira"). It was made to check cost, not scored. There is no recall figure yet, and the M0 gate has not been passed or failed.
+- **precision labels** (PRD v2 §11): the sample and worksheet are built, but no human has labelled any claims yet, so there is no precision figure.
 - **the reviewed-report migration on a fresh Supabase stack**: migration `20261029120000` was applied to the local database and tested there, not yet to a freshly built stack.
 
 ## Run the schema locally
