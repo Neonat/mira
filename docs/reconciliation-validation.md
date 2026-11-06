@@ -41,3 +41,30 @@ Integrated origin/main through e63546f into codex/nat-ingestion: the live three-
 - Restarted existing local Supabase containers after the cached npm CLI launcher failed to find its darwin-arm64 binary. No hosted database changes were made.
 
 The model keys and research login remain unconfigured, so no live-model comparison or authenticated browser journey was completed. MAS manual ingestion remains necessary; prior successful local PDF imports do not establish that the full evaluation corpus is present. The ground-truth document still requires independent human review, and precision requires human labels. These checks validate software behavior, not recall or precision claims.
+
+
+## DBS public-document checks — 6 November 2026
+
+Following explicit user approval, saved the two public originals through Safari's PDF save and HTML Page Source save. Mira's robots-aware automated fetch refused the PDF; the browser download was separately authorised. No fetch policy was disabled.
+
+Imported into isolated local workspace `test-real-dbs-b67bb5069c` (`673df2e7-4222-4bb5-8689-26280c7b51a1`). The workspace-specific `dbs-test` source permits metadata/text/quotes for these tests but not automated fetching. The production source seed, main application workspace, shared Supabase and M0 ground truth were not changed.
+
+| Original | Extraction | Search checks |
+|---|---|---|
+| [2025 risk-management PDF](https://www.dbs.com/annualreports/2025/i/pdf/dbs-ar-2025-risk-management.pdf) | Complete, 17 pages, 78 passages | `"compliance risk"` and `"financial crime"` retrieved the expected supporting wording and original URL |
+| [AI in banking article](https://www.dbs.com/artificial-intelligence-machine-learning/artificial-intelligence/ai-the-future-of-banking-and-finance.html) | Complete, 9 passages; date preserved as 2023-04-18 | `"human analysts"` and `"money laundering"` retrieved the expected supporting wording and original URL |
+
+All four searches passed under the authenticated database role. Non-member retrieval returned no results. Original file hashes match saved version hashes, every passage matches its exact extracted-text offsets, and repeat imports reused the existing document versions.
+
+Local originals, manifest, reproducible validation script and detailed results are in `data/manual/dbs/` (gitignored). Re-run with `PYTHONPATH=. .venv/bin/python data/manual/dbs/validate.py` while local Supabase is running. The script uses only the fixed local database address and reuses its saved test workspace.
+
+Limits: no live-model report or regulatory recall/precision was measured. The article is historical background; the search adapter itself has no date filter, and exclusion from a current-period report remains unverified. The annual report's reporting year is not a confirmed publication date, so its publication date remains unknown. These records are in a test workspace and are not automatically visible in the main app workspace.
+
+
+## Date-handling follow-up — 6 November 2026
+
+Added deterministic checks to analyst output and rewrites: known publication/event dates outside the research period are rejected, as are claims supported only by publications known to be outside that period. Historical sources remain available as context and for an explicit current or upcoming effective date/deadline; the verifier must still establish that the text actually supports the date. Unknown publication dates remain eligible for verification and are not automatically treated as current. Publications after the as-of date are excluded from scout passages and rejected as claim evidence. Scout stored-source selection now uses period_end rather than as_of_date for the publication window. Prompt versions were incremented.
+
+Validation: **233 passed, 8 subtests passed, no skips** with the full local-database command above. Added coverage for inclusive period boundaries, unknown dates, post-period and future publications, historical deadlines, analyst repair/rejection, rewrite rejection, and both direct-import and workbench-to-report flows. A persistent historical-only claim fails the analyst step before findings, verification or report generation rather than producing a misleading report.
+
+A separate check against the actual stored DBS 2023 article rejected both scripted attempts to label its content a current development. Local details: `data/manual/dbs/date-results.json`. This establishes the code guard on real saved evidence, not live-model accuracy. Mixed-date evidence and unknown dates still require semantic verification; an invented deadline cannot be ruled out from publication metadata alone. No shared Supabase or model credentials were needed.

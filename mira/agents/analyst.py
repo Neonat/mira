@@ -12,12 +12,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from mira.agents.common import NO_CONCLUSIONS_RULE, UNTRUSTED_TEXT_RULE, brief_text, quote_passage
+from mira.agents.temporal import TEMPORAL_RULE, check_claim_period
 from mira.contracts import AnalystOutput, Brief, ClaimCitation, ClaimDraft, LabelMap, check_claim_labels
 from mira.llm import LLMClient, LLMResult, call_checked
 from mira.store import ClaimEvidence, NewClaim, PassageRecord, StoredClaim
 
-PROMPT_VERSION = "analyst/1"
-REWRITE_PROMPT_VERSION = "analyst-rewrite/1"
+PROMPT_VERSION = "analyst/2"
+REWRITE_PROMPT_VERSION = "analyst-rewrite/2"
 
 FINDING_TYPES = """Factual claims (is_inference false, cite at least one passage, depends_on empty):
 - obligation_summary: plain-language summary of a new, amended or upcoming rule or guideline; set change_type.
@@ -39,6 +40,7 @@ Rules:
 - Rate priority (how soon an auditor should look) separately from evidence_confidence (how well the passages support the claim), each with a reason.
 - Cite passages only by the labels given (P1, P2). Label claims C1, C2 and so on.
 - If the passages show no relevant development, return an empty list. Never fill gaps from memory.
+- {TEMPORAL_RULE}
 - {NO_CONCLUSIONS_RULE}
 - {UNTRUSTED_TEXT_RULE}"""
 
@@ -46,6 +48,7 @@ REWRITE_SYSTEM = f"""You are the analyst in Mira, a research assistant for bank 
 A verifier found that the claim below is only partly supported by the passages it cites.
 Rewrite it so that it states only what those passages support. Keep claim_label and finding_type.
 Cite only the passages given, copying each supporting_quote word for word.
+- {TEMPORAL_RULE}
 - {NO_CONCLUSIONS_RULE}
 - {UNTRUSTED_TEXT_RULE}"""
 
@@ -70,6 +73,7 @@ def _resolve(claim: ClaimDraft, labels: LabelMap) -> NewClaim:
 
 
 def analyse(client: LLMClient, brief: Brief, passages: Sequence[PassageRecord]) -> Analysis:
+    by_id = {p.id: p for p in passages}
     labels = LabelMap()
     quoted = [quote_passage(labels.add("P", passage.id), passage) for passage in passages]
     user = f"{brief_text(brief)}\n\nPassages:\n\n" + "\n\n".join(quoted)
@@ -78,6 +82,7 @@ def analyse(client: LLMClient, brief: Brief, passages: Sequence[PassageRecord]) 
         check_claim_labels(output, labels)
         for claim in output.claims:
             _check_jurisdiction(claim, brief)
+            check_claim_period(claim, brief, [by_id[labels.resolve(c.passage_label, "P")] for c in claim.citations])
 
     result = call_checked(
         client, role="analyst", system=SYSTEM, user=user, output_type=AnalystOutput,
@@ -90,6 +95,7 @@ def rewrite(
     client: LLMClient, brief: Brief, claim: StoredClaim, passages: Sequence[PassageRecord], reason: str
 ) -> tuple[NewClaim, LLMResult[ClaimDraft]]:
     """Narrow a partially supported factual claim to what its cited passages support."""
+    by_id = {p.id: p for p in passages}
     labels = LabelMap()
     label_for = {passage.id: labels.add("P", passage.id) for passage in passages}
     shown = claim.draft.model_copy(update={
@@ -113,6 +119,7 @@ def rewrite(
         _check_jurisdiction(output, brief)
         for citation in output.citations:
             labels.resolve(citation.passage_label, "P")
+        check_claim_period(output, brief, [by_id[labels.resolve(c.passage_label, "P")] for c in output.citations])
 
     result = call_checked(
         client, role="analyst", system=REWRITE_SYSTEM, user=user, output_type=ClaimDraft,

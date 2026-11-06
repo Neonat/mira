@@ -662,7 +662,8 @@ def test_manual_import_saves_versions_and_records_the_import(conn, workspace, tm
 
 
 @pytest.mark.parametrize("via_workbench", [False, True])
-def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspace, tmp_path, via_workbench):
+@pytest.mark.parametrize("historical", [False, True])
+def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspace, tmp_path, via_workbench, historical):
     from mira.manual_import import ImportItem, import_files
 
     workspace_id, user_id = workspace
@@ -691,6 +692,9 @@ def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspa
         items = [ImportItem(mas_file(tmp_path), MAS_URL, "Example MAS notice", date(2026, 5, 25))]
     results = import_files(conn, workspace_id, user_id, "mas", items)
     assert results[0].outcome == 'saved' and results[0].passages
+    if historical:
+        conn.execute('update public.document_versions set published_at=%s where id=%s',
+                     (date(2023,4,18), results[0].document_version_id))
     mas_requests = []
 
     class BlockingWeb:
@@ -723,7 +727,7 @@ def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspa
         "planner": [planner_for("SG")],
         "regulatory_scout": [scout, scout],
         "industry_scout": [scout, scout],
-        "analyst": [analyst_sg],
+        "analyst": [analyst_sg, analyst_sg] if historical else [analyst_sg],
         "verifier": [{"verdict": "supported", "reason": "stated in the passage"},
                      {"introduces_new_fact": False, "new_facts": [], "reason": "no new facts"}],
         "writer": [writer],
@@ -734,6 +738,15 @@ def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspa
     outcome = Orchestrator(store, client, {"regulatory_scout": web_scout, "industry_scout": web_scout},
                            LlmVerifier(client)).run(ctx)
 
+    if historical:
+        assert outcome.status == "failed"
+        assert not any(call.role in ("verifier", "writer") for call in client.calls)
+        assert conn.execute("select count(*) as n from public.analysis_findings where analysis_run_id=%s",
+                            (ctx.analysis_run_id,)).fetchone()["n"] == 0
+        step = conn.execute("select status,error from public.agent_steps where analysis_run_id=%s and role='analyst'",
+                            (ctx.analysis_run_id,)).fetchone()
+        assert step["status"] == "failed" and "out-of-period" in step["error"]
+        return
     assert outcome.status == "draft", outcome.reasons
     assert len(mas_requests) == 1  # the block page is seen once; later MAS URLs are not requested
     coverage = conn.execute(
@@ -761,3 +774,29 @@ def test_failed_manual_extraction_is_a_failed_ingestion_item(conn, workspace, tm
     row = conn.execute('select status, counts from public.ingestion_runs where workspace_id = %s',
                        (workspace_id,)).fetchone()
     assert row['status'] == 'completed_with_errors' and row['counts']['failed'] == 1
+
+
+def test_scout_excludes_future_manual_and_fetched_passages(conn, workspace, tmp_path):
+    from mira.agents.scout import _ScoutRun, _Visit
+    from mira.interfaces import ScoutTask
+    from mira.manual_import import ImportItem, import_files, load_source
+
+    ws, user = workspace
+    source = load_source(conn, ws, 'mas')
+    items = [ImportItem(mas_file(tmp_path), MAS_URL + f'?case={label}', published=published)
+             for label, published in [('historical',date(2023,4,18)),('future',date(2026,11,7)),
+                                      ('boundary',date(2026,10,26)),('unknown',None)]]
+    imported = import_files(conn, ws, user, 'mas', items)
+    brief = Brief(topic='AML/CFT',jurisdictions=['SG'],period_start=date(2025,10,26),
+                  period_end=date(2026,10,26),as_of_date=date(2026,10,26),plan_requires_approval=False)
+    ctx = create_run(conn,ws,user,brief,RunBudget(),{})
+    task = ScoutTask('T1','regulatory_scout','SG','money laundering',(source.id,),(),5)
+    scout_run = _ScoutRun(WebScout(DSN,ScriptedClient({}),Fetcher(AllowList([source]))),
+                          conn,ctx,uuid.uuid4(),task)
+    # A just-fetched future document must be excluded too, not only stored imports.
+    future_ids = [r['id'] for r in conn.execute('select id from public.document_passages where document_version_id=%s',
+                                               (imported[1].document_version_id,))]
+    scout_run.visits = [_Visit(items[1].url, imported[1].document_version_id, future_ids)]
+    urls = {p.source_url for p in scout_run._passages()}
+    assert items[1].url not in urls
+    assert {items[0].url,items[2].url,items[3].url} <= urls

@@ -25,6 +25,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from mira.agents.common import NO_CONCLUSIONS_RULE, UNTRUSTED_TEXT_RULE, brief_text, quote_passage
+from mira.agents.temporal import TEMPORAL_RULE
 from mira.contracts import FetchAttempt, LabelMap, LinkSelection, ScoutReport, ScoutResult
 from mira.db import connect
 from mira.evidence import EvidenceWriter
@@ -35,7 +36,7 @@ from mira.llm import LLMClient, LLMResult, call_checked
 from mira.pg_store import PostgresStore
 from mira.store import PassageRecord, RunContext
 
-PROMPT_VERSION = "scout/1"
+PROMPT_VERSION = "scout/2"
 MAX_LINKS_SHOWN = 120
 MAX_PASSAGES_SHOWN = 40
 MAX_PASSAGE_CHARS = 60_000
@@ -53,6 +54,7 @@ From the saved passages, list the documents that answer the research question wi
 For each document give its instrument type or industry category, title, dates and whether it is new, amended or upcoming, using only what the passages state; use null when unknown.
 For each expected source, say found (a relevant development in the period), no_change (the source was read and shows nothing new in the period) or missing (it could not be checked).
 Listing nothing is a valid answer. Never fill gaps from memory.
+- {TEMPORAL_RULE}
 - {NO_CONCLUSIONS_RULE}
 - {UNTRUSTED_TEXT_RULE}"""
 
@@ -253,10 +255,11 @@ class _ScoutRun:
                  and (v.published_at::date between %s and %s or v.metadata->>'import' = 'manual')
                order by v.published_at desc nulls last, p.passage_number
                limit 300""",
-            (self.ctx.workspace_id, list(self.task.source_ids), brief.period_start, brief.as_of_date),
+            (self.ctx.workspace_id, list(self.task.source_ids), brief.period_start, brief.period_end),
         ).fetchall()
         ids.extend(row["id"] for row in stored if row["id"] not in ids)
-        passages = self.store.get_passages(self.ctx.workspace_id, ids)
+        passages = [p for p in self.store.get_passages(self.ctx.workspace_id, ids)
+                    if p.published_at is None or p.published_at <= brief.as_of_date]
         terms = _terms(f"{self.ctx.brief.topic} money laundering terrorism financing {self.task.question}")
         feed_urls = {visit.url for visit in self.visits if visit.url.endswith(".xml") or "/rss" in visit.url.lower()}
         # Documents first; feed lines (titles and dates only) rank below them.
