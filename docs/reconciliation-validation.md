@@ -68,3 +68,48 @@ Added deterministic checks to analyst output and rewrites: known publication/eve
 Validation: **233 passed, 8 subtests passed, no skips** with the full local-database command above. Added coverage for inclusive period boundaries, unknown dates, post-period and future publications, historical deadlines, analyst repair/rejection, rewrite rejection, and both direct-import and workbench-to-report flows. A persistent historical-only claim fails the analyst step before findings, verification or report generation rather than producing a misleading report.
 
 A separate check against the actual stored DBS 2023 article rejected both scripted attempts to label its content a current development. Local details: `data/manual/dbs/date-results.json`. This establishes the code guard on real saved evidence, not live-model accuracy. Mixed-date evidence and unknown dates still require semantic verification; an invented deadline cannot be ruled out from publication metadata alone. No shared Supabase or model credentials were needed.
+
+## OpenAI client — 6 November 2026
+
+Added an OpenAI Responses API adapter behind the same structured-output interface as the team's Anthropic adapter. Both orchestrators and the live comparison runner now route each role using its existing `provider:model` setting. Claude defaults and behavior remain available. The new adapter streams strict JSON Schema, validates with Pydantic, retains usage on invalid/incomplete/refused outputs, and uses the existing repair retry. Provider errors are sanitized before recording. No provider-native search tools or silent model fallback were introduced.
+
+Nat's ignored local configuration uses GPT-5.4 for planning, analysis and verification, and GPT-5.4 mini for scouting and writing. The key stays in the ignored local environment file. Separate verifier context is preserved, but this configuration is not cross-provider verification.
+
+Validation: **241 passed, 8 subtests passed, no skips** against local Supabase, plus clean dependency and whitespace checks. Coverage includes strict request shape, repair/token accounting, refusals, incomplete responses, sanitized API failures, mixed-provider routing and evaluation liveness. Live synthetic smoke calls accepted the verifier and nested analyst schemas on GPT-5.4 mini; a routed GPT-5.4 verifier call also succeeded. These smoke calls establish connectivity and contract compatibility, not report quality.
+
+Live HK run `2c5db30c-e1f8-434b-927e-9a7a4c4e5dda` completed on the isolated local workspace using the sample's 2025-11-04–2026-11-04 period. It produced `reports/2c5db30c-e1f8-434b-927e-9a7a4c4e5dda/report-v1.html` (gitignored). All executed model steps succeeded, including two analyst rewrites and report writing. The run is partial because it used all 15 documents: 179,908 tokens, 10.64 minutes and estimated standard-rate cost $0.8752 (not a billing record). Six claims were verified; two were unresolved. Final coverage combines rounds: two expected sources found, eight missing and two out of budget. Internal HTML citation targets resolve. Configuration, usage, trace and the implementation patch used during the run are saved under `reports/hk-reproduction/<run-id>/`.
+
+This is a successful live integration test, not proof of equivalent quality to Saai's Claude report. The original run's evidence and model settings are unavailable. Both reports concentrate on HKMA PEP material; PDF/landing-page/RSS overlap and unknown appendix publication dates remain. The generated writer prose also needs human review: its impact assessment contains supervisory-focus interpretation and a suggested audit action even though two related analyst inferences were rejected. Valid citation labels alone do not establish sentence-level support. No human precision assessment, complete regulatory coverage, hosted Supabase writes or authenticated browser E2E were performed.
+
+## Report grounding and retrieval follow-up — 6 November 2026
+
+The writer now selects and orders claims; a final deterministic gate renders their complete saved content, rather than accepting new writer prose on the strength of valid citation IDs. Full statements preserve negations and conditions. Section eligibility prevents factual claims from being turned into new risks or recommendations. Both comparison arms use this gate; no independent verifier call was added to the single-agent arm. Writer step metadata records how many proposed sentences were replaced or removed. This is an intentional restriction on narrative freedom, not a claim that all model-verified claims are accurate.
+
+Scouts share fetch/save results through run- and workspace-scoped futures. Concurrent requests for the same URL spend one document allowance; reuse is visible in the fetch log. Contract version 1.2 adds the `reused` fetch outcome without a database migration. Known HKMA PDF/landing aliases collapse in candidate selection and evidence ranking. Candidate prompts prioritize question relevance and balance hosts; unselected candidates remain available in subsequent rounds. Stored passages are restricted to the task's assigned sources. Identical text with different document identities or dates remains distinct. A coverage item marked found must have an explicitly linked passage from its own source; a fetched hub alone is insufficient.
+
+Explicit RSS/Atom publication dates propagate to linked documents, and a narrow HKMA adapter reads an unambiguous standalone circular date before its salutation. Publication evidence is saved in version metadata. Unknown dates can be enriched on unchanged content while preserving version IDs, passage IDs and offsets; existing known dates are retained. Neither Atom update dates nor arbitrary dates in PDF bodies are substituted for publication dates. Old HTML reports remain unchanged historical snapshots.
+
+Validation: **249 passed, 8 subtests passed, no skips**, including database pipeline tests. Added regressions cover rejected inferences reappearing with valid citations, negation preservation, concurrent fetch reuse, run isolation, alias boundaries, item-specific coverage, publication/update separation, ambiguous PDF headers, RSS-to-appendix propagation and unchanged-version date enrichment. Dependency and whitespace checks pass. Docker was stopped at the first full-suite attempt; the existing local stack was restarted before the successful database run. No shared Supabase changes were made.
+
+### Live comparison and claim review
+
+Run `759832da-1b0f-4bfb-99f5-16e6c3571417` used a fresh, empty local workspace with source settings checked equal to the baseline, the same OpenAI role models, the same period and the same budgets. Report: `reports/759832da-1b0f-4bfb-99f5-16e6c3571417/report-v1.html`. Configuration, implementation patch, usage and trace are in `reports/hk-quality/<run-id>/`; `reports/hk-quality/review.py` reproduces the read-only body/citation checks and writes `review.json`. All are ignored local artifacts. Saai's sample was re-read from `AML_CFT report_ HK (1).pdf`; its original evidence database, trace and model configuration remain unavailable.
+
+| Observed result | Saai sample | OpenAI baseline | Updated OpenAI run |
+|---|---:|---:|---:|
+| Report status | Partial | Partial | Partial |
+| Model-verified claims | 9 | 6 | 5 |
+| Unresolved claims | 0 | 2 | 3 |
+| Tokens | 111,872 | 179,908 | 117,805 |
+| Minutes | 2.6 | 10.64 | 8.17 |
+| Estimated standard-rate cost | Unknown | $0.8752 | $0.6314 |
+| Fetched-document budget used | 15/15 | 15/15 | 15/15 |
+| Reported coverage: found / missing / no change / out of budget | 1 / 10 / 1 / 0 | 2 / 8 / 0 / 2 | 2 / 5 / 3 / 2 |
+| Distinct cited URLs | 3 | 3 | 1 |
+| PEP circular appendix publication date | Unknown | Unknown | 2026-08-28 |
+
+These are individual runs, not a controlled estimate of model performance. The updated run logged six fetch reuses without double charging. Eleven body sentences matched their cited saved claim content exactly; two proposed writer sentences were replaced/removed by the grounding gate. All internal citation targets resolve. The three rejected inferences are absent from the report body, and the impact section correctly says there are no verified items. All citations now point to three passages of the original HKMA circular PDF, rather than counting its landing and RSS representations as additional evidence.
+
+Assistant review of the five factual claims against their full saved passages found support for the circular's 28 August date and version 2.0, the qualified expectation to **consider adopting** good practices, planned thematic examinations, reported control improvements and remaining gaps, and AI/genAI examples. The year in “later in 2026” is supported by the circular's publication metadata. This is an assistant technical/content review, not an independent human precision score or auditor sign-off.
+
+**Coverage has not been proven to improve.** The body still rests on one underlying publication. In particular, the reported “HKMA Guideline on AML/CFT” match uses PEP Smart Tips material and needs reviewer confirmation; it must not be counted as demonstrated retrieval of the main AML guideline. The three “no change” classifications are model judgements from limited feeds/pages, not proof that no developments occurred. Missing categories and manually imported sources remain outstanding. The inference checker also rejected contextual references and suggested audit questions rather strictly; that is a separate quality issue from writer leakage and was preserved for an honest comparison. No ground-truth entries or human precision labels were changed.

@@ -3,7 +3,7 @@
     python eval/run_live.py run [--jurisdictions SG HK] [--as-of 2026-10-26] [--months 12] [--sample 30]
     python eval/run_live.py score eval/results/<stamp>
 
-``run`` executes, on the trusted worker connection and with the real Claude client:
+``run`` executes, on the trusted worker connection and with the configured live provider clients:
 
 1. the multi-agent arm (the default orchestrator),
 2. the single-agent arm (``mira.single_agent``: code plan, one scout, quote-only verifier, no gap rounds),
@@ -262,11 +262,11 @@ def run(args: argparse.Namespace) -> int:
     from mira.budget import RunBudget
     from mira.contracts import Brief
     from mira.db import connect
-    from mira.llm import AnthropicClient
+    from mira.llm import ProviderClient
     from mira.pg_store import create_run
     from mira.runner import dev_user_id, execute_run, models_from_env, usage_by_role, workspace_id
 
-    client = AnthropicClient()
+    client = ProviderClient()
     dsn = os.environ["MIRA_WORKER_DATABASE_URL"]
     budget = RunBudget.from_env()
     if args.max_documents:

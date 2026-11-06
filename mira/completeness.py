@@ -64,14 +64,17 @@ def coverage_rows(
             statuses.update(s.status for s in result.report.expected_source_statuses if s.expected_source_label == label)
             attempts.extend(a for a in result.fetch_log if (urlsplit(a.url).hostname or "").lower() in hosts)
             for document in result.report.documents:
+                if label is None or label not in document.expected_source_labels:
+                    continue
                 for passage_label in document.relevant_passage_labels:
                     passage = passages.get(result.labels.get(passage_label))
                     if passage is not None and passage.source_id == item.source_id:
                         cited.append(passage)
-        saved = [a for a in attempts if a.outcome in ("saved", "unchanged") and a.document_version_id]
-        evidence = saved[0].document_version_id if saved else (cited[0].document_version_id if cited else None)
-        if evidence and statuses & {"found", "no_change"}:
-            status = "found" if "found" in statuses else "no_change"
+        saved = [a for a in attempts if a.outcome in ("saved", "unchanged", "reused") and a.document_version_id]
+        found = bool(cited) and "found" in statuses
+        evidence = cited[0].document_version_id if cited else (saved[0].document_version_id if saved else None)
+        if evidence and (found or "no_change" in statuses):
+            status = "found" if found else "no_change"
             note = "from documents imported by hand" if not saved and any(p.imported for p in cited) else None
             rows.append(CoverageRow(expected_source_id=item.id, gap_round=gap_round, status=status,
                                     document_version_id=evidence, note=note))

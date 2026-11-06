@@ -32,7 +32,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-CONTRACT_VERSION = "1.1"
+CONTRACT_VERSION = "1.2"
 
 # --- Enums (mirror the database check constraints) ---------------------------
 
@@ -156,7 +156,7 @@ class FetchAttempt(Contract):
     """Written by fetch_allowed, never by a model. Failures stay visible (AG06)."""
 
     url: str
-    outcome: Literal["saved", "unchanged", "refused", "failed"]
+    outcome: Literal["saved", "unchanged", "refused", "failed", "reused"]
     document_version_id: UUID | None
     error: str | None
     attempted_at: datetime

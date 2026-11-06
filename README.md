@@ -88,7 +88,7 @@ With the local database running (see "Run the schema locally" below) and `.env` 
 .venv/bin/streamlit run app/streamlit_app.py           # brief, live run view, report and review
 ```
 
-The app signs in with Supabase Auth and works under row-level security. It reads only its own settings from `.env` and never the worker's database URL or the API key. The worker is the only process that calls Claude or fetches pages. For a quick run without the app:
+The app signs in with Supabase Auth and works under row-level security. It reads only its own settings from `.env` and never the worker's database URL or the API key. The worker is the only process that calls the configured model providers or fetches pages. For a quick run without the app:
 
 ```sh
 .venv/bin/python -m mira run --jurisdictions HK --max-documents 15
@@ -131,7 +131,7 @@ This writes `summary.md` with recall (all, fetchable, regulatory), precision, co
 | [`mira/agents/`](mira/agents/) | Planner, analyst (including the rewrite of a partially supported claim) and writer prompts, with code checks on their output |
 | [`mira/interfaces.py`](mira/interfaces.py) | `Scout` and `Verifier` interfaces the orchestrator calls |
 | [`mira/store.py`](mira/store.py) | `RunStore` interface to the evidence store, and an in-memory version for tests |
-| [`mira/llm.py`](mira/llm.py) | Structured-output calls to Claude per role (`MIRA_MODEL_<ROLE>`), one repair retry, and a scripted client |
+| [`mira/llm.py`](mira/llm.py) | Structured-output calls to Claude or OpenAI per role (`MIRA_MODEL_<ROLE>`), one repair retry, and a scripted client |
 | [`mira/budget.py`](mira/budget.py), [`mira/brief.py`](mira/brief.py) | Run budgets (§6.2); brief scope and storage (AG01) |
 | [`mira/report.py`](mira/report.py) | HTML report from saved records, with citations, the coverage table and the evidence appendix |
 | [`mira/fetch.py`](mira/fetch.py) | `fetch_allowed`: allow-list, redirect re-checks, public addresses only, robots.txt, crawl delay, size and type caps, block-page detection |
@@ -145,7 +145,18 @@ This writes `summary.md` with recall (all, fetchable, regulatory), precision, co
 | [`eval/`](eval/) | Ground truth, recall scorer, precision worksheet, the three comparison arms and the decision rule |
 | [`app/streamlit_app.py`](app/streamlit_app.py) | Streamlit app: brief, live run view, report, finding review and sign-off |
 
-Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered.
+Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered. OpenAI uses the Responses API with streaming, strict JSON Schema, and the same Pydantic validation and one repair retry. Refusals and incomplete responses stop the call with reported usage retained; OpenAI does not silently fall back to another model. Source fetching remains in Mira's scouts, not provider web-search tools.
+
+For OpenAI-only operation, install `pip install -e ".[llm]"`, configure `OPENAI_API_KEY` in the ignored `.env`, and use the five OpenAI role settings in `.env.example`. The example pairs `gpt-5.4` for planning/analysis/verification with `gpt-5.4-mini` for scouting/writing; it is a starting configuration, not a claim of quality equivalence to Claude. Mixed providers work by selecting each role independently; only a used provider needs its key. OpenAI requests use `store=False`. An OpenAI-only verifier runs in a separate context but is not cross-provider verification.
+
+The adapters preserve existing prompts, budgets, provenance and report review gates. OpenAI cost estimates use standard input/output rates (including reasoning output tokens), without cache discounts; they are estimates, not billing records. Rates were checked against the [GPT-5.4](https://developers.openai.com/api/docs/models/gpt-5.4) and [GPT-5.4 mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini) model pages on 6 November 2026. Implementation reference: [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
+
+The final report support gate renders complete saved claim content: the writer selects and orders claims, but its new prose cannot bypass verification merely by citing a valid ID. Inference sections require verified inference claims. This deliberately trades freer prose for traceability and applies to both comparison arms; it does not replace human review of the claims themselves.
+
+Within a run, scouts share fetched pages across concurrent tasks and gap rounds. Reused pages are logged separately and do not spend the document allowance again. Known HKMA PDF/landing aliases are deduplicated, candidate lists balance hosts and prioritize question relevance, and passage retrieval stays within each task's sources. RSS feeds remain discovery sources, not aliases for every document they list. Coverage marked `found` needs an item-linked passage from the expected source, rather than just a successful hub fetch.
+
+Publication metadata comes from explicit publication meta tags, RSS/Atom publication fields, or the unambiguous date in an HKMA circular header. Date evidence is retained in version metadata; an unchanged version may have an unknown date enriched, but a known date is not silently overwritten. Retrieval dates, feed update dates, filename dates and model guesses are not publication dates. Older saved HTML reports remain historical snapshots.
+
 
 Built since the first MVP:
 - re-run from the app (Runs page) and the CLI (`python -m mira run --previous RUN_ID`): the same brief on the same Project revision, linked to the run it re-runs (PRD v2 §4 step 8, §6.5)
@@ -157,7 +168,7 @@ Built since the first MVP:
 - guardrail fixtures: injected instructions in a fetched page have no effect, and seeded fabricated claims are caught by the quote check (PRD v2 §10 AG08, AG14)
 - M0 recall scorer with the 50% gate (`eval/score_recall.py`, run with `pytest eval/`)
 - the agent-design comparison harness: all three arms of PRD v2 §11 are built. Plain search is in `eval/arms.py`. The single agent is in `mira/single_agent.py`: a code-built plan and a quote-only verifier, run through the same orchestrator, as set out in the [single-agent design](docs/single_agent_arm_design.md). The multi-agent system is the default orchestrator. `eval/run_comparison.py` scores every arm with the same recall scorer, and `eval/compare.py` applies the decision rule: multi-agent must beat the single agent on coverage *or* precision. It refuses a verdict unless every arm ran with a live model client, and gives none while precision is unlabelled and coverage alone does not settle it.
-- live comparison runner (`eval/run_live.py`): runs all three arms on one brief against the real database and Claude, and writes `eval/results/<time>/` (gitignored). That folder holds each arm's cited URLs, recall, cost, time and report, plus one precision worksheet for both model arms. See "Run the comparison" below.
+- live comparison runner (`eval/run_live.py`): runs all three arms on one brief against the real database and configured model providers, and writes `eval/results/<time>/` (gitignored). That folder holds each arm's cited URLs, recall, cost, time and report, plus one precision worksheet for both model arms. See "Run the comparison" below.
 - precision worksheet (`eval/precision.py`): a fixed-seed sample of report claims with their cited passages. It is scored from human labels only, and reports no figure while any row is unlabelled.
 
 Not built yet, or not yet proven:

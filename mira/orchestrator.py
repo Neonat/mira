@@ -353,7 +353,7 @@ class _Run:
     def _collect_scout(self, task: ScoutTask, step: _Step, outcome: ScoutOutcome) -> None:
         self._used(step, outcome)
         result = outcome.result
-        fetched = sum(1 for attempt in result.fetch_log if attempt.outcome != "refused")
+        fetched = sum(1 for attempt in result.fetch_log if attempt.outcome not in ("refused", "reused"))
         self.budget.charge_documents(fetched)
         if (result.analysis_run_id, result.agent_step_id, result.role) != (self.ctx.analysis_run_id, step.id, task.role):
             raise ValueError("scout result belongs to a different run, step or role")
@@ -375,6 +375,7 @@ class _Run:
             documents=len(result.report.documents),
             fetch_attempts=len(result.fetch_log),
             fetch_refused=sum(1 for attempt in result.fetch_log if attempt.outcome == "refused"),
+            fetch_reused=sum(1 for attempt in result.fetch_log if attempt.outcome == "reused"),
             fetch_failed=sum(1 for attempt in result.fetch_log if attempt.outcome == "failed"),
         )
 
@@ -556,6 +557,7 @@ class _Run:
                     self._used(step, written.llm)
                     sections = written.sections
                     step.output_refs["sections"] = [s.section for s in sections if not s.no_verified_items]
+                    step.output_refs["grounded_sentences"] = written.grounded_sentences
             except (LLMError, ValueError) as exc:
                 self.reasons.append(f"writer failed ({exc}); the report lists verified claims without a summary")
                 sections = writer.claim_sections(verified)

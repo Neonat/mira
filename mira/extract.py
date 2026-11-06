@@ -16,7 +16,7 @@ from email.utils import parsedate_to_datetime
 from html import unescape
 from html.parser import HTMLParser
 from typing import Literal
-from urllib.parse import urldefrag, urljoin
+from urllib.parse import urldefrag, urljoin, urlsplit
 
 from mira.fetch import FetchedPage
 
@@ -37,6 +37,7 @@ class Link:
     text: str
     context: str
     published: date | None = None
+    date_source: str | None = None
 
 
 @dataclass
@@ -47,6 +48,7 @@ class Extracted:
     links: list[Link] = field(default_factory=list)
     published: date | None = None
     error: str | None = None
+    published_basis: str | None = None
 
     @property
     def text(self) -> str:
@@ -171,7 +173,8 @@ def extract_html(body: bytes, url: str) -> Extracted:
     text = _tidy(raw)
     title = " ".join((parser.h1 or parser.title or url).split())
     return Extracted(title=title, status="complete" if text else "partial", pages=[text] if text else [],
-                     links=links, published=parser.published)
+                     links=links, published=parser.published,
+                     published_basis=f"publication meta tag in {url}" if parser.published else None)
 
 
 def _decode(body: bytes) -> str:
@@ -202,7 +205,18 @@ def extract_pdf(body: bytes, url: str) -> Extracted:
     if not any(pages):
         return Extracted(title=title, status="unsupported", pages=[], error="no extractable text (scanned PDF?)")
     status: ExtractionStatus = "complete" if all(pages) else "partial"
-    return Extracted(title=title, status=status, pages=pages)
+    published = None
+    basis = None
+    # HKMA circulars put the issue date on a standalone line before the salutation.
+    # Never treat a filename, PDF creation date, or an effective date in the body as publication.
+    if urlsplit(url).hostname == "brdr.hkma.gov.hk" and "Dear" in pages[0][:2000]:
+        header = pages[0][:2000].split("Dear", 1)[0]
+        dates = [line.strip() for line in header.splitlines()
+                 if re.fullmatch(r"\d{1,2}\s+[A-Za-z]+\s+\d{4}", line.strip())]
+        if len(set(dates)) == 1:
+            published = find_date(dates[0])
+            basis = f"HKMA circular header: {dates[0]}" if published else None
+    return Extracted(title=title, status=status, pages=pages, published=published, published_basis=basis)
 
 
 # --- RSS / Atom ------------------------------------------------------------------
@@ -219,14 +233,16 @@ def extract_feed(body: bytes, url: str) -> Extracted:
         published = parse_date(item.findtext("pubDate") or "")
         if link_url and item_title:
             summary = " ".join(unescape(re.sub(r"<[^>]+>", " ", item.findtext("description") or "")).split())[:300]
-            links.append(Link(urljoin(url, link_url), item_title, summary, published))
+            links.append(Link(urljoin(url, link_url), item_title, summary, published,
+                              f"RSS pubDate in {url}" if published else None))
     for entry in root.iter("{http://www.w3.org/2005/Atom}entry"):
         link = entry.find("atom:link", ns)
         link_url = link.get("href", "") if link is not None else ""
         entry_title = " ".join((entry.findtext("atom:title", namespaces=ns) or "").split())
-        published = parse_date(entry.findtext("atom:published", namespaces=ns) or entry.findtext("atom:updated", namespaces=ns) or "")
+        published = parse_date(entry.findtext("atom:published", namespaces=ns) or "")
         if link_url and entry_title:
-            links.append(Link(urljoin(url, link_url), entry_title, "", published))
+            links.append(Link(urljoin(url, link_url), entry_title, "", published,
+                              f"Atom published in {url}" if published else None))
     text = "\n".join(f"{link.published or ''} {link.text}".strip() for link in links)
     return Extracted(title=title, status="complete", pages=[text] if text else [], links=links)
 

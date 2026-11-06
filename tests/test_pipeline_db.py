@@ -89,7 +89,7 @@ def scout(prompt):
             "document_label": "D1", "instrument_type": "other", "industry_category": None,
             "title": "Example circular on AML controls", "published_date": date(2025, 12, 12),
             "effective_date": None, "change_type": "new", "relevant_passage_labels": passages[:2],
-            "expected_source_labels": [],
+            "expected_source_labels": labels(prompt, "E"),
         }] if passages else [],
         "expected_source_statuses": [{"expected_source_label": e, "status": "found", "note": None}
                                      for e in labels(prompt, "E")],
@@ -179,6 +179,12 @@ def test_full_run_on_postgres(conn, workspace, tmp_path):
         (workspace_id, "%TEST-1"),
     ).fetchone()["n"]
     assert saved >= 1
+    dated = conn.execute(
+        "select published_at, metadata from public.document_versions where workspace_id=%s and source_url=%s",
+        (workspace_id, "https://brdr.hkma.gov.hk/eng/doc-ldg/current/TEST-1"),
+    ).fetchone()
+    assert dated["published_at"].date() == date(2025, 12, 12)
+    assert "RSS pubDate" in dated["metadata"]["publication_date_evidence"]
     pdf = conn.execute(
         "select extraction_status, metadata from public.document_versions where workspace_id = %s and source_url like %s",
         (workspace_id, "%TEST-1.pdf"),
@@ -203,7 +209,8 @@ def test_full_run_on_postgres(conn, workspace, tmp_path):
     ).fetchone()
     html = (tmp_path / report["artifact_storage_path"]).read_text()
     assert "Example circular on AML controls" in html and "Expected sources" in html
-    assert report["evidence_snapshot"]["contract_version"] == "1.1"
+    assert report["evidence_snapshot"]["contract_version"] == "1.2"
+    assert "(2025-12-12)" in html
 
     # Exercise the comparison runner against persisted evidence, not mocked SQL.
     from eval.run_live import (claim_rows, cited_urls, load_records, passage_search,
@@ -538,8 +545,8 @@ def test_worker_renders_a_signed_off_report_without_the_draft_watermark(conn, wo
     assert "Reviewed by" in html and f"{user_id}@test.local" in html  # named by email, not a raw ID
     assert "Reviewed</td>" in html
     # The reviewed report carries the sentences the draft cited, with their citation, not just the chrome.
-    # The fixture writer puts its one sentence in the executive summary, and the render prints that sentence.
-    assert "HKMA issued guidance." in html
+    # The final gate renders the complete saved claim, not the fixture writer's paraphrase.
+    assert "HKMA expects enhanced due diligence for customers linked to example schemes." in html
     assert 'href="#e1"' in html  # the sentence links to its evidence appendix entry
 
 
@@ -800,3 +807,30 @@ def test_scout_excludes_future_manual_and_fetched_passages(conn, workspace, tmp_
     urls = {p.source_url for p in scout_run._passages()}
     assert items[1].url not in urls
     assert {items[0].url,items[2].url,items[3].url} <= urls
+
+
+def test_publication_enrichment_preserves_saved_version_passages_and_known_dates(conn, workspace):
+    from datetime import UTC, datetime
+    from mira.evidence import EvidenceWriter
+    from mira.extract import extract_html
+    from mira.fetch import FetchedPage
+    ws, user = workspace
+    source = next(s for s in PostgresStore(conn).list_sources(ws) if s.name == "HKMA")
+    url = "https://www.hkma.gov.hk/date-enrichment-test"
+    body = b"<h1>Example</h1><p>Exact evidence must remain unchanged.</p>"
+    page = FetchedPage(url, url, source, "html", "text/html", body, datetime.now(UTC))
+    extracted = extract_html(body, url)
+    writer = EvidenceWriter(conn, ws, user)
+    original = writer.save(page, extracted)
+    extracted.published = date(2026, 8, 28)
+    extracted.published_basis = "RSS pubDate in https://www.hkma.gov.hk/test-feed"
+    enriched = writer.save(page, extracted)
+    assert enriched.unchanged and original.document_version_id == enriched.document_version_id
+    assert original.passage_ids == enriched.passage_ids
+    extracted.published = date(2026, 9, 1)
+    writer.save(page, extracted)
+    row = conn.execute("select published_at,metadata,extracted_text from public.document_versions where id=%s",
+                       (original.document_version_id,)).fetchone()
+    assert row["published_at"].date() == date(2026, 8, 28)
+    assert row["metadata"]["publication_date_evidence"] == extracted.published_basis
+    assert row["extracted_text"] == extracted.text

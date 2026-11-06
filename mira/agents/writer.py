@@ -1,9 +1,9 @@
 """Writer: verified claims → report sections (PRD v2 §5.2, §9, AG10).
 
-The writer sees verified claims only, never passages or pages. It may condense
-and order them but not add facts: every sentence it writes must cite at least
-one verified claim, and code rejects a cited label that is not a verified claim
-before anything is saved. Structural (uncited) text comes from code only. "Coverage and limitations" is built from run
+The writer sees verified claims only, never passages or pages. It selects and
+orders them; code renders their complete saved content instead of the writer's
+free prose. Every sentence must cite a verified claim, and code rejects unknown
+labels before anything is saved. Structural (uncited) text comes from code only. "Coverage and limitations" is built from run
 records in code, and "What changed" belongs to the re-run diff, so the writer
 fills the other sections.
 """
@@ -19,7 +19,7 @@ from mira.contracts import Brief, LabelMap, ReportSection, ReportSentence, Write
 from mira.llm import LLMClient, LLMResult, call_checked
 from mira.store import StoredClaim
 
-PROMPT_VERSION = "writer/1"
+PROMPT_VERSION = "writer/2"
 
 WRITER_SECTIONS: tuple[str, ...] = (
     "executive_summary", "regulatory_developments", "deadlines_timeline", "jurisdiction_comparison",
@@ -44,12 +44,12 @@ SYSTEM = f"""You are the writer in Mira, a research assistant for bank internal 
 Write the report sections from the verified claims given. Return exactly these sections, once each, in this order: {", ".join(WRITER_SECTIONS)}.
 
 Rules:
-- Use only the facts in the claims. You may condense, merge and order them; never add a fact, date, number, entity or instrument.
+- Select and order verified claims. Copy their content verbatim; do not paraphrase, infer, or add recommendations. Code renders the saved claim text, not newly generated prose.
 - Every sentence must list the claim labels it rests on (C1, C2) and set structural to false. Headings are added for you.
 - Keep inferences worded as assessments, not facts.
 - regulatory_developments: by jurisdiction, each item's change (new, amended, upcoming) and plain-language obligation.
 - deadlines_timeline: one sentence per dated item, sorted by date.
-- impact_assessment: risks, opportunities and suggested audit actions; state priority and evidence confidence separately.
+- impact_assessment: only verified inference claims (risks, opportunities and suggested audit actions). Do not derive these from factual claims yourself.
 - executive_summary: at most eight sentences.
 - If a section has no claims for it, set no_verified_items to true and give no sentences.
 - {NO_CONCLUSIONS_RULE}"""
@@ -59,6 +59,7 @@ Rules:
 class WrittenReport:
     sections: list[ReportSection]
     llm: LLMResult[WriterOutput]
+    grounded_sentences: int = 0
 
 
 def _claim_line(label: str, claim: StoredClaim) -> str:
@@ -104,22 +105,44 @@ def write(client: LLMClient, brief: Brief, verified: Sequence[StoredClaim]) -> W
         client, role="writer", system=SYSTEM, user=user, output_type=WriterOutput,
         prompt_version=PROMPT_VERSION, check=check,
     )
-    sections = [
-        ReportSection(
-            section=section.section,
-            sentences=[
-                ReportSentence(
-                    text=sentence.text,
-                    finding_ids=labels.resolve_all(sentence.claim_labels, "C"),
-                    structural=sentence.structural,
-                )
-                for sentence in section.sentences
-            ],
-            no_verified_items=section.no_verified_items,
-        )
-        for section in result.output.sections
-    ]
-    return WrittenReport(sections, result)
+    sections, replaced = ground_sections(result.output, labels, verified)
+    return WrittenReport(sections, result, replaced)
+
+
+def ground_sections(output: WriterOutput, labels: LabelMap,
+                    verified: Sequence[StoredClaim]) -> tuple[list[ReportSection], int]:
+    """Final deterministic support gate: render only complete, verified claim content.
+
+    Citation validity cannot establish entailment. The writer controls selection
+    and order, but its free prose never enters a report. Full statements avoid
+    changing meaning by removing a negation or condition from a quoted substring.
+    Section eligibility also prevents factual claims being presented as newly
+    inferred risks or recommendations. The same gate applies to both model arms.
+    """
+    by_id = {claim.finding_id: claim for claim in verified}
+    sections = []
+    replaced = 0
+    for section in output.sections:
+        sentences = []
+        seen = set()
+        for sentence in section.sentences:
+            ids = labels.resolve_all(sentence.claim_labels, "C")
+            eligible = []
+            for finding_id in ids:
+                claim = by_id[finding_id]
+                allowed = (section.section == "executive_summary"
+                           or SECTION_FOR_TYPE[claim.draft.finding_type] == section.section
+                           or (section.section == "deadlines_timeline" and claim.draft.key_date is not None))
+                if allowed and finding_id not in seen:
+                    eligible.append(claim)
+                    seen.add(finding_id)
+            text = " ".join(claim.draft.content for claim in eligible)
+            if text != sentence.text:
+                replaced += 1
+            if eligible:
+                sentences.append(ReportSentence(text=text, finding_ids=[c.finding_id for c in eligible], structural=False))
+        sections.append(ReportSection(section=section.section, sentences=sentences, no_verified_items=not sentences))
+    return sections, replaced
 
 
 def claim_sections(verified: Sequence[StoredClaim]) -> list[ReportSection]:

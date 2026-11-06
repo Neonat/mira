@@ -444,7 +444,7 @@ class ExpectedScout(FakeScout):
                 document_label="D1", instrument_type="notice", industry_category=None, title="Notice 626",
                 published_date=None, effective_date=None, change_type="amended",
                 relevant_passage_labels=[label for label in labels if label.startswith("P")],
-                expected_source_labels=[],
+                expected_source_labels=expected_labels,
             )],
             expected_source_statuses=statuses, notes=None,
         )
