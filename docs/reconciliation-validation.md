@@ -27,3 +27,17 @@ Integrated origin/main at 9798269 with Nat’s ingestion branch at af34a56. The 
 E2E uses a real local database with synthetic source responses and scripted models in isolated test workspaces. It does not establish live regulator availability, model accuracy, recall/precision, API cost or an authenticated browser journey. This checkout has no configured model credentials or user login. Research sign-in was visually checked, not completed with a real account. The two apps are intentionally separate stages, joined by explicit import, not automatic synchronization. No shared Supabase writes or remote Git push were performed.
 
 Local development services: workbench on 8501, research UI on 8502, Supabase API on 55421 and Postgres on 55432. Test workspaces remain in this newly created local database; they are not in the application’s `mira` workspace.
+
+
+## Follow-up — 6 November 2026
+
+Integrated origin/main through e63546f into codex/nat-ingestion: the live three-arm runner, comparison decision rule and documentation updates. The working tree was clean before merging; the only conflict was README.md, resolved while preserving both workflows and prior validation evidence.
+
+- Focused comparison component checks: 23 passed.
+- Full regression against the existing local Supabase database: **217 passed, 8 subtests passed, no skips** (`MIRA_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres .venv/bin/python -m pytest tests eval -q`). This includes 30 pipeline/worker database tests.
+- Extended the pipeline E2E to load the comparison runner's actual saved findings, resolve inference citations, build precision worksheet rows and retrieve the expected original URL through full-text search and the plain-search arm.
+- Authenticated-role search succeeds for the workspace member and returns no passages for a non-member. The trusted worker connection intentionally bypasses RLS; setting actor claims alone is not an app authorization test.
+- Recorded scripted models remain ineligible for a live comparison verdict. Pip dependency and Git whitespace checks pass.
+- Restarted existing local Supabase containers after the cached npm CLI launcher failed to find its darwin-arm64 binary. No hosted database changes were made.
+
+The model keys and research login remain unconfigured, so no live-model comparison or authenticated browser journey was completed. MAS manual ingestion remains necessary; prior successful local PDF imports do not establish that the full evaluation corpus is present. The ground-truth document still requires independent human review, and precision requires human labels. These checks validate software behavior, not recall or precision claims.

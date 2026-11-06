@@ -28,6 +28,7 @@ class ArmOutput:
     client: object
     cost_usd: float | None
     seconds: float | None
+    precision: float | None = None  # eval/precision.py score of a fully labelled worksheet; None until then
 
 
 def compare(ground_truth: Sequence[Item], arms: Mapping[str, ArmOutput]) -> tuple[dict[str, Measured], Verdict]:
@@ -35,5 +36,6 @@ def compare(ground_truth: Sequence[Item], arms: Mapping[str, ArmOutput]) -> tupl
     measured: dict[str, Measured] = {}
     for name, output in arms.items():
         coverage = score(ground_truth, output.cited_urls)["all"].rate
-        measured[name] = Measured.from_client(name, output.client, coverage, output.cost_usd, output.seconds)
+        measured[name] = Measured.from_client(name, output.client, coverage, output.cost_usd, output.seconds,
+                                              output.precision)
     return measured, decide(measured)

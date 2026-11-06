@@ -205,6 +205,36 @@ def test_full_run_on_postgres(conn, workspace, tmp_path):
     assert "Example circular on AML controls" in html and "Expected sources" in html
     assert report["evidence_snapshot"]["contract_version"] == "1.1"
 
+    # Exercise the comparison runner against persisted evidence, not mocked SQL.
+    from eval.run_live import (claim_rows, cited_urls, load_records, passage_search,
+                               recorded_models, report_finding_ids, Measured, plain_search)
+
+    records = load_records(conn, user_id, ctx.analysis_run_id)
+    finding_ids = report_finding_ids(report["evidence_snapshot"])
+    expected_url = "https://brdr.hkma.gov.hk/eng/doc-ldg/current/TEST-1"
+    assert len(finding_ids) == 2
+    assert cited_urls(finding_ids, records) == [expected_url]
+    inference_ids = [key for key in finding_ids if records.findings[key].is_inference]
+    assert len(inference_ids) == 1
+    assert cited_urls(inference_ids, records) == [expected_url]
+    rows = claim_rows("multi_agent", finding_ids, records)
+    assert len(rows) == 2
+    fact = next(row for row in rows if row.supporting_quote)
+    assert fact.supporting_quote in fact.cited_passage
+    assert CIRCULAR_TEXT in fact.cited_passage
+    assert any("Rests on these verified facts:" in row.cited_passage for row in rows)
+    search = passage_search(conn, workspace_id, user_id)
+    hits = search("enhanced due diligence", 10)
+    assert hits and all(hit.source_url == expected_url for hit in hits)
+    assert plain_search("enhanced due diligence", search).cited_urls == (expected_url,)
+    # Check the app role: the trusted worker connection intentionally bypasses RLS.
+    with conn.transaction():
+        conn.execute("set local role authenticated")
+        assert passage_search(conn, workspace_id, user_id)("enhanced due diligence", 10)
+        assert passage_search(conn, workspace_id, uuid.uuid4())("enhanced due diligence", 10) == []
+    assert not Measured.from_recorded_models(
+        "multi_agent", recorded_models(conn, ctx.analysis_run_id), None, None, None).live
+
 
 def first_pass_scout(prompt):
     """Reports nothing found on the first pass, so every expected source starts missing (AG09).

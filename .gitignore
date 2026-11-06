@@ -14,3 +14,4 @@ reports/
 data/manual/*
 !data/manual/README.md
 !data/manual/manifest.example.csv
+eval/results/
