@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mira Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+<style>
+:root {
+  --bg: #f4f6f3; --surface: #ffffff; --fg: #18211e; --muted: #56635d; --line: #d3dad5;
+  --model: #4347c4; --model-tint: #ecedfb;
+  --human: #a3600d; --human-tint: #fbf1e3;
+  --store: #0d6f63; --store-tint: #e3f2ef;
+  --ok: #2b7a33; --stop: #b0383a; --stop-tint: #fbeaea;
+  --display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --body: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101513; --surface: #171e1b; --fg: #e3e9e5; --muted: #9aa8a1; --line: #2b3531;
+  --model: #a3a6ff; --model-tint: #22243f; --human: #e6a552; --human-tint: #33271a;
+  --store: #52c3b4; --store-tint: #15302c; --ok: #72c47a; --stop: #ec8282; --stop-tint: #3a1f20; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #101513; --surface: #171e1b; --fg: #e3e9e5; --muted: #9aa8a1; --line: #2b3531;
+  --model: #a3a6ff; --model-tint: #22243f; --human: #e6a552; --human-tint: #33271a;
+  --store: #52c3b4; --store-tint: #15302c; --ok: #72c47a; --stop: #ec8282; --stop-tint: #3a1f20; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 48px 16px 96px; display: flex; flex-direction: column; gap: 56px; }
+section { display: flex; flex-direction: column; gap: 16px; }
+.prose { max-width: 70ch; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font-size: clamp(2rem, 5vw, 2.8rem); }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.05rem; font-family: var(--body); font-weight: 600; }
+p { margin: 0; }
+.eyebrow { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.lede { font-size: 1.15rem; max-width: 66ch; }
+.muted { color: var(--muted); }
+header { display: flex; flex-direction: column; gap: 14px; }
+.principle { border-left: 3px solid var(--model); background: var(--surface); padding: 14px 18px; max-width: 76ch; }
+
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.9rem; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding-block: 12px; }
+nav.toc a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line); }
+nav.toc a:hover, nav.toc a:focus-visible { border-bottom-color: var(--fg); }
+a:focus-visible { outline: 2px solid var(--model); outline-offset: 2px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.85rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 18px; height: 12px; border-radius: 2px; border: 2px solid; display: inline-block; }
+.sw.model { border-color: var(--model); background: var(--model-tint); }
+.sw.code { border-color: var(--fg); background: var(--surface); }
+.sw.human { border-color: var(--human); background: var(--human-tint); border-style: dashed; }
+.sw.store { border-color: var(--store); background: var(--store-tint); }
+
+figure { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.fig-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; }
+.fig-scroll svg { display: block; width: 100%; min-width: 720px; height: auto; }
+figcaption { font-size: 0.92rem; color: var(--muted); max-width: 80ch; }
+svg text { font-family: var(--body); }
+svg .n { fill: var(--surface); stroke: var(--fg); stroke-width: 1.5; }
+svg .n.model { fill: var(--model-tint); stroke: var(--model); }
+svg .n.human { fill: var(--human-tint); stroke: var(--human); stroke-dasharray: 5 3; }
+svg .n.store { fill: var(--store-tint); stroke: var(--store); }
+svg .n.ok { fill: var(--surface); stroke: var(--ok); stroke-width: 2; }
+svg .n.stop { fill: var(--stop-tint); stroke: var(--stop); }
+svg .zone { fill: none; stroke: var(--muted); stroke-dasharray: 4 4; stroke-width: 1; }
+svg .t { font-size: 14px; font-weight: 600; fill: var(--fg); }
+svg .s { font-size: 12px; fill: var(--muted); }
+svg .tag { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; }
+svg .tag.model { fill: var(--model); } svg .tag.code { fill: var(--fg); } svg .tag.human { fill: var(--human); } svg .tag.store { fill: var(--store); }
+svg .a { stroke: var(--fg); stroke-width: 1.4; fill: none; }
+svg .a.loop { stroke: var(--human); stroke-dasharray: 5 3; }
+svg .a.fail { stroke: var(--stop); }
+svg .a.ok { stroke: var(--ok); }
+svg .al { font-size: 12px; fill: var(--muted); }
+svg .al.loop { fill: var(--human); } svg .al.fail { fill: var(--stop); } svg .al.ok { fill: var(--ok); }
+svg .zl { font-size: 11px; fill: var(--muted); letter-spacing: 0.06em; }
+svg marker path { fill: var(--fg); }
+svg marker.loop path { fill: var(--human); }
+svg marker.fail path { fill: var(--stop); }
+svg marker.ok path { fill: var(--ok); }
+
+ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: flex; flex-direction: column; gap: 12px; max-width: 78ch; }
+ol.steps li { counter-increment: s; display: grid; grid-template-columns: 2.2rem 1fr; gap: 12px; }
+ol.steps li::before { content: counter(s); font-size: 0.85rem; color: var(--muted); border: 1px solid var(--line); border-radius: 50%; width: 1.8rem; height: 1.8rem; display: grid; place-items: center; background: var(--surface); }
+
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; min-width: 620px; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+th { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--bg); }
+tr:last-child td { border-bottom: none; }
+td b { font-weight: 600; }
+.yes { color: var(--ok); font-weight: 600; }
+.no { color: var(--stop); font-weight: 600; }
+.part { color: var(--human); font-weight: 600; }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.panel ul { margin: 0; padding-left: 18px; font-size: 0.95rem; display: flex; flex-direction: column; gap: 6px; }
+.panel .big { font-family: var(--display); font-size: 2rem; font-weight: 700; line-height: 1; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+dl.gloss { display: grid; grid-template-columns: minmax(130px, 190px) 1fr; gap: 10px 20px; margin: 0; max-width: 88ch; }
+dl.gloss dt { font-weight: 600; }
+dl.gloss dd { margin: 0; }
+@media (max-width: 560px) { dl.gloss { grid-template-columns: 1fr; gap: 2px; } dl.gloss dd { margin-bottom: 10px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">DBS Internal Audit · External Driver Researcher · Prototype</div>
+  <h1>How Mira works</h1>
+  <p class="lede">Mira is a research assistant for internal auditors. An auditor picks a topic and the jurisdictions. Mira reads approved regulator and industry sources and returns a draft report in which every statement links to the passage it came from. A person reviews the draft and signs it off.</p>
+  <p class="principle"><b>Design principle:</b> AI models read and draft. Ordinary code decides what may be read, checks every claim against the saved source, and records every step. <span class="muted">Prototype scope: AML/CFT in Singapore and Hong Kong.</span></p>
+  <nav class="toc" aria-label="Contents">
+    <a href="#brief">The brief</a>
+    <a href="#system">The system</a>
+    <a href="#run">One run</a>
+    <a href="#checks">How claims are checked</a>
+    <a href="#sources">Sources</a>
+    <a href="#evaluation">Evaluation</a>
+    <a href="#status">Status</a>
+    <a href="#terms">Key terms</a>
+  </nav>
+</header>
+
+<section id="brief">
+  <div class="eyebrow">1 · The brief</div>
+  <h2>What DBS asked for, and how Mira answers it</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th style="width:32%">DBS requirement</th><th>How Mira meets it</th></tr></thead>
+      <tbody>
+        <tr><td><b>An agentic tool:</b> choose a topic and jurisdictions, get a structured report on regulatory and industry developments</td><td>Five AI agents (planner, scouts, analyst, verifier, writer) work in a fixed sequence that code controls. The report has fixed sections: summary, regulatory changes, deadlines, jurisdiction comparison, industry trends, impact on the bank.</td></tr>
+        <tr><td><b>Accuracy and traceability:</b> every statement links to its source</td><td>Each page is saved before any AI reads it. Each statement in the report cites a saved passage, the exact document version, and the original web address.</td></tr>
+        <tr><td><b>Completeness:</b> coverage is checked, not assumed</td><td>A checklist of sources that should be covered for each jurisdiction. Code checks which were actually read, retries missing ones, and prints any remaining gaps in the report.</td></tr>
+        <tr><td><b>Hallucination detection:</b> unsupported claims are caught</td><td>Each claim is checked twice: code confirms the quoted words really appear in the source, then a separate AI checks the meaning. Claims that fail never appear in the report body.</td></tr>
+        <tr><td><b>Human oversight</b></td><td>The report stays a watermarked draft until a reviewer has accepted, amended or rejected every finding and signed off.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="system">
+  <div class="eyebrow">2 · The system</div>
+  <h2>The system at a glance</h2>
+  <p class="prose">Mira has three parts: a web app for the auditor, a database, and a background worker. The app never talks to the AI or the internet. It only records requests in the database. The worker picks them up, does all AI calls and web reading, and saves every result back.</p>
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 1000 400" role="img" aria-label="The auditor uses the web app, which saves requests to the database. The worker takes requests from the database, calls the Claude AI and reads approved websites, and saves everything back. A researcher downloads documents from sites that block automated access and imports them into the database.">
+      <defs>
+        <marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <rect class="n human" x="15" y="150" width="130" height="80" rx="4"/>
+      <text class="t" x="80" y="182" text-anchor="middle">Auditor</text>
+      <text class="s" x="80" y="200" text-anchor="middle">asks, reviews, signs off</text>
+      <text class="tag human" x="80" y="219" text-anchor="middle">PERSON</text>
+
+      <rect class="n" x="195" y="150" width="160" height="80" rx="4"/>
+      <text class="t" x="275" y="182" text-anchor="middle">Web app</text>
+      <text class="s" x="275" y="200" text-anchor="middle">brief · progress · review</text>
+      <text class="tag code" x="275" y="219" text-anchor="middle">CODE · NO AI ACCESS</text>
+
+      <rect class="n store" x="410" y="115" width="180" height="150" rx="4"/>
+      <text class="t" x="500" y="148" text-anchor="middle">Database</text>
+      <text class="s" x="500" y="172" text-anchor="middle">requests waiting to run</text>
+      <text class="s" x="500" y="190" text-anchor="middle">saved pages and passages</text>
+      <text class="s" x="500" y="208" text-anchor="middle">claims, checks, reports</text>
+      <text class="s" x="500" y="226" text-anchor="middle">log of every step</text>
+      <text class="tag store" x="500" y="252" text-anchor="middle">EVIDENCE + AUDIT TRAIL</text>
+
+      <rect class="n" x="645" y="150" width="150" height="80" rx="4"/>
+      <text class="t" x="720" y="182" text-anchor="middle">Worker</text>
+      <text class="s" x="720" y="200" text-anchor="middle">runs the agents</text>
+      <text class="tag code" x="720" y="219" text-anchor="middle">CODE · HOLDS AI KEY</text>
+
+      <rect class="n model" x="850" y="45" width="140" height="70" rx="4"/>
+      <text class="t" x="920" y="74" text-anchor="middle">Claude AI</text>
+      <text class="s" x="920" y="92" text-anchor="middle">reads and drafts</text>
+      <text class="tag model" x="920" y="107" text-anchor="middle">AI</text>
+
+      <rect class="n" x="850" y="265" width="140" height="70" rx="4"/>
+      <text class="t" x="920" y="294" text-anchor="middle">Approved sites</text>
+      <text class="s" x="920" y="312" text-anchor="middle">HKMA, SFC and others</text>
+      <text class="tag code" x="920" y="327" text-anchor="middle">ALLOW-LIST ONLY</text>
+
+      <rect class="n human" x="410" y="315" width="180" height="70" rx="4"/>
+      <text class="t" x="500" y="343" text-anchor="middle">Manual import</text>
+      <text class="s" x="500" y="361" text-anchor="middle">MAS, statutes (block bots)</text>
+      <text class="tag human" x="500" y="376" text-anchor="middle">PERSON + CODE</text>
+
+      <line class="a" x1="145" y1="190" x2="193" y2="190" marker-end="url(#m1)"/>
+      <line class="a" x1="355" y1="178" x2="408" y2="178" marker-end="url(#m1)"/>
+      <text class="al" x="382" y="168" text-anchor="middle">request</text>
+      <line class="a" x1="408" y1="206" x2="357" y2="206" marker-end="url(#m1)"/>
+      <text class="al" x="382" y="226" text-anchor="middle">report</text>
+      <line class="a" x1="590" y1="178" x2="643" y2="178" marker-end="url(#m1)"/>
+      <text class="al" x="617" y="168" text-anchor="middle">picks up</text>
+      <line class="a" x1="643" y1="206" x2="592" y2="206" marker-end="url(#m1)"/>
+      <text class="al" x="617" y="226" text-anchor="middle">saves all</text>
+      <line class="a" x1="795" y1="165" x2="848" y2="100" marker-end="url(#m1)"/>
+      <line class="a" x1="795" y1="215" x2="848" y2="280" marker-end="url(#m1)"/>
+      <line class="a" x1="500" y1="315" x2="500" y2="267" marker-end="url(#m1)"/>
+    </svg>
+    </div>
+    <figcaption>Why it is split this way: the part people use holds no AI key and no internet access, so it cannot be misused to reach either. The worker may visit only sites on the approved list. Some sites (MAS, Singapore Statutes Online, HK e-Legislation) block automated access. Mira does not work around that: a person downloads those documents and imports them with their original address, and Mira then treats them like any fetched page.</figcaption>
+  </figure>
+</section>
+
+<section id="run">
+  <div class="eyebrow">3 · One run</div>
+  <h2>What happens when an auditor asks a question</h2>
+  <div class="legend" aria-label="Colour key">
+    <span><i class="sw model"></i>AI step</span>
+    <span><i class="sw code"></i>Code step</span>
+    <span><i class="sw human"></i>Person</span>
+  </div>
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 1000 330" role="img" aria-label="Top row: brief, plan, gather sources, completeness check. If expected sources are missing, go back to gather. Bottom row: draft claims, check claims, write report, human review. Claims that fail the check are listed as unresolved.">
+      <defs>
+        <marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="m2l" class="loop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="m2f" class="fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <path class="a loop" d="M880 60 V28 H625 V58" marker-end="url(#m2l)"/>
+      <text class="al loop" x="752" y="20" text-anchor="middle">sources still missing → gather again</text>
+
+      <rect class="n human" x="20" y="60" width="200" height="72" rx="4"/>
+      <text class="t" x="120" y="88" text-anchor="middle">1 · Brief</text>
+      <text class="s" x="120" y="106" text-anchor="middle">topic, markets, period</text>
+      <text class="tag human" x="120" y="123" text-anchor="middle">AUDITOR</text>
+
+      <rect class="n model" x="270" y="60" width="200" height="72" rx="4"/>
+      <text class="t" x="370" y="88" text-anchor="middle">2 · Plan</text>
+      <text class="s" x="370" y="106" text-anchor="middle">which sources to read</text>
+      <text class="tag model" x="370" y="123" text-anchor="middle">AI · CHECKED BY CODE</text>
+
+      <rect class="n model" x="525" y="60" width="200" height="72" rx="4"/>
+      <text class="t" x="625" y="88" text-anchor="middle">3 · Gather</text>
+      <text class="s" x="625" y="106" text-anchor="middle">scouts per market, in parallel</text>
+      <text class="tag model" x="625" y="123" text-anchor="middle">AI PICKS · CODE FETCHES</text>
+
+      <rect class="n" x="780" y="60" width="200" height="72" rx="4"/>
+      <text class="t" x="880" y="88" text-anchor="middle">4 · Completeness</text>
+      <text class="s" x="880" y="106" text-anchor="middle">checklist vs. what was read</text>
+      <text class="tag code" x="880" y="123" text-anchor="middle">CODE</text>
+
+      <line class="a" x1="220" y1="96" x2="268" y2="96" marker-end="url(#m2)"/>
+      <line class="a" x1="470" y1="96" x2="523" y2="96" marker-end="url(#m2)"/>
+      <line class="a" x1="725" y1="96" x2="778" y2="96" marker-end="url(#m2)"/>
+      <line class="a" x1="880" y1="132" x2="880" y2="188" marker-end="url(#m2)"/>
+
+      <rect class="n model" x="780" y="190" width="200" height="72" rx="4"/>
+      <text class="t" x="880" y="218" text-anchor="middle">5 · Draft claims</text>
+      <text class="s" x="880" y="236" text-anchor="middle">from saved passages only</text>
+      <text class="tag model" x="880" y="253" text-anchor="middle">AI</text>
+
+      <rect class="n" x="525" y="190" width="200" height="72" rx="4"/>
+      <text class="t" x="625" y="218" text-anchor="middle">6 · Check claims</text>
+      <text class="s" x="625" y="236" text-anchor="middle">quote check, then meaning</text>
+      <text class="tag code" x="625" y="253" text-anchor="middle">CODE + SEPARATE AI</text>
+
+      <rect class="n model" x="270" y="190" width="200" height="72" rx="4"/>
+      <text class="t" x="370" y="218" text-anchor="middle">7 · Write report</text>
+      <text class="s" x="370" y="236" text-anchor="middle">only verified claims</text>
+      <text class="tag model" x="370" y="253" text-anchor="middle">AI · CHECKED BY CODE</text>
+
+      <rect class="n human" x="20" y="190" width="200" height="72" rx="4"/>
+      <text class="t" x="120" y="218" text-anchor="middle">8 · Review, sign-off</text>
+      <text class="s" x="120" y="236" text-anchor="middle">decision on each finding</text>
+      <text class="tag human" x="120" y="253" text-anchor="middle">REVIEWER</text>
+
+      <line class="a" x1="780" y1="226" x2="727" y2="226" marker-end="url(#m2)"/>
+      <line class="a" x1="525" y1="226" x2="472" y2="226" marker-end="url(#m2)"/>
+      <line class="a" x1="270" y1="226" x2="222" y2="226" marker-end="url(#m2)"/>
+      <line class="a fail" x1="625" y1="262" x2="625" y2="298" marker-end="url(#m2f)"/>
+      <text class="al fail" x="635" y="316">failed claims → listed as "unresolved", not reported as fact</text>
+    </svg>
+    </div>
+    <figcaption>Read the top row left to right, then the bottom row right to left. Before every step, code checks the run's budget (AI usage, time, number of documents). If the budget runs out, Mira writes a report from what it has verified and marks the run "partial" rather than presenting it as complete.</figcaption>
+  </figure>
+  <ol class="steps">
+    <li><div><b>Brief.</b> The auditor chooses a topic, jurisdictions and a time period in the web app.</div></li>
+    <li><div><b>Plan.</b> An AI planner decides which approved sources each scout should read. Code rejects a plan that skips a source on the checklist or sends a Singapore task to a Hong Kong source. An analyst can be required to approve the plan first.</div></li>
+    <li><div><b>Gather.</b> Scouts (one per jurisdiction, plus one for industry bodies) read the sources. The AI chooses which links matter. Code does the fetching and saves each page before the AI sees it.</div></li>
+    <li><div><b>Completeness.</b> Code compares the checklist with what was actually saved. A scout claiming it found something does not count without the saved page. Missing sources get another attempt, and anything still missing is listed in the report.</div></li>
+    <li><div><b>Draft claims.</b> An AI analyst reads the saved passages and writes claims. A <i>fact</i> must quote its source word for word. An <i>inference</i> (a risk, trend or comparison) must name the facts it rests on.</div></li>
+    <li><div><b>Check claims.</b> Every claim goes through the checks in section 4.</div></li>
+    <li><div><b>Write.</b> An AI writer turns verified claims into the report sections. Code rejects any sentence that cites something not verified.</div></li>
+    <li><div><b>Review.</b> The report carries a DRAFT watermark. A reviewer records a decision on every finding. The system will not allow sign-off until each one has a decision.</div></li>
+  </ol>
+</section>
+
+<section id="checks">
+  <div class="eyebrow">4 · Hallucination control</div>
+  <h2>How a statement earns a place in the report</h2>
+  <p class="prose">Two checks, cheapest first. The first is plain code and catches invented quotes. The second is a separate AI, with no memory of how the claim was written, that catches real quotes stretched to mean something they don't (a wrong date, or "in force" when a rule is only proposed).</p>
+  <figure>
+    <div class="fig-scroll">
+    <svg viewBox="0 0 1000 300" role="img" aria-label="A claim goes to the quote check. If the quote is not in the saved source, the claim is rejected. If it is, a separate AI checks the meaning. Supported claims go into the report. Partly supported claims get one rewrite and are checked again. Anything else is unresolved and listed under limitations.">
+      <defs>
+        <marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="m3l" class="loop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="m3f" class="fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="m3o" class="ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <rect class="n model" x="20" y="100" width="170" height="72" rx="4"/>
+      <text class="t" x="105" y="130" text-anchor="middle">Claim</text>
+      <text class="s" x="105" y="148" text-anchor="middle">with its quoted source</text>
+
+      <rect class="n" x="250" y="100" width="190" height="72" rx="4"/>
+      <text class="t" x="345" y="128" text-anchor="middle">Quote check</text>
+      <text class="s" x="345" y="146" text-anchor="middle">are these words in the source?</text>
+      <text class="tag code" x="345" y="163" text-anchor="middle">CODE</text>
+
+      <rect class="n model" x="500" y="100" width="190" height="72" rx="4"/>
+      <text class="t" x="595" y="128" text-anchor="middle">Meaning check</text>
+      <text class="s" x="595" y="146" text-anchor="middle">does the source say this?</text>
+      <text class="tag model" x="595" y="163" text-anchor="middle">SEPARATE AI</text>
+
+      <rect class="n ok" x="790" y="100" width="190" height="72" rx="4"/>
+      <text class="t" x="885" y="132" text-anchor="middle">In the report</text>
+      <text class="s" x="885" y="150" text-anchor="middle">with citation and link</text>
+
+      <rect class="n stop" x="500" y="225" width="300" height="60" rx="4"/>
+      <text class="t" x="650" y="250" text-anchor="middle">Unresolved</text>
+      <text class="s" x="650" y="268" text-anchor="middle">listed under limitations, never stated as fact</text>
+
+      <rect class="n model" x="500" y="10" width="190" height="50" rx="4"/>
+      <text class="t" x="595" y="40" text-anchor="middle">One rewrite</text>
+
+      <line class="a" x1="190" y1="136" x2="248" y2="136" marker-end="url(#m3)"/>
+      <line class="a" x1="440" y1="136" x2="498" y2="136" marker-end="url(#m3)"/>
+      <text class="al" x="469" y="128" text-anchor="middle">found</text>
+      <line class="a ok" x1="690" y1="136" x2="788" y2="136" marker-end="url(#m3o)"/>
+      <text class="al ok" x="739" y="128" text-anchor="middle">supported</text>
+      <path class="a loop" d="M560 100 V62" marker-end="url(#m3l)"/>
+      <text class="al loop" x="552" y="86" text-anchor="end">partly supported</text>
+      <path class="a loop" d="M630 62 V98" marker-end="url(#m3l)"/>
+      <text class="al loop" x="638" y="86">check again</text>
+      <path class="a fail" d="M345 172 V255 H498" marker-end="url(#m3f)"/>
+      <text class="al fail" x="353" y="200">not found</text>
+      <line class="a fail" x1="595" y1="172" x2="595" y2="223" marker-end="url(#m3f)"/>
+      <text class="al fail" x="603" y="205">unsupported or contradicted</text>
+    </svg>
+    </div>
+    <figcaption>Inferences (risks, trends, comparisons) are checked only after every fact they rest on has passed, and are rejected if they add a date, name or number those facts do not contain.</figcaption>
+  </figure>
+</section>
+
+<section id="sources">
+  <div class="eyebrow">5 · Sources</div>
+  <h2>Where Mira looks</h2>
+  <p class="prose">Mira may contact only the 15 sources on its approved list. For each one, the list records how Mira can get its documents and whether it may store and quote the text. A source Mira can read but not quote still counts toward coverage, but no claim can cite it.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Sources</th><th>How Mira gets the documents</th><th>Can be quoted in a report?</th></tr></thead>
+      <tbody>
+        <tr><td><b>HKMA, SFC</b> (Hong Kong regulators)</td><td>Read automatically</td><td class="yes">Yes</td></tr>
+        <tr><td><b>MAS</b> (Singapore regulator)</td><td>Downloaded and imported by hand: the site blocks automated access</td><td class="yes">Yes</td></tr>
+        <tr><td><b>Singapore Statutes Online, HK e-Legislation</b> (the Acts themselves)</td><td>Downloaded and imported by hand</td><td class="yes">Yes</td></tr>
+        <tr><td><b>JFIU, FSTB</b> (Hong Kong government); <b>ABS, HKAB</b> (bank associations); <b>APG, Wolfsberg, Egmont, Basel Institute</b> (international bodies)</td><td>Read automatically</td><td class="part">Not yet: pending review of each site's terms</td></tr>
+        <tr><td><b>FATF, BIS</b> (international standard setters)</td><td>Must be imported by hand; none imported yet</td><td class="no">No: pending terms review</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="evaluation">
+  <div class="eyebrow">6 · Evaluation</div>
+  <h2>How we will show it works</h2>
+  <p class="prose">Using several agents costs more than using one, so the evaluation has to show the extra cost is worth it. The same question is run through three designs and each is scored the same way.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Design</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><b>Plain search</b> (baseline)</td><td>Keyword search over the saved documents. No AI.</td></tr>
+        <tr><td><b>Single agent</b></td><td>One AI does the research in one pass, with only the quote check.</td></tr>
+        <tr><td><b>Multi-agent</b> (Mira)</td><td>The full design above: a planner, scouts per jurisdiction, repeat attempts for missing sources, and both checks.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>Coverage</h3>
+      <div class="big">≥ 80%</div>
+      <p class="muted">Share of 24 real AML/CFT developments (an answer key compiled by hand for this period) that the report finds and cites.</p>
+    </div>
+    <div class="panel">
+      <h3>Precision</h3>
+      <div class="big">≥ 95%</div>
+      <p class="muted">Share of reported claims a person confirms against the source. A sample of claims is labelled with the design's name hidden, so the labeller does not know which design wrote each claim.</p>
+    </div>
+    <div class="panel">
+      <h3>Time saved</h3>
+      <div class="big">≥ 50%</div>
+      <p class="muted">Time for an auditor using Mira, including review, compared with doing the same research by hand.</p>
+    </div>
+  </div>
+  <p class="prose"><b>Decision rule:</b> the multi-agent design must beat the single agent on coverage or precision to justify its cost. <b>Early check:</b> the single agent must find at least half of the answer-key items it can reach before full evaluation goes ahead. The scoring code refuses to give a verdict from anything except live AI runs, so test data cannot produce a result.</p>
+</section>
+
+<section id="status">
+  <div class="eyebrow">7 · Status, 6 November 2026</div>
+  <h2>Where the project stands</h2>
+  <div class="grid2">
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--ok)"></span>Built and working</h3>
+      <ul>
+        <li>The full run, from brief to signed-off report, with every step logged.</li>
+        <li>Both claim checks, the completeness checklist, budgets, plan approval, and re-runs that show what changed since the last report.</li>
+        <li>Documents imported by hand: 7 MAS documents (including Notice 626 and its guidelines), three Singapore Acts (CDSA, the Terrorism (Suppression of Financing) Act, FSMA 2022), and Hong Kong's AML Ordinance (Cap. 615).</li>
+        <li>All three evaluation designs and the scoring tools.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--human)"></span>Still to do</h3>
+      <ul>
+        <li>Run the early check, then the three-way comparison with live AI runs.</li>
+        <li>Hand-label the precision sample and run the time-saved study.</li>
+        <li>Investigate a live test run on 6 November that stopped before the writing stage.</li>
+        <li>Ask MAS for written permission to store its text, and confirm the statute sites' terms allow quoting.</li>
+        <li>Review terms for the eight read-only sources; industry coverage stays thin until then.</li>
+        <li>Import FATF and BIS documents.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="terms">
+  <div class="eyebrow">Reference</div>
+  <h2>Key terms</h2>
+  <dl class="gloss">
+    <dt>Approved list</dt><dd>The only sources Mira may contact, each with what it is allowed to do: read, store text, quote.</dd>
+    <dt>Checklist</dt><dd>The sources that should be covered for a topic and jurisdiction. Completeness is measured against it.</dd>
+    <dt>Passage</dt><dd>A short section of a saved document. The smallest thing a claim can cite.</dd>
+    <dt>Fact / inference</dt><dd>A fact quotes a passage. An inference (risk, trend, comparison) is built only from verified facts.</dd>
+    <dt>Unresolved</dt><dd>A claim that failed a check. Shown under limitations, never stated as fact.</dd>
+    <dt>Partial run</dt><dd>A run that hit its budget. Its report says so and lists what was not covered.</dd>
+  </dl>
+</section>
+
+</div>
+</body>
+</html>
