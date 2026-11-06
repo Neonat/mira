@@ -196,8 +196,8 @@ Never commit database passwords, access tokens, service-role keys, or real envir
 Bookmarks for decisions and gaps deferred during the MVP build. Each needs a decision before the prototype is presented as complete.
 
 1. **Manual downloads for sources that refuse automated access.** These sources block automated fetching through `robots.txt` or HTTP 403, and Mira does not work around that:
-   - Singapore Statutes Online: CDSA, Terrorism (Suppression of Financing) Act, FSMA 2022
-   - HK e-Legislation: AMLO, Cap. 615
+   - Singapore Statutes Online: CDSA, Terrorism (Suppression of Financing) Act and FSMA 2022, imported on 6 November 2026
+   - HK e-Legislation: AMLO, Cap. 615, imported on 6 November 2026
    - FATF
    - BIS
 
@@ -205,4 +205,5 @@ Bookmarks for decisions and gaps deferred during the MVP build. Each needs a dec
 2. **Full-text search now; local embeddings later.** The MVP finds saved passages with Postgres full-text search (`search_passages`) only. The schema also supports semantic search with local `all-MiniLM-L6-v2` embeddings (`passage_embeddings`, `match_passages`, PRD v2 §5.4). That needs `sentence-transformers`, which installs about 2 GB of PyTorch, so it was left out. Without it, a scout misses passages that use different wording from its query; for example, it may not match "customer due diligence" to "CDD" or "know your customer". Revisit after measuring M0 recall: add embeddings if missed items trace back to wording.
 3. **MAS permission to store text.** MAS's terms forbid storing or reproducing its content without prior written permission. On 26 October 2026 the team decided the prototype stores MAS text anyway, because the verifier needs saved passages. Still open: request written permission from MAS for the academic prototype, and keep report quotes short and attributed until it is granted (risk G7).
 4. **MAS blocks automated access.** Since at least 26 October 2026, `www.mas.gov.sg` serves a "service unavailable" page with HTTP 200 to Mira's honest automated client: pages, `sitemap.xml` and PDFs all get it, although `robots.txt` allows all. Mira detects the page and reports MAS items as `fetch_failed`; it does not disguise itself or work around the block. Until this is resolved, Singapore regulatory coverage depends on MAS documents imported by hand with `python -m mira import mas` ([how](data/manual/README.md)), or on access agreed with MAS. Access can be raised together with the permission request in item 3.
+6. **Storing the text of Acts.** On 6 November 2026 the team decided the prototype stores and quotes the text of Acts imported from Singapore Statutes Online and HK e-Legislation, as it does for MAS (item 3): these are public laws, and reports quote short, attributed extracts. Still open: confirm that each site's terms of use allow this for the academic prototype.
 5. **Sources Mira can read but not cite.** Wolfsberg, APG, Egmont, ABS, HKAB, JFIU, FSTB and the Basel Institute have `metadata` and `fetch` only, until their terms are reviewed for `store_text`. Their pages are saved as metadata, but no passages are stored, so no claim can cite them. Industry developments stay thin until this review is done.

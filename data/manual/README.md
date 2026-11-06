@@ -6,7 +6,9 @@ Everything in this folder except this README and `manifest.example.csv` is ignor
 
 ## 1. Download
 
-Put each source's files in its own folder, for example `data/manual/mas/`. Save each document as a **PDF** (the MAS PDF itself) or an **HTML page** (in the browser, File → Save Page As → "Web Page, HTML Only"). Keep the address the document came from: Mira cites that URL in its reports.
+Put each source's files in its own folder, for example `data/manual/mas/`. Save each document as a **PDF** (the MAS PDF itself) or an **HTML page** (in the browser, File → Save Page As → "Web Page, HTML Only").
+
+For Singapore Statutes Online, save the HTML page with "Webpage, Complete" in Chrome instead, after scrolling to the end so the whole Act has loaded. The site builds the text with JavaScript, so "HTML Only" saves an empty page, and its PDFs run words together, which breaks search and quote matching. Import only the `.html` file, not the folder saved beside it. Keep the address the document came from: Mira cites that URL in its reports.
 
 Good MAS documents to start with, for the AML/CFT brief:
 - MAS Notice 626 and its latest amendment
@@ -41,4 +43,4 @@ The command prints one line per file: `saved`, `unchanged` (the same file was im
 
 Re-importing a changed file at the same URL creates a new version; the old one is kept. Imported passages are marked "Imported by hand" in the report's evidence appendix. Coverage rows that rest on them say "from documents imported by hand".
 
-Sources that permit only `metadata` (SSO, HK e-Legislation, FATF, BIS) save the document's details but no text, so nothing from them can be cited until their terms are reviewed for `store_text`.
+MAS, Singapore Statutes Online and HK e-Legislation permit `store_text`, so their imported documents are split into passages and can be cited. Sources that permit only `metadata` (FATF, BIS) save the document's details but no text, so nothing from them can be cited until their terms are reviewed for `store_text`.
