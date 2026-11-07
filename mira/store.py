@@ -20,6 +20,7 @@ The orchestrator calls the store from one thread only.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol
@@ -83,6 +84,11 @@ class PassageRecord:
     passage_number: int
     content: str
     imported: bool = False
+    content_sha256: str | None = None
+    extraction_version: str | None = None
+    page_number: int | None = None
+    char_start: int | None = None
+    char_end: int | None = None
 
 
 @dataclass(frozen=True)
@@ -141,7 +147,10 @@ class RunStore(Protocol):
 
     def update_claim(self, ctx: RunContext, finding_id: UUID, claim: NewClaim) -> StoredClaim: ...
 
-    def save_checks(self, ctx: RunContext, step_id: UUID, verdicts: Sequence[Verdict]) -> None: ...
+    def save_checks(
+        self, ctx: RunContext, step_id: UUID, verdicts: Sequence[Verdict],
+        *, input_snapshot: dict | None = None,
+    ) -> None: ...
 
     def save_coverage(self, ctx: RunContext, rows: Sequence[CoverageRow]) -> None: ...
 
@@ -182,6 +191,7 @@ class InMemoryStore:
     plans: list[dict[str, object]] = field(default_factory=list)
     claims: dict[UUID, StoredClaim] = field(default_factory=dict)
     checks: list[tuple[UUID, Verdict]] = field(default_factory=list)
+    check_inputs: list[dict | None] = field(default_factory=list)
     coverage: list[CoverageRow] = field(default_factory=list)
     reports: list[SavedReport] = field(default_factory=list)
     cancel: bool = False
@@ -235,8 +245,12 @@ class InMemoryStore:
         self.claims[finding_id] = stored
         return stored
 
-    def save_checks(self, ctx: RunContext, step_id: UUID, verdicts: Sequence[Verdict]) -> None:
+    def save_checks(
+        self, ctx: RunContext, step_id: UUID, verdicts: Sequence[Verdict],
+        *, input_snapshot: dict | None = None,
+    ) -> None:
         self.checks.extend((step_id, verdict) for verdict in verdicts)
+        self.check_inputs.extend(deepcopy(input_snapshot) for _ in verdicts)
 
     def save_coverage(self, ctx: RunContext, rows: Sequence[CoverageRow]) -> None:
         self.coverage.extend(rows)

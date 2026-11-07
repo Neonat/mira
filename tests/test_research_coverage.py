@@ -197,7 +197,11 @@ def test_passage_selection_covers_distinct_publications_before_more_pages(monkey
     records = [first, second_page, other]
     task = SimpleNamespace(max_documents=2, source_ids=(first.source_id,), question="AML")
     scout = WebScout("unused", None, SimpleNamespace())
-    connection = SimpleNamespace(execute=lambda *args: SimpleNamespace(fetchall=lambda: []))
+    def execute(query, *args):
+        eligible = [{"id": p.id} for p in records] if "p.id = any" in query else []
+        return SimpleNamespace(fetchall=lambda: eligible)
+
+    connection = SimpleNamespace(execute=execute)
     run = _ScoutRun(scout, connection, context(), uuid4(), task)
     run.store = SimpleNamespace(get_passages=lambda *args: records)
     run.visits = [_Visit(p.source_url, p.document_version_id, [p.id]) for p in records]

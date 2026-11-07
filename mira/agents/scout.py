@@ -482,31 +482,56 @@ class _ScoutRun:
                     visit = future.result()[1]
                     if visit:
                         ids.extend(p for p in visit.passage_ids if p not in ids)
-        # Evidence store first (§5.1 principle 4): passages saved by earlier runs count too.
+        # Pick an eligible version before ranking or applying any candidate limit.
+        # Publication date controls eligibility; retrieval time does not establish
+        # what a page contained historically.
+        brief = self.ctx.brief
+        eligible = """with eligible as (
+            select distinct on (v.document_id) v.id, v.published_at, v.metadata
+            from public.document_versions v
+            join public.documents d on d.id = v.document_id
+            where d.workspace_id = %s and v.workspace_id = %s
+              and d.source_id = any(%s)
+              and (v.published_at is null or v.published_at::date <= %s)
+            order by v.document_id, v.version_number desc
+        ) """
+        scope = (self.ctx.workspace_id, self.ctx.workspace_id,
+                 list(self.task.source_ids), brief.as_of_date)
+        # Match the public search function's ranking, but only after version
+        # and source eligibility, so obsolete passages cannot consume its cap.
         words = sorted(_terms(self.task.question))[:12]
         query = " or ".join(['"money laundering"', *words])
         found = self.conn.execute(
-            "select passage_id from public.search_passages(%s, %s, %s)", (self.ctx.workspace_id, query, 15)
+            eligible + """select p.id as passage_id
+                from public.document_passages p
+                join eligible v on v.id = p.document_version_id
+                where p.workspace_id = %s
+                  and p.search_vector @@ websearch_to_tsquery('english'::regconfig, %s)
+                order by ts_rank_cd(p.search_vector, websearch_to_tsquery('english'::regconfig, %s)) desc, p.id
+                limit 15""", (*scope, self.ctx.workspace_id, query, query)
         ).fetchall()
         ids.extend(row["passage_id"] for row in found if row["passage_id"] not in ids)
-        # The task's own sources: latest versions published in the period, and anything imported by
-        # hand (MAS and other sites that refuse automated access).
-        brief = self.ctx.brief
+        # Include period publications and manual imports using the same selected version.
         stored = self.conn.execute(
-            """select p.id from public.document_passages p
-               join public.document_versions v on v.id = p.document_version_id
-               join public.documents d on d.id = v.document_id
-               where d.workspace_id = %s and d.source_id = any(%s)
-                 and v.version_number = (select max(version_number) from public.document_versions
-                                         where document_id = d.id)
-                 and (v.published_at::date between %s and %s or v.metadata->>'import' = 'manual')
-               order by v.published_at desc nulls last, p.passage_number
-               limit 300""",
-            (self.ctx.workspace_id, list(self.task.source_ids), brief.period_start, brief.period_end),
+            eligible + """select p.id from public.document_passages p
+                join eligible v on v.id = p.document_version_id
+                where p.workspace_id = %s
+                  and (v.published_at::date between %s and %s or v.metadata->>'import' = 'manual')
+                order by v.published_at desc nulls last, p.passage_number
+                limit 300""",
+            (*scope, self.ctx.workspace_id, brief.period_start, brief.period_end),
         ).fetchall()
         ids.extend(row["id"] for row in stored if row["id"] not in ids)
+        # Fresh and reused visits must obey the same eligibility as stored results.
+        selected = self.conn.execute(
+            eligible + """select p.id from public.document_passages p
+                join eligible v on v.id = p.document_version_id
+                where p.workspace_id = %s and p.id = any(%s)""",
+            (*scope, self.ctx.workspace_id, ids),
+        ).fetchall()
+        selected_ids = {row["id"] for row in selected}
         passages = [p for p in self.store.get_passages(self.ctx.workspace_id, ids)
-                    if p.source_id in self.task.source_ids
+                    if p.id in selected_ids and p.source_id in self.task.source_ids
                     and (p.published_at is None or p.published_at <= brief.as_of_date)]
         terms = _terms(f"{self.ctx.brief.topic} money laundering terrorism financing {self.task.question}")
         feed_urls = {p.source_url for p in passages if p.source_url.endswith(".xml") or "/rss" in p.source_url.lower()}

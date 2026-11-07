@@ -32,7 +32,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-CONTRACT_VERSION = "1.3"
+CONTRACT_VERSION = "1.4"
 
 # --- Enums (mirror the database check constraints) ---------------------------
 
@@ -348,6 +348,91 @@ class ReviewOutcome(Contract):
     exclusion_reason: str | None
 
 
+class FrozenCitation(Contract):
+    passage_id: UUID
+    document_version_id: UUID
+    supporting_quote: str
+    support_type: Literal["supports", "contradicts", "context"]
+
+
+class FrozenFinding(Contract):
+    finding_id: UUID
+    finding_type: FindingType
+    title: str
+    content: str
+    priority: Rating
+    evidence_confidence: Rating
+    priority_reason: str | None
+    jurisdiction_code: JurisdictionCode | None
+    change_type: ChangeType | None
+    industry_category: IndustryCategory | None
+    is_inference: bool
+    evidence_confidence_reason: str | None
+    key_date: date | None
+    key_date_kind: KeyDateKind | None
+    depends_on: list[UUID]
+    evidence: list[FrozenCitation]
+
+
+class FrozenPassage(Contract):
+    id: UUID
+    document_version_id: UUID
+    document_id: UUID
+    source_id: UUID
+    source_name: str
+    jurisdiction_code: str | None
+    title: str
+    source_url: str
+    published_at: date | None
+    passage_number: int
+    content: str
+    imported: bool = False
+    content_sha256: str | None = None
+    extraction_version: str | None = None
+    page_number: int | None = None
+    char_start: int | None = None
+    char_end: int | None = None
+
+
+class EvidenceInput(Contract):
+    schema_version: Literal[1] = 1
+    workspace_id: UUID
+    analysis_run_id: UUID
+    analysis_revision_id: UUID
+    findings: dict[UUID, FrozenFinding]
+    passages: dict[UUID, FrozenPassage]
+
+
+class FrozenExpectedSource(Contract):
+    id: UUID
+    list_version: int
+    jurisdiction_code: str
+    category: str
+    source_id: UUID
+    document_hint: str
+
+
+class FrozenVerification(Contract):
+    check_id: UUID
+    method: CheckMethod
+    verdict: VerdictLabel
+    reason: str
+    model: str | None
+    prompt_version: str | None
+    checked_at: datetime
+    input_fingerprint: str
+    attempt: int = Field(ge=1)
+    agent_step_id: UUID | None
+
+
+class FrozenEvidenceBundle(EvidenceInput):
+    verifications: dict[UUID, FrozenVerification]
+    brief: Brief
+    expected_sources: dict[UUID, FrozenExpectedSource]
+    reviewer_display_name: str
+    reviewed_at: datetime
+
+
 class ReportSnapshot(Contract):
     """Shape of reports.evidence_snapshot: the sentence-to-claim mapping (AG10)."""
 
@@ -358,6 +443,7 @@ class ReportSnapshot(Contract):
     coverage: list[CoverageRow]
     unresolved_finding_ids: list[UUID]
     review_outcomes: dict[UUID, ReviewOutcome] = Field(default_factory=dict)
+    evidence_bundle: FrozenEvidenceBundle | None = None
 
 
 # --- Run trace (code) ----------------------------------------------------------

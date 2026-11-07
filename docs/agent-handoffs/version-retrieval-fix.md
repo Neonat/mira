@@ -1,0 +1,10 @@
+Objective: Select the latest publication-date-eligible version per document before passage search ranking and candidate limits, consistently across saved, fresh and shared passages.
+Base SHA: ad79028f650cc4e8632fc94344c72e0ed332a47a
+Owned files: mira/agents/scout.py; tests/test_version_retrieval.py; this authorized handoff.
+Read-only files: AGENTS.md; docs/agent-handoffs/README.md; tests/test_scout_reuse.py; tests/test_pipeline_db.py; local Postgres schema and search function.
+Sources/commands: Local Postgres at 127.0.0.1:55432; MIRA_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres .venv/bin/pytest -q tests/test_version_retrieval.py tests/test_scout_reuse.py; targeted test_pipeline_db.py tests for future/manual passages and publication enrichment; git diff --check.
+Changes: Scoped SQL selects highest version_number among versions with unknown publication date or publication on/before as-of. The existing full-text rank and 15-passage cap now apply after that selection, and stored, visit and shared-cache candidates obey the same selection. Existing caps, final source/date checks and extraction handling remain. No retrieved-at cutoff, historical archive claim, RPC or schema change.
+Scoped checks and results: Regression for stale visit/shared version failed before the fix and passed after; five new Postgres regressions plus eight scout reuse tests passed (13 total). Two existing targeted Postgres tests for manual/future eligibility and unchanged extraction/publication enrichment passed. Test workspaces and rows are rolled back. git diff --check passed. No full suite or paid run.
+Open risks: Selection represents latest eligible saved content, not proof of what a page contained at the historical as-of date. Full integration suite and review remain for coordinator. SQL now mirrors public.search_passages ranking, so future changes to that function must be kept aligned.
+Exact next step: Coordinator review the diff and integrate with other assigned changes, then run the single authorized integration suite.
+Status: complete

@@ -28,14 +28,15 @@
     "handoff": "hk-telemetry-diagnosis.md"
   },
   "verification": {
-    "tests_passed": 293,
+    "tests_passed": 350,
     "subtests_passed": 8,
     "skipped": 0,
-    "database": "Local PostgreSQL at localhost:55432, including review migration 20261107120000",
+    "database": "Local PostgreSQL at localhost:55432, including evidence migration 20261107180000",
     "integration_providers": "Scripted; separate real-model HK runs recorded below",
     "human_precision": "Unlabelled",
-    "browser_rehearsal": "Local synthetic authenticated review/sign-off complete; 10 artifact checks and video playback passed. Full brief/approval/run-monitoring recording remains separate.",
-    "remote_deployment": false
+    "browser_rehearsal": "Prior local synthetic authenticated rehearsal predates contract 1.4; no new browser recording. Current frozen review projection has automated tests.",
+    "remote_deployment": false,
+    "full_suite_scope": "Isolated evidence-integrity integration; separate layout integration 26 focused checks"
   },
   "runs": [
     {
@@ -131,5 +132,32 @@
     "new_runtime_changes": false,
     "human_accuracy": "Unlabelled",
     "corroboration": "Deferred"
+  },
+  "evidence_integrity_integration": {
+    "base_sha": "ad79028f650cc4e8632fc94344c72e0ed332a47a",
+    "separate_layout_sha": "53b88fb",
+    "contract_version": "1.4",
+    "migration": "20261107180000_mira_frozen_reviewed_evidence.sql",
+    "migration_scope": "Local PostgreSQL only; no historical backfill",
+    "fixes": [
+      "Worker-bound verification inputs, server-bound reviews and complete immutable reviewed evidence bundles",
+      "Bundle-only reviewed rendering and display; incomplete or legacy regeneration fails closed",
+      "Latest publication/as-of-eligible saved version selection before ranking/limits"
+    ],
+    "tests_passed": 350,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "full_suite_scope": "Isolated source base ad79028 plus evidence-integrity changes; tests and offline eval including PostgreSQL",
+    "separate_layout_integration_tests_passed": 26,
+    "new_paid_research_runs": 0,
+    "new_live_model_calls": 0,
+    "browser_rehearsal": "No new contract-1.4 browser rehearsal; review projection unit tested",
+    "deferred": [
+      "Ingestion expansion",
+      "Corroboration",
+      "Original-capture retention",
+      "Durable artifact storage/restore"
+    ],
+    "handoff": "evidence-integrity-fix.md"
   }
 }

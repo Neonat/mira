@@ -50,8 +50,10 @@ def make_run(conn, workspace_id, user_id):
     ).fetchone()["id"]
     revision_id = conn.execute(
         """insert into public.project_revisions
-             (workspace_id, project_id, revision_number, title, objective, risk_topics, markets, change_reason, created_by)
-           values (%s, %s, 1, 'AML brief', 'test', array['AML/CFT'], array['SG','HK']::char(2)[], 'brief', %s)
+             (workspace_id, project_id, revision_number, title, objective, risk_topics, markets, change_reason, created_by,
+              reporting_period_start, reporting_period_end)
+           values (%s, %s, 1, 'AML brief', 'test', array['AML/CFT'], array['SG','HK']::char(2)[], 'brief', %s,
+                   current_date-365, current_date)
            returning id""",
         (workspace_id, project_id, user_id),
     ).fetchone()["id"]
@@ -234,9 +236,18 @@ def make_report(conn, workspace_id, analyst):
     return revision_id, finding_id
 
 
-SIGN_OFF = """insert into public.reports (workspace_id, analysis_revision_id, report_version, format, review_status,
+SIGN_OFF = """with args(workspace_id, revision_id, actor, reviewer) as (
+                values (%s::uuid, %s::uuid, %s::uuid, %s::uuid)
+              )
+              insert into public.reports (workspace_id, analysis_revision_id, report_version, format, review_status,
                 template_version, evidence_snapshot, generated_by, reviewed_by, reviewed_at)
-              values (%s, %s, 2, 'html', 'reviewed', 'report/1', '{}'::jsonb, %s, %s, now())"""
+              select a.workspace_id, a.id, 2, 'html', 'reviewed', 'report/1',
+                jsonb_build_object('contract_version','1.4','analysis_run_id',a.analysis_run_id,
+                  'analysis_revision_id',a.id,'sections','[]'::jsonb,'coverage','[]'::jsonb,
+                  'unresolved_finding_ids','[]'::jsonb,'review_outcomes','{}'::jsonb),
+                args.actor, args.reviewer, now()
+              from args join public.analysis_revisions a on a.id=args.revision_id
+                and a.workspace_id=args.workspace_id"""
 
 
 def test_reviewer_records_decisions_and_signs_off(conn, workspace_id):

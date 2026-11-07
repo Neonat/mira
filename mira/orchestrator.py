@@ -54,6 +54,7 @@ from mira.contracts import (
 from mira.interfaces import CheckOutcome, Scout, ScoutFailure, ScoutOutcome, ScoutTask, Verifier
 from mira.llm import LLMClient, LLMError, LLMResult
 from mira.diff import diff_key, diff_runs
+from mira.evidence_snapshot import build_verification_input
 from mira.report import ReportContext, render_html
 from mira.store import ExpectedSourceRecord, PassageRecord, RunContext, RunStore, SourceRecord, StoredClaim
 
@@ -545,13 +546,18 @@ class _Run:
         refs = {"finding_id": str(claim.finding_id), "attempt": attempt}
         try:
             with self._step("verifier", input_refs=refs) as step:
+                checked_input = build_verification_input(
+                    self.ctx, claim, {item.finding_id: item for item in self.claims}, self.passages,
+                )
                 outcome = call()
                 self._used(step, outcome)
                 if not outcome.checks or any(
                     (check.finding_id, check.attempt) != (claim.finding_id, attempt) for check in outcome.checks
                 ):
                     raise ValueError("verifier returned checks for a different claim or attempt")
-                self.store.save_checks(self.ctx, step.id, outcome.checks)
+                self.store.save_checks(
+                    self.ctx, step.id, outcome.checks, input_snapshot=checked_input.model_dump(mode="json"),
+                )
                 step.output_refs["verdict"] = outcome.verdict
         except (LLMError, ValueError) as exc:
             self.reasons.append(f"verifier failed on claim {claim.label}: {exc}")

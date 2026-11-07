@@ -240,7 +240,9 @@ class PostgresStore:
         rows = self.conn.execute(
             """select p.id, p.document_version_id, v.document_id, d.source_id, s.name as source_name,
                       s.jurisdiction_code, v.title, v.source_url, v.published_at, p.passage_number, p.content,
-                      coalesce(v.metadata->>'import', '') = 'manual' as imported
+                      coalesce(v.metadata->>'import', '') = 'manual' as imported,
+                      v.content_sha256, coalesce(p.extraction_version, v.extraction_version) as extraction_version,
+                      p.page_number, p.char_start, p.char_end
                from public.document_passages p
                join public.document_versions v on v.id = p.document_version_id
                join public.documents d on d.id = v.document_id
@@ -252,7 +254,8 @@ class PostgresStore:
             PassageRecord(row["id"], row["document_version_id"], row["document_id"], row["source_id"],
                           row["source_name"], (row["jurisdiction_code"] or "").strip() or None, row["title"],
                           row["source_url"], _as_date(row["published_at"]), row["passage_number"], row["content"],
-                          row["imported"])
+                          row["imported"], row["content_sha256"], row["extraction_version"],
+                          row["page_number"], row["char_start"], row["char_end"])
             for row in rows
         ]
 
@@ -441,17 +444,22 @@ class PostgresStore:
             ).fetchall()
         return StoredClaim(finding_id, claim.draft, claim.evidence, tuple(row["depends_on_finding_id"] for row in depends))
 
-    def save_checks(self, ctx: RunContext, step_id: UUID, verdicts: Sequence[Verdict]) -> None:
+    def save_checks(
+        self, ctx: RunContext, step_id: UUID, verdicts: Sequence[Verdict], *, input_snapshot: dict | None = None,
+    ) -> None:
         with acting_as(self.conn, ctx.user_id):
             for v in verdicts:
                 self.conn.execute(
                     # clock_timestamp(), not now(): checks saved in one transaction keep their order.
                     """insert into public.claim_checks
                          (workspace_id, analysis_run_id, finding_id, attempt, method, verdict, reason, model,
-                          prompt_version, agent_step_id, checked_at)
-                       values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, clock_timestamp())""",
+                          prompt_version, agent_step_id, checked_at, input_snapshot, input_fingerprint)
+                       values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, clock_timestamp(), %s,
+                               private.evidence_input_fingerprint(%s::jsonb))""",
                     (ctx.workspace_id, ctx.analysis_run_id, v.finding_id, v.attempt, v.method, v.verdict, v.reason,
-                     v.model, v.prompt_version, step_id),
+                     v.model, v.prompt_version, step_id,
+                     Jsonb(input_snapshot) if input_snapshot is not None else None,
+                     Jsonb(input_snapshot) if input_snapshot is not None else None),
                 )
 
     def save_coverage(self, ctx: RunContext, rows: Sequence[CoverageRow]) -> None:
