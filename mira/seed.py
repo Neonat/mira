@@ -1,4 +1,4 @@
-"""Allow-listed sources and expected-source list v1 (docs/mira_approved_sources.md).
+"""Allow-listed sources and expected-source list v2 (docs/mira_approved_sources.md).
 
 ``seed(conn, workspace_id)`` upserts both, so it is safe to run again after the
 list changes. Start URLs are hub, listing and feed pages only; individual
@@ -21,7 +21,7 @@ from psycopg.types.json import Jsonb
 ALL_OPERATIONS = ("metadata", "fetch", "store_text", "quote", "embed")
 FETCH_ONLY = ("metadata", "fetch")
 MANUAL = ("metadata",)
-EXPECTED_LIST_VERSION = 1
+EXPECTED_LIST_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,7 @@ class SourceSeed:
     crawl_delay_seconds: float = 1.0
     block_markers: tuple[str, ...] = ()
     notes: str = ""
+    category_urls: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def connector_config(self) -> dict[str, object]:
         return {
@@ -47,6 +48,7 @@ class SourceSeed:
             "extra_hosts": list(self.extra_hosts),
             "crawl_delay_seconds": self.crawl_delay_seconds,
             "block_markers": list(self.block_markers),
+            "category_urls": {key: list(urls) for key, urls in self.category_urls.items()},
         }
 
 
@@ -84,6 +86,12 @@ SOURCES: tuple[SourceSeed, ...] = (
                f"{HKMA_RSS}/rss_consultations.xml", f"{HKMA_RSS}/rss_press-release.xml"),
         extra_hosts=("brdr.hkma.gov.hk",),
         notes="Circulars and guidelines are served from brdr.hkma.gov.hk",
+        category_urls={
+            "circular": (f"{HKMA_AML}/guidance-papers-circulars/",),
+            "guideline": (f"{HKMA_AML}/ordinances-statutory-guidelines/",),
+            "enforcement": (f"{HKMA_AML}/disciplinary-actions/",),
+            "consultation": (f"{HKMA_RSS}/rss_consultations.xml",),
+        },
     ),
     SourceSeed(
         "sfc", "SFC", "Securities and Futures Commission", "regulator", "https://www.sfc.hk", "HK", ALL_OPERATIONS,
@@ -91,7 +99,13 @@ SOURCES: tuple[SourceSeed, ...] = (
         feeds=("https://www.sfc.hk/en/RSS-Feeds/Press-releases", "https://www.sfc.hk/en/RSS-Feeds/Circulars",
                "https://www.sfc.hk/en/RSS-Feeds/Consultations-and-Conclusions"),
         extra_hosts=("apps.sfc.hk",),
-        notes="Listings on apps.sfc.hk need JavaScript; use the RSS feeds",
+        notes="Use the public publication-search and content services behind the SFC's JavaScript pages; RSS covers only recent items",
+        category_urls={
+            "circular": ("https://apps.sfc.hk/edistributionWeb/api/circular/search?category=anti-money-laundering&year={year}&pageSize=100",),
+            "guideline": ("https://www.sfc.hk/en/Rules-and-standards/Anti-money-laundering-and-counter-financing-of-terrorism/Legal-and-regulatory-requirements",),
+            "enforcement": ("https://apps.sfc.hk/edistributionWeb/api/news/search?category=enforcement&year={year}&pageSize=100",),
+            "consultation": ("https://apps.sfc.hk/edistributionWeb/api/consultation/search?category=all&year={year}&pageSize=100",),
+        },
     ),
     SourceSeed("hk-elegislation", "HK e-Legislation", "Department of Justice", "manual", "https://www.elegislation.gov.hk", "HK", MANUAL,
                notes="robots.txt disallows all; import Cap. 615 by hand"),
@@ -142,6 +156,7 @@ EXPECTED: tuple[ExpectedSeed, ...] = (
     ExpectedSeed("HK", "consultation", "HKMA consultations on AML/CFT", "hkma"),
     ExpectedSeed("HK", "enforcement", "HKMA disciplinary actions for AML breaches", "hkma", f"{HKMA_AML}/disciplinary-actions/"),
     ExpectedSeed("HK", "guideline", "SFC AML/CFT Guideline for licensed corporations", "sfc"),
+    ExpectedSeed("HK", "circular", "SFC AML/CFT circulars", "sfc"),
     ExpectedSeed("HK", "enforcement", "SFC enforcement actions involving AML", "sfc"),
     ExpectedSeed("HK", "consultation", "SFC consultations on AML/CFT", "sfc"),
     ExpectedSeed("HK", "circular", "FSTB AML/CFT policy and risk assessment updates", "fstb"),

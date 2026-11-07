@@ -19,6 +19,7 @@ to HTML, PDF and RSS/Atom. The user agent is honest and never disguised.
 from __future__ import annotations
 
 import ipaddress
+import json
 import socket
 import threading
 import time
@@ -32,6 +33,7 @@ from typing import Literal, Protocol
 from urllib.parse import urljoin, urlsplit
 
 from mira.store import SourceRecord
+from mira.sfc import search_payload
 
 USER_AGENT = "MiraResearchPrototype/0.1"
 MAX_BYTES = 15_000_000
@@ -39,8 +41,9 @@ MAX_REDIRECTS = 5
 TIMEOUT_SECONDS = 30.0
 MIN_DELAY_SECONDS = 1.0
 
-PageKind = Literal["html", "pdf", "feed"]
+PageKind = Literal["html", "pdf", "feed", "json"]
 CONTENT_KINDS: dict[str, PageKind] = {
+    "application/json": "json",
     "text/html": "html",
     "application/xhtml+xml": "html",
     "application/pdf": "pdf",
@@ -76,6 +79,7 @@ class RawResponse:
 
 class Transport(Protocol):
     def get(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int) -> RawResponse: ...
+    def post(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int, body: bytes) -> RawResponse: ...
 
 
 class UrllibTransport:
@@ -89,7 +93,14 @@ class UrllibTransport:
         self._opener = urllib.request.build_opener(self._NoRedirect())
 
     def get(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int) -> RawResponse:
-        request = urllib.request.Request(url, headers=headers, method="GET")
+        return self._request(url, headers, timeout, max_bytes)
+
+    def post(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int, body: bytes) -> RawResponse:
+        return self._request(url, headers, timeout, max_bytes, body)
+
+    def _request(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int,
+                 body: bytes | None = None) -> RawResponse:
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST" if body is not None else "GET")
         try:
             response = self._opener.open(request, timeout=timeout)
         except urllib.error.HTTPError as exc:
@@ -188,17 +199,19 @@ class Fetcher:
         self._hosts_lock = threading.Lock()
         self._blocked: set[str] = set()
 
-    def fetch(self, url: str) -> FetchedPage:
+    def fetch(self, url: str, *, json_body: dict[str, object] | None = None) -> FetchedPage:
         current = url
         for _ in range(MAX_REDIRECTS + 1):
             source = self.allow.source_for(current)
+            if json_body is not None and search_payload(current) is None:
+                raise FetchRefused("JSON requests are limited to the SFC public publication-search endpoints")
             host = (urlsplit(current).hostname or "").lower()
             if host in self._blocked:
                 raise SiteBlocked(f"{host} served a block page earlier in this run; not asked again", repeated=True)
             self._check_addresses(current)
             if not self._robots_allow(current, source):
                 raise FetchRefused(f"robots.txt disallows {current}")
-            response = self._get(current, source)
+            response = self._get(current, source, json_body)
             if 300 <= response.status < 400:
                 location = response.headers.get("location")
                 if not location:
@@ -255,7 +268,7 @@ class Fetcher:
             state.robots = parser
         return state.robots.can_fetch(USER_AGENT, url)
 
-    def _get(self, url: str, source: SourceRecord) -> RawResponse:
+    def _get(self, url: str, source: SourceRecord, json_body: dict[str, object] | None = None) -> RawResponse:
         parts = urlsplit(url)
         state = self._state(parts.netloc.lower())
         with state.lock:
@@ -267,6 +280,11 @@ class Fetcher:
                 if wait > 0:
                     self._sleep(wait)
             try:
+                if json_body is not None:
+                    return self._transport.post(
+                        url, {"User-Agent": USER_AGENT, "Content-Type": "application/json", "Accept": "application/json"},
+                        TIMEOUT_SECONDS, MAX_BYTES, json.dumps(json_body).encode(),
+                    )
                 return self._transport.get(
                     url,
                     {"User-Agent": USER_AGENT, "Accept": "text/html,application/pdf,application/rss+xml,application/xml;q=0.9,*/*;q=0.1"},

@@ -147,8 +147,12 @@ def claim_rows(arm: str, finding_ids: Sequence[str], records: RunRecords) -> lis
     return rows
 
 
-def recall_summary(urls: Sequence[str]) -> dict[str, dict[str, int]]:
-    recall = score_recall(load_items(GROUND_TRUTH), urls)
+def recall_summary(urls: Sequence[str], brief=None) -> dict[str, dict[str, int]]:
+    scope = {} if brief is None else {
+        "jurisdictions": brief.jurisdictions, "period_start": brief.period_start,
+        "period_end": brief.period_end, "as_of_date": brief.as_of_date,
+    }
+    recall = score_recall(load_items(GROUND_TRUTH), urls, **scope)
     return {label: {"found": r.found, "total": r.total} for label, r in recall.items()}
 
 
@@ -313,7 +317,7 @@ def run(args: argparse.Namespace) -> int:
                 records = load_records(conn, user, ctx.analysis_run_id)
                 cited = report_finding_ids(snapshot)
                 record["cited_urls"] = cited_urls(cited, records)
-                record["recall"] = recall_summary(record["cited_urls"])  # type: ignore[arg-type]
+                record["recall"] = recall_summary(record["cited_urls"], brief)  # type: ignore[arg-type]
                 record["report"] = f"reports/{ctx.analysis_run_id}"
                 rows += sample(claim_rows(arm, cited, records), args.sample)
             arms[arm] = record
@@ -327,7 +331,7 @@ def run(args: argparse.Namespace) -> int:
         seconds = time.monotonic() - started
         arms["plain_search"] = {
             "status": "draft", "reasons": result.notes, "seconds": round(seconds, 1), "cost_usd": 0.0, "tokens": 0,
-            "cited_urls": list(result.cited_urls), "recall": recall_summary(result.cited_urls),
+            "cited_urls": list(result.cited_urls), "recall": recall_summary(result.cited_urls, brief),
         }
         (folder / "plain_search.md").write_text(
             "\n".join([f"# {result.notes[0]}", "", *[f"- {url}" for url in result.cited_urls]]) + "\n",

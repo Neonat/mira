@@ -19,7 +19,7 @@ from mira.contracts import Brief, LabelMap, ReportSection, ReportSentence, Write
 from mira.llm import LLMClient, LLMResult, call_checked
 from mira.store import StoredClaim
 
-PROMPT_VERSION = "writer/2"
+PROMPT_VERSION = "writer/3"
 
 WRITER_SECTIONS: tuple[str, ...] = (
     "executive_summary", "regulatory_developments", "deadlines_timeline", "jurisdiction_comparison",
@@ -49,7 +49,8 @@ Rules:
 - Keep inferences worded as assessments, not facts.
 - regulatory_developments: by jurisdiction, each item's change (new, amended, upcoming) and plain-language obligation.
 - deadlines_timeline: one sentence per dated item, sorted by date.
-- impact_assessment: only verified inference claims (risks, opportunities and suggested audit actions). Do not derive these from factual claims yourself.
+- impact_assessment: only verified inference claims explaining risks, opportunities or applicability. Do not derive these from factual claims yourself.
+- Include every distinct verified finding in its main section. The executive summary selects key points.
 - executive_summary: at most eight sentences.
 - If a section has no claims for it, set no_verified_items to true and give no sentences.
 - {NO_CONCLUSIONS_RULE}"""
@@ -139,10 +140,23 @@ def ground_sections(output: WriterOutput, labels: LabelMap,
             text = " ".join(claim.draft.content for claim in eligible)
             if text != sentence.text:
                 replaced += 1
-            if eligible:
+            if eligible and section.section == "executive_summary":
                 sentences.append(ReportSentence(text=text, finding_ids=[c.finding_id for c in eligible], structural=False))
+            elif eligible:
+                sentences.extend(_finding_sentence(claim) for claim in eligible)
+        if section.section != "executive_summary":
+            sentences.extend(
+                _finding_sentence(claim) for claim in verified
+                if SECTION_FOR_TYPE[claim.draft.finding_type] == section.section and claim.finding_id not in seen
+            )
+        if section.section == "deadlines_timeline":
+            sentences.sort(key=lambda sentence: by_id[sentence.finding_ids[0]].draft.key_date or date.max)
         sections.append(ReportSection(section=section.section, sentences=sentences, no_verified_items=not sentences))
     return sections, replaced
+
+
+def _finding_sentence(claim: StoredClaim) -> ReportSentence:
+    return ReportSentence(text=claim.draft.content, finding_ids=[claim.finding_id], structural=False)
 
 
 def claim_sections(verified: Sequence[StoredClaim]) -> list[ReportSection]:
@@ -161,9 +175,6 @@ def claim_sections(verified: Sequence[StoredClaim]) -> list[ReportSection]:
             sentences = [ReportSentence(text=note, finding_ids=[], structural=True)] if verified else []
             sections.append(ReportSection(section=key, sentences=sentences, no_verified_items=not verified))
             continue
-        sentences = [
-            ReportSentence(text=f"{claim.draft.title}. {claim.draft.content}", finding_ids=[claim.finding_id], structural=False)
-            for claim in claims
-        ]
+        sentences = [_finding_sentence(claim) for claim in claims]
         sections.append(ReportSection(section=key, sentences=sentences, no_verified_items=not claims))
     return sections

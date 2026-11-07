@@ -38,8 +38,9 @@ from mira.interfaces import ScoutOutcome, ScoutTask
 from mira.llm import LLMClient, LLMResult, call_checked
 from mira.pg_store import PostgresStore
 from mira.store import PassageRecord, RunContext
+from mira.sfc import search_payload
 
-PROMPT_VERSION = "scout/3"
+PROMPT_VERSION = "scout/5"
 MAX_LINKS_SHOWN = 120
 MAX_PASSAGES_SHOWN = 40
 MAX_PASSAGE_CHARS = 60_000
@@ -51,12 +52,14 @@ You are given a research question, a period and links found on allow-listed regu
 Pick the links most likely to lead to publications that answer the question within the period: rules, guidelines, circulars, consultations, enforcement actions, policy statements, or the documents (often PDFs) they link to.
 Skip navigation, unrelated topics and anything clearly outside the period. Pick at most the number allowed; pick none if nothing fits.
 Prefer primary documents over RSS summaries or duplicate landing pages. Cover different assigned sources and missing categories before opening more documents about an already covered item.
+When dated publications in the requested period are available, read those before more hubs, navigation pages, or general guidelines without a recent change. Select several distinct relevant publications when the allowance permits.
 - {UNTRUSTED_TEXT_RULE}"""
 
 REPORT_SYSTEM = f"""You are a research scout for Mira, a research assistant for bank internal auditors.
 From the saved passages, list the documents that answer the research question within the period, citing the passage labels that matter (P1, P2).
 For each document give its instrument type or industry category, title, dates and whether it is new, amended or upcoming, using only what the passages state; use null when unknown.
-For each expected source, say found (a relevant development in the period), no_change (the source was read and shows nothing new in the period) or missing (it could not be checked).
+For each expected source, say found (a relevant development in the period), no_change (the relevant publication or category was inspected and shows nothing new in the period) or missing (it could not be checked).
+For no_change, list the inspected_passage_labels that show the relevant publication, index or category you actually checked for this specific checklist item. A page from the same publisher on another subject is insufficient. If that evidence is unavailable, use missing. You may list inspection evidence even when there are no relevant developments to put in documents.
 Listing nothing is a valid answer. Never fill gaps from memory.
 - {TEMPORAL_RULE}
 - {NO_CONCLUSIONS_RULE}
@@ -84,7 +87,7 @@ def document_key(url: str) -> str:
     url = urldefrag(url)[0]
     parts = urlsplit(url)
     if parts.hostname == "brdr.hkma.gov.hk":
-        match = re.fullmatch(r"/(eng|chi)/doc-ldg/(?:current/([^/]+)|docId/getPdf/([^/]+)/[^/]+\.pdf)", parts.path)
+        match = re.fullmatch(r"/(eng|chi)/doc-ldg/(?:(?:current|docId)/([^/]+)|docId/getPdf/([^/]+)/[^/]+\.pdf)", parts.path)
         if match:
             return f"hkma:{match[1]}:{match[2] or match[3]}"
     return url
@@ -174,8 +177,9 @@ class _ScoutRun:
             return None
         self.seen.add(url)
         now = datetime.now(UTC)
+        payload = search_payload(url)
         try:
-            page = self.scout.fetcher.fetch(url)
+            page = self.scout.fetcher.fetch(url, json_body=payload) if payload is not None else self.scout.fetcher.fetch(url)
         except FetchRefused as exc:
             self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None, error=str(exc), attempted_at=now))
             return None
@@ -189,7 +193,8 @@ class _ScoutRun:
         if extracted.published is None and link is not None and link.published and link.date_source:
             extracted.published = link.published
             extracted.published_basis = link.date_source
-        saved = self.writer.save(page, extracted)
+        provenance = {"request_method": "POST", "request_json": payload} if payload is not None else None
+        saved = self.writer.save(page, extracted, provenance)
         self.log.append(FetchAttempt(
             url=page.url, outcome="unchanged" if saved.unchanged else "saved",
             document_version_id=saved.document_version_id, error=extracted.error, attempted_at=now,
@@ -203,6 +208,15 @@ class _ScoutRun:
 
     def _fetch_document(self, url: str, link: Link | None = None) -> None:
         """Fetch a chosen page and, if it is a landing page for a PDF, the PDF it links to."""
+        key = document_key(url)
+        if key.startswith("hkma:"):
+            _, language, reference = key.split(":")
+            if re.fullmatch(r"\d{8}-\d+-(?:EN|CHI)", reference):
+                pdf_url = f"https://brdr.hkma.gov.hk/{language}/doc-ldg/docId/getPdf/{reference}/{reference}.pdf"
+                if self.scout.fetcher.allow.allows(pdf_url):
+                    pdf = self._fetch(pdf_url, link)
+                    if pdf is not None and pdf.status in ("complete", "partial") and pdf.text:
+                        return
         extracted = self._fetch(url, link)
         if extracted is None:
             return
@@ -226,17 +240,26 @@ class _ScoutRun:
 
     def execute(self) -> ScoutOutcome:
         sources = {source.id: source for source in self.store.list_sources(self.ctx.workspace_id)}
+        expected = self.store.list_expected_sources(self.ctx.workspace_id, self.ctx.brief.topic, self.ctx.brief.jurisdictions)
+        categories = list(dict.fromkeys(item.category for item in expected if item.id in self.task.expected_source_ids))
         queues = []
+        other_indexes = []
         for source_id in self.task.source_ids:
             source = sources.get(source_id)
-            if source is not None and "fetch" in source.permitted_operations:
+            if source is not None and {"fetch", "store_text"} <= set(source.permitted_operations):
                 config = source.connector_config
-                urls = [*config.get("feeds", []), *config.get("start_urls", [])]
+                preferred = [url for category in categories for url in config.get("category_urls", {}).get(category, [])]
+                years = range(self.ctx.brief.period_end.year, self.ctx.brief.period_start.year - 1, -1)
+                urls = [url.format(year=year) for url in preferred for year in years]
+                urls = list(dict.fromkeys([*urls, *config.get("feeds", []), *config.get("start_urls", [])]))
                 if urls:
-                    queues.append(urls)
-        # Seed pages take turns across sources and use at most half the allowance,
-        # so the rest is left for the documents they link to.
-        seed_limit = max(1, (self.allowance + 1) // 2)
+                    initial = len(years) if preferred and "{year}" in preferred[0] else 1
+                    queues.append(urls[:initial])
+                    other_indexes.extend(urls[initial:])
+        # Start at one category per source, including its requested year slices.
+        # Bound seed pages to roughly half the allowance, preserving room for
+        # the publications themselves when the task can fetch multiple pages.
+        seed_limit = min(max(1, (self.allowance + 1) // 2), sum(map(len, queues)))
         stop_at = self.allowance - seed_limit
         while queues and self.allowance > stop_at:
             for queue in list(queues):
@@ -245,6 +268,9 @@ class _ScoutRun:
                 self._fetch(queue.pop(0))
                 if not queue:
                     queues.remove(queue)
+        other_indexes.extend(url for queue in queues for url in queue)
+        self.candidates.extend(Link(url, "Additional approved publication index", self.task.question)
+                               for url in other_indexes if url not in self.seen)
         for _ in range(self.scout.max_rounds):
             if self.allowance <= 0 or not self.candidates or not self._within_tokens():
                 break
@@ -279,8 +305,9 @@ class _ScoutRun:
         if not fresh:
             return
         terms = _terms(self.task.question + " money laundering terrorism financing AML CFT")
-        fresh.sort(key=lambda link: (-len(terms & _terms(link.text + " " + link.context)),
-                                     link.published is None, -(link.published.toordinal() if link.published else 0)))
+        fresh.sort(key=lambda link: (link.published is None,
+                                     -len(terms & _terms(link.text + " " + link.context)),
+                                     -(link.published.toordinal() if link.published else 0)))
         # Round-robin hosts so a large feed cannot crowd other sources out of the prompt.
         groups: dict[str, list[Link]] = {}
         for link in fresh:
@@ -366,18 +393,27 @@ class _ScoutRun:
         # Collapse exact passages and known document aliases; RSS remains a discovery
         # source, not an alias for all the distinct publications it lists.
         pdf_keys = {document_key(p.source_url) for p in passages if _is_pdf(p.source_url)}
-        chosen, total, content_seen = [], 0, set()
+        by_document: dict[str, list[PassageRecord]] = {}
+        content_seen = set()
         for passage in passages:
             if not _is_pdf(passage.source_url) and document_key(passage.source_url) in pdf_keys:
                 continue
             content_key = (document_key(passage.source_url), passage.published_at, " ".join(passage.content.split()))
             if content_key in content_seen:
                 continue
-            if len(chosen) >= MAX_PASSAGES_SHOWN or total + len(passage.content) > MAX_PASSAGE_CHARS:
-                break
-            chosen.append(passage)
             content_seen.add(content_key)
-            total += len(passage.content)
+            by_document.setdefault(document_key(passage.source_url), []).append(passage)
+        chosen, total = [], 0
+        while by_document and len(chosen) < MAX_PASSAGES_SHOWN:
+            for key in list(by_document):
+                if len(chosen) >= MAX_PASSAGES_SHOWN:
+                    break
+                passage = by_document[key].pop(0)
+                if total + len(passage.content) <= MAX_PASSAGE_CHARS:
+                    chosen.append(passage)
+                    total += len(passage.content)
+                if not by_document[key]:
+                    del by_document[key]
         return chosen
 
     def _report(self) -> tuple[ScoutReport, dict[str, UUID]]:
@@ -407,6 +443,7 @@ class _ScoutRun:
                 labels.resolve_all(document.expected_source_labels, "E")
             for status in output.expected_source_statuses:
                 labels.resolve(status.expected_source_label, "E")
+                labels.resolve_all(status.inspected_passage_labels, "P")
 
         result = call_checked(self.scout.client, role=self.task.role, system=REPORT_SYSTEM, user=user,
                               output_type=ScoutReport, prompt_version=PROMPT_VERSION, check=check)

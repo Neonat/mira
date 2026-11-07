@@ -1,6 +1,6 @@
 """Render a signed-off report from its saved snapshot, without new analysis (PRD v2 §6.6, §9; v1 DB07).
 
-A reviewed report is a new reports row that points at the same snapshot as the draft. The worker
+A reviewed report freezes the reviewed text and the decisions captured by the database. The worker
 renders its HTML here, from the findings, passages and coverage that were already saved. No model is
 called and nothing is re-analysed. The app cannot do this itself: it never reaches the worker's
 database or the report files (tests/test_app_boundary.py).
@@ -58,6 +58,18 @@ def render_signed_off(
     if missing:
         raise ValueError(f"{len(missing)} cited finding(s) are not in the store; the reviewed report is not rendered")
     claims = {f.finding_id: StoredClaim(f.finding_id, f.draft, f.evidence, f.depends_on) for f in findings}
+    for finding_id, outcome in snapshot.review_outcomes.items():
+        if finding_id in wanted and (outcome.exclusion_reason or outcome.decision == "needs_evidence"):
+            raise ValueError("reviewed snapshot still cites an excluded finding or an evidence request")
+        if outcome.decision == "amended" and finding_id in claims:
+            if not outcome.amended_content or not outcome.amended_content.strip():
+                raise ValueError("reviewed amendment has no text")
+            original = claims[finding_id]
+            amended = original.draft.model_copy(update={
+                "title": "Reviewer amendment", "content": outcome.amended_content,
+                "key_date": None, "key_date_kind": None,
+            })
+            claims[finding_id] = StoredClaim(finding_id, amended, original.evidence, original.depends_on)
     context = ReportContext(
         brief=brief, run_status="reviewed", claims=claims, passages=passages,
         unresolved={fid: REASON_NOT_STORED for fid in snapshot.unresolved_finding_ids},

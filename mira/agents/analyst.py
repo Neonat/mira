@@ -17,8 +17,8 @@ from mira.contracts import AnalystOutput, Brief, ClaimCitation, ClaimDraft, Labe
 from mira.llm import LLMClient, LLMResult, call_checked
 from mira.store import ClaimEvidence, NewClaim, PassageRecord, StoredClaim
 
-PROMPT_VERSION = "analyst/2"
-REWRITE_PROMPT_VERSION = "analyst-rewrite/2"
+PROMPT_VERSION = "analyst/3"
+REWRITE_PROMPT_VERSION = "analyst-rewrite/3"
 
 FINDING_TYPES = """Factual claims (is_inference false, cite at least one passage, depends_on empty):
 - obligation_summary: plain-language summary of a new, amended or upcoming rule or guideline; set change_type.
@@ -27,7 +27,7 @@ FINDING_TYPES = """Factual claims (is_inference false, cite at least one passage
 - external_fact: another factual development, such as an enforcement action or a supervisory statement.
 - industry_development: an incident, case study, best practice or innovation; set industry_category.
 Inferences (is_inference true, depends_on lists the factual claim labels they rest on):
-- risk_implication, opportunity, jurisdiction_comparison, trend, applicability_assessment, audit_question."""
+- risk_implication, opportunity, jurisdiction_comparison, trend, applicability_assessment."""
 
 SYSTEM = f"""You are the analyst in Mira, a research assistant for bank internal auditors.
 From the quoted passages, write claims about developments in the brief's topic, jurisdictions and period.
@@ -36,8 +36,10 @@ From the quoted passages, write claims about developments in the brief's topic, 
 
 Rules:
 - Each citation's supporting_quote must be copied word for word from the cited passage, and be short.
-- An inference may use only facts stated in the claims it depends on.
-- Rate priority (how soon an auditor should look) separately from evidence_confidence (how well the passages support the claim), each with a reason.
+- Cover each distinct, relevant development evidenced by the passages. Combine duplicate accounts of the same point.
+- Explain what changed, who issued it or was affected, and the operative details and qualifications when supported. Preserve distinctions between proposed rules, guidance, and binding obligations. Distinguish publication, effective, consultation and event dates.
+- An inference must explain how its cited facts support the assessment and preserve material uncertainty. Describe peer or regulator developments and their relevance without proposing an audit action.
+- Rate the urgency of the external development separately from evidence_confidence (how well the passages support the claim), each with a reason.
 - Cite passages only by the labels given (P1, P2). Label claims C1, C2 and so on.
 - If the passages show no relevant development, return an empty list. Never fill gaps from memory.
 - {TEMPORAL_RULE}

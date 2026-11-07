@@ -41,3 +41,38 @@ def test_grounding_keeps_full_condition_and_negation_not_a_supported_substring()
     sections, count = ground_sections(output, labels, [saved])
     assert sections[0].sentences[0].text == content
     assert count == 1
+
+
+def test_a_generated_audit_action_is_excluded_before_verification():
+    from test_orchestrator import analyst_output, finding
+
+    response = analyst_output()
+    response["claims"][-1].update(finding_type="audit_question", content="DBS should open an audit review.")
+    orchestrator, store, _, verifier = make({"analyst": [response]})
+
+    outcome = orchestrator.run(context())
+
+    assert finding(store, "C4").finding_id in outcome.snapshot.unresolved_finding_ids
+    assert all(call[0] != "C4" for call in verifier.calls)
+    assert "DBS should open an audit review." not in store.reports[0].html
+
+
+def test_inference_verifier_rejects_a_recommendation_even_without_new_facts():
+    from uuid import uuid4
+
+    from mira.agents.verifier import LlmVerifier
+    from mira.contracts import ClaimDraft
+    from mira.llm import ScriptedClient
+    from mira.store import StoredClaim
+    from test_orchestrator import claim
+
+    fact = StoredClaim(uuid4(), ClaimDraft(**claim("C1", "external_fact", "P1", "A notice was issued.")), (), ())
+    inference = StoredClaim(uuid4(), ClaimDraft(**claim(
+        "C2", "risk_implication", is_inference=True, depends_on=["C1"], content="DBS should open an audit review."
+    )), (), (fact.finding_id,))
+    verifier = LlmVerifier(ScriptedClient({"verifier": [{
+        "introduces_new_fact": False, "new_facts": [], "is_supported_assessment": False,
+        "reason": "The statement suggests an audit action.",
+    }]}))
+
+    assert verifier.check_inference(inference, [fact], 1).verdict == "unsupported"

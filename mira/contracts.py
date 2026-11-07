@@ -32,7 +32,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-CONTRACT_VERSION = "1.2"
+CONTRACT_VERSION = "1.3"
 
 # --- Enums (mirror the database check constraints) ---------------------------
 
@@ -139,9 +139,15 @@ class ScoutDocumentDraft(Contract):
 
 
 class ExpectedSourceStatusDraft(Contract):
+    # Old saved scout reports omit inspection references. Require the field in
+    # new strict model output while retaining those records' parseability.
+    model_config = ConfigDict(extra="forbid", frozen=True, json_schema_extra={
+        "required": ["expected_source_label", "status", "note", "inspected_passage_labels"],
+    })
     expected_source_label: Label
     status: Literal["found", "no_change", "missing"]
     note: str | None
+    inspected_passage_labels: list[Label] = Field(default_factory=list)
 
 
 class ScoutReport(Contract):
@@ -236,10 +242,11 @@ class VerdictDraft(Contract):
 
 
 class InferenceCheckDraft(Contract):
-    """Model output for the "introduces no new fact" test on an inference."""
+    """Model output for grounding and scope checks on an inference."""
 
     introduces_new_fact: bool
     new_facts: list[str]
+    is_supported_assessment: bool
     reason: str
 
 
@@ -330,6 +337,16 @@ class ReportSection(Contract):
     no_verified_items: bool
 
 
+class ReviewOutcome(Contract):
+    review_id: UUID | None
+    decision: Literal["accepted", "amended", "rejected", "needs_evidence"] | None
+    reviewed_at: datetime | None
+    reviewed_by: UUID | None
+    review_sequence: int | None = None
+    amended_content: str | None
+    exclusion_reason: str | None
+
+
 class ReportSnapshot(Contract):
     """Shape of reports.evidence_snapshot: the sentence-to-claim mapping (AG10)."""
 
@@ -339,6 +356,7 @@ class ReportSnapshot(Contract):
     sections: list[ReportSection]
     coverage: list[CoverageRow]
     unresolved_finding_ids: list[UUID]
+    review_outcomes: dict[UUID, ReviewOutcome] = Field(default_factory=dict)
 
 
 # --- Run trace (code) ----------------------------------------------------------

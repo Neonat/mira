@@ -36,6 +36,7 @@ from mira.agents import analyst, planner, writer
 from mira.brief import check_brief_scope
 from mira.budget import BudgetExhausted, BudgetTracker
 from mira.completeness import coverage_rows
+from mira.coverage_display import coverage_label
 from mira.contracts import (
     Brief,
     CONTRACT_VERSION,
@@ -364,10 +365,24 @@ class _Run:
                     raise ValueError(f"scout cited passage label {label!r} it did not define")
                 if result.labels[label] not in passage_ids:
                     passage_ids.append(result.labels[label])
+        document_passage_ids = set(passage_ids)
+        for status in result.report.expected_source_statuses:
+            for label in status.inspected_passage_labels:
+                passage_id = result.labels.get(label)
+                if not label.startswith("P") or passage_id is None:
+                    raise ValueError(f"scout cited inspection label {label!r} it did not define")
+                if passage_id not in passage_ids:
+                    passage_ids.append(passage_id)
         found = self.store.get_passages(self.ctx.workspace_id, passage_ids)
         missing = set(passage_ids) - {passage.id for passage in found}
         if missing:
             raise ValueError(f"{len(missing)} cited passages are not saved in the evidence store")
+        selected_versions = {p.document_version_id for p in found if p.id in document_passage_ids}
+        shown_ids = [real for label, real in result.labels.items() if label.startswith("P") and real not in passage_ids]
+        for passage in self.store.get_passages(self.ctx.workspace_id, shown_ids):
+            if passage.document_version_id in selected_versions:
+                found.append(passage)
+                passage_ids.append(passage.id)
         self.passages.update({passage.id: passage for passage in found})
         self.scout_results[task.task_label] = result
         step.output_refs.update(
@@ -377,6 +392,7 @@ class _Run:
             fetch_refused=sum(1 for attempt in result.fetch_log if attempt.outcome == "refused"),
             fetch_reused=sum(1 for attempt in result.fetch_log if attempt.outcome == "reused"),
             fetch_failed=sum(1 for attempt in result.fetch_log if attempt.outcome == "failed"),
+            fetch_log=[attempt.model_dump(mode="json") for attempt in result.fetch_log],
         )
 
     def _check_coverage(self) -> None:
@@ -427,7 +443,8 @@ class _Run:
         for item in self.expected:
             row = latest.get(item.id)
             source = self.sources.get(item.source_id)
-            if row is None or row.status != "missing" or source is None or "fetch" not in source.permitted_operations:
+            if (row is None or row.status != "missing" or source is None
+                    or not {"fetch", "store_text"} <= set(source.permitted_operations)):
                 continue
             missing.append(item)
         return missing
@@ -475,9 +492,13 @@ class _Run:
 
     def _verify(self) -> None:
         for claim in self.claims:
+            if claim.draft.finding_type == "audit_question":
+                self.unresolved[claim.finding_id] = "out of scope: audit actions are for the auditor to decide"
+        for claim in self.claims:
             if not claim.draft.is_inference:
                 self._verify_fact(claim)
-        pending = [claim for claim in self.claims if claim.draft.is_inference]
+        pending = [claim for claim in self.claims
+                   if claim.draft.is_inference and claim.finding_id not in self.unresolved]
         progress = True
         while pending and progress:
             progress = False
@@ -642,12 +663,13 @@ class _Run:
         if self.coverage:
             counts: dict[str, int] = {}
             for row in self.coverage:
-                counts[row.status] = counts.get(row.status, 0) + 1
+                label = coverage_label(row.status, row.note).lower()
+                counts[label] = counts.get(label, 0) + 1
             version = max(row.list_version for row in self.expected)
-            summary = ", ".join(f"{n} {name.replace('_', ' ')}" for name, n in sorted(counts.items()))
-            coverage_line = f"Coverage relative to the expected-source list v{version}, not complete: {summary}."
+            summary = " · ".join(f"{n} {label}" for label, n in sorted(counts.items()))
+            coverage_line = f"Source coverage checklist v{version} — {summary}."
         else:
-            coverage_line = "Coverage against the expected-source list was not checked in this run."
+            coverage_line = "This run did not check a configured source coverage checklist."
         lines = [
             coverage_line,
             f"{len(self.verified)} claims verified; {len(self.unresolved)} unresolved and kept out of the report body.",

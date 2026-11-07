@@ -1,15 +1,17 @@
 """A reviewed render is the saved snapshot with the sign-off added, not a new report (PRD v2 §6.6, §9)."""
 
 import re
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
 
-from mira.contracts import Brief, ClaimDraft, ReportSection, ReportSentence, ReportSnapshot
+from mira.contracts import Brief, ClaimDraft, CoverageRow, ReportSection, ReportSentence, ReportSnapshot
+from mira.coverage_display import MANUAL_IMPORT_NOTE
 from mira.render import REASON_NOT_STORED, SavedFinding, render_signed_off
 from mira.report import ReportContext, render_html
-from mira.store import ClaimEvidence, PassageRecord
+from mira.store import ClaimEvidence, ExpectedSourceRecord, PassageRecord
 
 BRIEF = Brief(topic="AML/CFT", jurisdictions=["SG"], period_start=date(2025, 10, 1), period_end=date(2026, 9, 30),
               as_of_date=date(2026, 10, 26), plan_requires_approval=False)
@@ -79,6 +81,45 @@ def test_unresolved_items_say_the_reason_is_not_kept_rather_than_printing_blank(
     html = render_signed_off(snapshot, brief=BRIEF, findings=[saved], passages={passage.id: passage}, expected={},
                              reviewer="Reviewer A", decided_at=AT, generated_at=AT)
     assert REASON_NOT_STORED in html
+
+
+def test_numbered_market_finding_shows_dated_metadata_and_one_link_per_supporting_document():
+    snapshot, saved, passage = fixture()
+    second_passage = replace(passage, id=uuid4(), passage_number=2)
+    claim = replace(
+        _stored(saved),
+        draft=saved.draft.model_copy(update={"key_date": date(2026, 3, 1), "key_date_kind": "published"}),
+        evidence=(*saved.evidence, ClaimEvidence(second_passage.id, "screen customers")),
+    )
+    expected = ExpectedSourceRecord(uuid4(), 1, "HK", "policy", uuid4(), "Policy updates")
+    main_section = snapshot.sections[0].model_copy(update={"sentences": [
+        ReportSentence(text=claim.draft.content, finding_ids=[claim.finding_id], structural=False),
+    ]})
+    timeline = main_section.model_copy(update={"section": "deadlines_timeline"})
+    snapshot = snapshot.model_copy(update={
+        "coverage": [CoverageRow(expected_source_id=expected.id, gap_round=0, status="missing",
+                                 document_version_id=None, note=MANUAL_IMPORT_NOTE)],
+        "sections": [main_section, timeline, ReportSection(section="coverage_limitations", sentences=[],
+                                                            no_verified_items=False)],
+    })
+
+    html = render_html(snapshot, ReportContext(
+        brief=BRIEF.model_copy(update={"jurisdictions": ["SG", "HK"]}),
+        run_status="partial", claims={saved.finding_id: claim},
+        passages={p.id: p for p in (passage, second_passage)}, unresolved={},
+        generated_at=AT, expected={expected.id: expected},
+    ))
+
+    assert "<h3>Singapore</h3>" in html
+    assert '<span class="number">1.</span> Screening' in html
+    assert '<span class="tag">Fact</span>' in html
+    assert 'Published <time datetime="2026-03-01">1 Mar 2026</time>' in html
+    assert html.count('<article class="finding"') == 1
+    assert f'href="#finding-{claim.finding_id}"' in html
+    finding_html = html.split(f'id="finding-{claim.finding_id}">', 1)[1].split("</article>", 1)[0]
+    assert finding_html.count(f'href="{passage.source_url}"') == 1
+    assert 'href="#e1"' in finding_html and 'href="#e2"' in finding_html
+    assert "Source coverage checklist" in html and "Manual import needed" in html
 
 
 def _stored(saved):

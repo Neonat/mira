@@ -16,14 +16,14 @@ import re
 from collections.abc import Sequence
 from difflib import SequenceMatcher
 
-from mira.agents.common import UNTRUSTED_TEXT_RULE, quote_passage
+from mira.agents.common import NO_CONCLUSIONS_RULE, UNTRUSTED_TEXT_RULE, quote_passage
 from mira.contracts import InferenceCheckDraft, LabelMap, Verdict, VerdictDraft
 from mira.interfaces import CheckOutcome, checkable
 from mira.llm import LLMClient, call_checked
 from mira.store import PassageRecord, StoredClaim
 
-PROMPT_VERSION = "verifier/1"
-INFERENCE_PROMPT_VERSION = "inference-check/1"
+PROMPT_VERSION = "verifier/2"
+INFERENCE_PROMPT_VERSION = "inference-check/3"
 FUZZY_THRESHOLD = 0.9
 
 SYSTEM = f"""You are an independent verifier for Mira, a research assistant for bank internal auditors.
@@ -33,11 +33,16 @@ Decide whether the quoted passages support the claim. Check every part: the enti
 - unsupported: the passages do not state the claim.
 - contradicted: the passages state something incompatible with the claim.
 Give a short reason that names what is missing or wrong.
+- Mark a claim unsupported if it proposes a DBS action as Mira's own recommendation.
+- {NO_CONCLUSIONS_RULE}
 - {UNTRUSTED_TEXT_RULE}"""
 
-INFERENCE_SYSTEM = """You check inferences for Mira, a research assistant for bank internal auditors.
-An inference (an assessment, comparison, trend or suggested audit question) may only use facts stated in the verified claims it rests on.
-List every entity, date, number, instrument or event in the inference that does not appear in those claims. Wording, judgement and recommendations are allowed; new facts are not."""
+INFERENCE_SYSTEM = f"""You check inferences for Mira, a research assistant for bank internal auditors.
+List any entity, date, number, instrument or event in the inference that is absent from its verified supporting claims.
+Set is_supported_assessment to true only if the assessment reasonably follows from those claims, preserves material uncertainty and stays within scope.
+Check all supplied metadata as well as the title and content. A date, date kind, jurisdiction or instrument status displayed with the inference must be supported by the verified claims, including their metadata.
+An assessment that prescribes or suggests a DBS action is out of scope. Give a short reason for the result.
+- {NO_CONCLUSIONS_RULE}"""
 
 _TRANSLATE = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"', "–": "-", "—": "-",
                             " ": " "})
@@ -111,16 +116,28 @@ class LlmVerifier:
                             result.tokens_in, result.tokens_out)
 
     def check_inference(self, claim: StoredClaim, facts: Sequence[StoredClaim], attempt: int) -> CheckOutcome:
-        shown = checkable(claim)
-        fact_lines = [f"- {checkable(fact).title}: {checkable(fact).content}" for fact in facts]
-        user = (f"Inference ({shown.finding_type}):\n{shown.title}: {shown.content}\n\n"
-                "Verified claims it rests on:\n" + "\n".join(fact_lines))
+        def description(item: StoredClaim) -> dict[str, object]:
+            shown = checkable(item)
+            return {
+                "type": shown.finding_type, "title": shown.title, "content": shown.content,
+                "jurisdiction": shown.jurisdiction_code, "change": shown.change_type,
+                "industry_category": shown.industry_category,
+                "key_date": shown.key_date.isoformat() if shown.key_date else None,
+                "key_date_kind": shown.key_date_kind,
+            }
+
+        user = json.dumps({"inference": description(claim), "verified_claims": [description(fact) for fact in facts]},
+                          indent=2)
         result = call_checked(
             self.client, role="verifier", system=INFERENCE_SYSTEM, user=user, output_type=InferenceCheckDraft,
             prompt_version=INFERENCE_PROMPT_VERSION, check=lambda output: None,
         )
         draft = result.output
-        verdict = "unsupported" if draft.introduces_new_fact else "supported"
+        verdict = (
+            "supported"
+            if draft.is_supported_assessment and not draft.introduces_new_fact and not draft.new_facts
+            else "unsupported"
+        )
         reason = draft.reason if not draft.new_facts else f"{draft.reason} New facts: {'; '.join(draft.new_facts)}"
         check = Verdict(
             finding_id=claim.finding_id, attempt=attempt, method="inference_check", verdict=verdict, reason=reason,

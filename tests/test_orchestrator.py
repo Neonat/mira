@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 
 from mira.budget import RunBudget
+from mira.completeness import coverage_rows
 from mira.contracts import Brief, ExpectedSourceStatusDraft, FetchAttempt, ScoutDocumentDraft, ScoutReport, ScoutResult, Verdict
 from mira.interfaces import CheckOutcome, ScoutOutcome
 from mira.llm import ScriptedClient
@@ -198,13 +199,13 @@ def test_full_run_produces_a_verified_draft_report():
     snapshot = store.reports[0].snapshot
     verified = {finding(store, label).finding_id for label in ("C1", "C2", "C3", "C4")}
     cited = {fid for section in snapshot.sections for s in section.sentences for fid in s.finding_ids}
-    assert cited and cited <= verified
+    assert cited == verified
     assert snapshot.unresolved_finding_ids == []
     assert snapshot.sections[-1].section == "coverage_limitations"
     assert store.plans[0]["labels"]["S1"] == str(MAS.id)
     html = store.reports[0].html
     assert "Draft, not reviewed" in html and "https://www.mas.gov.sg/notice-626" in html
-    assert 'class="tag">includes inference' in html
+    assert 'class="tag">Facts and inferences' in html
 
 
 def test_invented_passage_label_fails_the_analyst_and_the_run():
@@ -459,6 +460,26 @@ class ExpectedScout(FakeScout):
 
 def gap_plan(expected):
     return {"tasks": [plan_task(label="T1", expected=expected)], "notes": None}
+
+
+def test_unreadable_pdf_cannot_establish_no_change_on_the_checklist():
+    from mira.coverage_display import coverage_label
+    from mira.interfaces import ScoutTask
+
+    task = ScoutTask("T1", "regulatory_scout", "SG", "Check for updates", (MAS.id,), (E_RULE.id,), 1)
+    result = FakeScout().run(context(), uuid4(), task).result
+    result.labels["E1"] = E_RULE.id
+    result = result.model_copy(update={
+        "report": result.report.model_copy(update={"expected_source_statuses": [
+            ExpectedSourceStatusDraft(expected_source_label="E1", status="no_change", note=None)
+        ]}),
+        "fetch_log": [result.fetch_log[0].model_copy(update={"error": "no extractable text (scanned PDF?)"})],
+    })
+
+    row, = coverage_rows([E_RULE], {MAS.id: MAS}, [task], {"T1": result}, {})
+
+    assert row.status == "fetch_failed"
+    assert coverage_label(row.status, row.note) == "Could not extract text"
 
 
 def mas_expected_store():

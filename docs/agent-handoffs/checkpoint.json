@@ -1,0 +1,69 @@
+{
+  "recorded_date": "2026-11-07",
+  "branch": "codex/nat-ingestion",
+  "source_base_sha": "1d38e8916120d45d063d5157abcac6fc2db1af6f",
+  "assignment_base": "Resolve git rev-parse HEAD after the checkpoint is pushed; source_base_sha is the pre-checkpoint baseline.",
+  "verification": {
+    "tests_passed": 280,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "database": "Local PostgreSQL at localhost:55432, including review migration 20261107120000",
+    "integration_providers": "Scripted; separate real-model HK runs recorded below",
+    "human_precision": "Unlabelled",
+    "browser_rehearsal": "Outstanding",
+    "remote_deployment": false
+  },
+  "runs": [
+    {
+      "id": "80ffbc29-427e-41b7-8568-fb89fbc8f55f",
+      "purpose": "Historical baseline",
+      "document_limit": 15,
+      "benchmark_publications_cited": 1,
+      "benchmark_total": 18,
+      "facts": 6,
+      "inferences": 1,
+      "unresolved": 1,
+      "minutes": 10.35,
+      "estimated_cost_usd": 0.7135
+    },
+    {
+      "id": "ebac84e8-c919-4f6b-94d8-7c42b326eab9",
+      "purpose": "Initial coverage fixes; before final year-slice correction",
+      "document_limit": 15,
+      "benchmark_publications_cited": 2,
+      "benchmark_total": 18,
+      "facts": 10,
+      "inferences": 1,
+      "unresolved": 3,
+      "minutes": 13.22,
+      "estimated_cost_usd": 1.1883
+    },
+    {
+      "id": "2f98eaa5-e13c-4cd9-9a6e-66afaf115dd0",
+      "purpose": "Final coverage capacity validation, larger allowance",
+      "document_limit": 30,
+      "token_limit": 600000,
+      "minute_limit": 25,
+      "tokens_used": 302985,
+      "benchmark_publications_cited": 7,
+      "benchmark_total": 18,
+      "regulatory_benchmark_cited": 7,
+      "regulatory_benchmark_total": 14,
+      "primary_publications_cited": 10,
+      "facts": 17,
+      "inferences": 1,
+      "unresolved": 1,
+      "minutes": 15.29,
+      "estimated_cost_usd": 1.4395,
+      "status": "partial",
+      "stop_reason": "Document allowance exhausted"
+    }
+  ],
+  "caveats": [
+    "Larger-budget validation is not an equal-budget comparison.",
+    "Publication acquisition, report citation recall and checklist category coverage are separate measures.",
+    "Benchmark acceptance, human-labelled accuracy, time savings and a multi-agent win are not established.",
+    "MAS automated access is blocked; some industry sources lack text-storage permission.",
+    "Generated report artifacts remain local and ignored; this summary carries no secrets or private evidence."
+  ]
+}
