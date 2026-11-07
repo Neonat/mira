@@ -1,0 +1,8 @@
+import React from 'react';import {Sequence,useVideoConfig} from 'remotion';import {Screen} from './Screen';
+const d='Saved HK research · Historical partial draft · 15.29-minute processing omitted';
+export const SavedResearch:React.FC=()=>{const {fps}=useVideoConfig();return <>
+<Sequence name="Saved historical report" durationInFrames={7*fps} premountFor={fps}><Screen title="Now inspect saved Hong Kong research" chapter="Saved HK research" disclosure={d} asset="report-scope.png" crop={[275,50,860,665]} note="A separate historical run. It was not generated or signed through this synthetic demonstration."/></Sequence>
+<Sequence name="PEP finding and original citation" from={7*fps} durationInFrames={9*fps} premountFor={fps}><Screen title="Preserve the date and the qualification" chapter="Saved HK research" disclosure={d} asset="pep-finding.png" crop={[280,345,875,220]} note="28 August 2026 · PEP Smart Tips · The finding links to saved source evidence."/></Sequence>
+<Sequence name="Original HKMA source wording" from={16*fps} durationInFrames={11*fps} premountFor={fps}><Screen title="“Expected to consider adopting”" chapter="Saved HK research · Original HKMA publication" disclosure="HKMA · 28 August 2026 · Public source · Page 2 excerpt" asset="pep-source.png" sourceWidth={1272} crop={[210,315,920,33]} note="Keep the original qualification when explaining the good practices."/></Sequence>
+<Sequence name="Visible coverage gap" from={27*fps} durationInFrames={9*fps} premountFor={fps}><Screen title="The gaps remain visible" chapter="Saved HK research" disclosure={d} asset="report-gap.png" crop={[280,10,860,330]} note="Partial research is a draft for inspection. Human accuracy remains unlabelled."/></Sequence>
+</>};

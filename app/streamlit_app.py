@@ -34,6 +34,7 @@ from mira.contracts import Brief
 from mira.coverage_display import CHECKLIST_DESCRIPTION, coverage_label
 from mira.llm import ROLE_MODEL_ENV, estimated_cost
 from mira.report import TEMPLATE_VERSION
+from mira.review_display import dependency_closure, pending_review_ids, reviewed_display
 
 UI_KEYS = {
     "SUPABASE_URL", "SUPABASE_ANON_KEY", "MIRA_DEV_EMAIL", "MIRA_MAX_FETCHED_DOCUMENTS", "MIRA_MAX_LLM_TOKENS",
@@ -305,15 +306,35 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
         st.warning("Draft. Record a review outcome for each finding before sign-off.")
 
     snapshot = report["evidence_snapshot"]
+    if signed:
+        try:
+            display = reviewed_display(
+                snapshot, workspace_id=workspace_id, run_id=run["id"],
+                revision_id=report["analysis_revision_id"],
+            )
+        except (ValueError, KeyError, TypeError) as exc:
+            st.error(f"The reviewed evidence bundle is invalid: {exc}")
+            return
+        findings, evidence, checks = display.findings, display.evidence, display.checks
+        if display.legacy_note:
+            st.info(display.legacy_note)
+        reviews = []
+        required = {finding["id"] for finding in findings if not finding.get("excluded_only")}
+    else:
+        cited = {fid for section in snapshot["sections"] for sentence in section["sentences"] for fid in sentence["finding_ids"]}
+        unresolved = set(snapshot["unresolved_finding_ids"])
+        findings = rows(sb.table("analysis_findings").select("*").eq("analysis_run_id", run["id"]).order("created_at"))
+        ids = [f["id"] for f in findings]
+        edges = rows(sb.table("finding_dependencies").select("finding_id,depends_on_finding_id")
+                     .eq("analysis_run_id", run["id"]))
+        required = dependency_closure(cited, edges)
+        checks = rows(sb.table("claim_checks").select("finding_id,method,verdict,reason,attempt")
+                      .in_("finding_id", ids).order("checked_at")) if ids else []
+        evidence = rows(sb.table("finding_evidence").select("finding_id,supporting_quote").in_("finding_id", ids)) if ids else []
+        reviews = rows(sb.table("finding_reviews").select("*").in_("finding_id", ids)
+                       .order("reviewed_at").order("review_sequence")) if ids else []
     cited = {fid for section in snapshot["sections"] for sentence in section["sentences"] for fid in sentence["finding_ids"]}
     unresolved = set(snapshot["unresolved_finding_ids"])
-    findings = rows(sb.table("analysis_findings").select("*").eq("analysis_run_id", run["id"]).order("created_at"))
-    ids = [f["id"] for f in findings]
-    checks = rows(sb.table("claim_checks").select("finding_id,method,verdict,reason,attempt")
-                  .in_("finding_id", ids).order("checked_at")) if ids else []
-    evidence = rows(sb.table("finding_evidence").select("finding_id,supporting_quote").in_("finding_id", ids)) if ids else []
-    reviews = rows(sb.table("finding_reviews").select("*").in_("finding_id", ids)
-                   .order("reviewed_at").order("review_sequence")) if ids else []
     latest_reviews = {review["finding_id"]: review for review in reviews}
     frozen_reviews = snapshot.get("review_outcomes", {})
 
@@ -327,14 +348,19 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
     with findings_tab:
         can_review = role in ("admin", "reviewer")
         for finding in findings:
-            if finding["id"] not in cited | unresolved | set(frozen_reviews):
+            if finding["id"] not in required | unresolved | set(frozen_reviews):
                 continue
             in_report = finding["id"] in cited
             mine = [r for r in reviews if r["finding_id"] == finding["id"]]
             latest = frozen_reviews.get(finding["id"]) if signed else latest_reviews.get(finding["id"])
             decision = latest["decision"].replace("_", " ") if latest and latest.get("decision") else "awaiting review"
-            badge = "in report" if in_report else "unresolved, not in report"
+            badge = ("in report" if in_report else "supporting finding" if finding["id"] in required
+                     else "historical finding" if finding.get("historical_only")
+                     else "excluded finding" if finding.get("excluded_only") else "unresolved, not in report")
             with st.expander(f"{finding['title']} · {badge} · {decision}"):
+                if finding.get("excluded_only"):
+                    st.caption((latest or {}).get("exclusion_reason") or "Original finding content is not frozen in this report.")
+                    continue
                 kind = "inference" if finding["is_inference"] else "fact"
                 st.markdown(f"*{finding['finding_type'].replace('_', ' ')} ({kind})* · priority **{finding['priority']}** · "
                             f"evidence confidence **{finding['evidence_confidence']}**")
@@ -348,13 +374,13 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
                                f"**{check['verdict'].replace('_', ' ')}** · {check['reason']}")
                 for review in ([] if signed else mine):
                     st.caption(f"Review: {review['decision'].replace('_', ' ')} · {review['reviewer_note'] or ''}")
-                if in_report and can_review and not signed:
+                if finding["id"] in required and can_review and not signed:
                     _review_form(workspace_id, user_id, finding)
         if not can_review:
             st.caption(f"Your role is {role}; reviewers and admins record decisions.")
 
-    pending = [fid for fid in cited if fid not in latest_reviews]
     if not signed and role in ("admin", "reviewer"):
+        pending = pending_review_ids(cited, edges, latest_reviews)
         if pending:
             st.caption(f"{len(pending)} finding(s) still need a review outcome before sign-off.")
         elif st.button("Sign off report", type="primary"):

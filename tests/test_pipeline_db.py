@@ -223,7 +223,7 @@ def test_full_run_on_postgres(conn, workspace, tmp_path):
     ).fetchone()
     html = (tmp_path / report["artifact_storage_path"]).read_text()
     assert "Example circular on AML controls" in html and "Source coverage checklist" in html
-    assert report["evidence_snapshot"]["contract_version"] == "1.3"
+    assert report["evidence_snapshot"]["contract_version"] == "1.4"
     assert "(2025-12-12)" in html
 
     # Exercise the comparison runner against persisted evidence, not mocked SQL.
@@ -548,6 +548,18 @@ def test_worker_renders_a_signed_off_report_without_the_draft_watermark(conn, wo
             "insert into public.finding_reviews (workspace_id, finding_id, decision, reviewed_by) "
             "values (%s, %s, 'accepted', %s)", (workspace_id, finding_id, user_id),
         )
+    if inference_only:
+        # Supporting facts require review even when omitted from the report body.
+        with pytest.raises(psycopg.errors.CheckViolation, match="supporting finding needs"):
+            insert_reviewed(conn, draft, user_id, draft["report_version"] + 1)
+        for row in conn.execute(
+            "select id from public.analysis_findings where analysis_run_id=%s", (ctx.analysis_run_id,),
+        ).fetchall():
+            if str(row["id"]) not in cited:
+                conn.execute(
+                    "insert into public.finding_reviews (workspace_id,finding_id,decision,reviewed_by) "
+                    "values (%s,%s,'accepted',%s)", (workspace_id, row["id"], user_id),
+                )
     insert_reviewed(conn, draft, user_id, draft["report_version"] + 1)  # the app's sign-off: no file yet
 
     assert len(pending_signoffs(conn, workspace_id)) == 1
@@ -573,7 +585,7 @@ def test_worker_renders_a_signed_off_report_without_the_draft_watermark(conn, wo
     assert 'href="#e1"' in html  # the sentence links to its evidence appendix entry
 
 
-def test_one_bad_signoff_is_not_rendered_and_does_not_block_the_others(conn, workspace, tmp_path):
+def test_one_bad_signoff_is_not_rendered_and_does_not_block_the_others(conn, workspace, tmp_path, monkeypatch):
     # A sign-off whose snapshot cites a finding the store does not have is refused, stays pending for a
     # retry, and the sign-off after it still renders.
     import json
@@ -600,10 +612,19 @@ def test_one_bad_signoff_is_not_rendered_and_does_not_block_the_others(conn, wor
 
     bad_snapshot = json.loads(json.dumps(first["evidence_snapshot"]))
     bad_snapshot["sections"][0]["sentences"][0]["finding_ids"] = [str(uuid4())]
-    conn.execute(
-        "update public.reports set evidence_snapshot = %s where id = %s",
-        (json.dumps(bad_snapshot), first["id"]),
-    )
+    with pytest.raises(psycopg.errors.CheckViolation, match="immutable"):
+        conn.execute(
+            "update public.reports set evidence_snapshot = %s where id = %s",
+            (json.dumps(bad_snapshot), first["id"]),
+        )
+    # Simulate an unavailable/corrupt job input without bypassing immutable DB rows.
+    from mira import render_job
+    original_render = render_job.render_one
+    def render_with_bad_input(connection, workspace_id, pending, reports_dir):
+        if pending["id"] == first["id"]:
+            pending = {**pending, "evidence_snapshot": bad_snapshot}
+        return original_render(connection, workspace_id, pending, reports_dir)
+    monkeypatch.setattr(render_job, "render_one", render_with_bad_input)
 
     rendered = render_pending(conn, workspace_id, reports_dir=tmp_path / "reports")
     assert rendered == [second["id"]]

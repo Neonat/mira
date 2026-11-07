@@ -7,19 +7,16 @@ file next to the drafts, and records the path on the row. It never calls a model
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
 import psycopg
 
-from mira.brief import brief_from_rows
 from mira.config import REPORTS_DIR
 from mira.contracts import ClaimDraft, ReportSnapshot
 from mira.db import acting_as
-from mira.pg_store import PostgresStore
-from mira.render import SavedFinding, cited_finding_ids, render_signed_off
-from mira.store import ClaimEvidence, ExpectedSourceRecord
+from mira.render import SavedFinding, render_signed_off
+from mira.store import ClaimEvidence
 
 
 def reviewer_name(conn: psycopg.Connection, user_id: UUID | None) -> str:
@@ -34,7 +31,7 @@ def pending_signoffs(conn: psycopg.Connection, workspace_id: UUID) -> list[dict[
     """Reviewed reports that have no rendered file yet, oldest first."""
     return conn.execute(
         """select r.id, r.workspace_id, r.analysis_revision_id, r.report_version, r.evidence_snapshot,
-                  r.reviewed_by, r.reviewed_at, r.generated_by
+                  r.reviewed_by, r.reviewed_at, r.generated_by, r.generated_at
            from public.reports r
            where r.workspace_id = %s and r.review_status = 'reviewed' and r.artifact_storage_path is null
            order by r.generated_at""",
@@ -102,53 +99,16 @@ def load_findings(conn: psycopg.Connection, workspace_id: UUID, finding_ids: lis
 def render_one(conn: psycopg.Connection, workspace_id: UUID, pending: dict[str, object], reports_dir: Path) -> UUID:
     """Render one reviewed report and record its file. Raises on failure, leaving the row pending."""
     snapshot = ReportSnapshot.model_validate(pending["evidence_snapshot"])
-    finding_ids = sorted(cited_finding_ids(snapshot), key=str)
-    revision = conn.execute(
-        """select a.analysis_run_id, r.project_revision_id from public.analysis_revisions a
-           join public.analysis_runs r on r.id = a.analysis_run_id
-           where a.id = %s and a.workspace_id = %s""",
-        (pending["analysis_revision_id"], workspace_id),
-    ).fetchone()
-    run = conn.execute(
-        "select * from public.analysis_runs where id = %s and workspace_id = %s",
-        (revision["analysis_run_id"], workspace_id),
-    ).fetchone()
-    revision_row = conn.execute(
-        "select * from public.project_revisions where id = %s", (run["project_revision_id"],),
-    ).fetchone()
-    brief = brief_from_rows(revision_row, run)
-    if finding_ids:
-        # A summary-only inference in an older snapshot may cite facts that
-        # do not appear directly in any section. Load their evidence as well.
-        finding_ids = [row["id"] for row in conn.execute(
-            """with recursive evidence_findings(id) as (
-                   select unnest(%s::uuid[])
-                   union
-                   select d.depends_on_finding_id from public.finding_dependencies d
-                   join evidence_findings f on f.id = d.finding_id
-                   where d.workspace_id = %s
-               )
-               select id from evidence_findings order by id""",
-            (finding_ids, workspace_id),
-        )]
-    findings = load_findings(conn, workspace_id, finding_ids)
-    passage_ids = {evidence.passage_id for finding in findings for evidence in finding.evidence}
-    store = PostgresStore(conn, reports_dir=reports_dir)
-    passages = {p.id: p for p in store.get_passages(workspace_id, list(passage_ids))}
-    expected_rows = conn.execute(
-        "select * from public.expected_sources where workspace_id = %s", (workspace_id,),
-    ).fetchall()
-    expected = {
-        row["id"]: ExpectedSourceRecord(row["id"], row["list_version"], (row["jurisdiction_code"] or "").strip(),
-                                        row["category"], row["source_id"], row["document_hint"])
-        for row in expected_rows
-    }
-    html = render_signed_off(
-        snapshot, brief=brief, findings=findings, passages=passages,
-        expected=expected, reviewer=reviewer_name(conn, pending["reviewed_by"]),
-        decided_at=pending["reviewed_at"], generated_at=datetime.now(UTC),
-    )
-    relative = Path(str(run["id"])) / f"report-v{pending['report_version']}-reviewed.html"
+    bundle = snapshot.evidence_bundle
+    if bundle is None:
+        raise ValueError("legacy snapshot requires fresh verification and review before regeneration")
+    if (bundle.workspace_id != workspace_id or pending["workspace_id"] != workspace_id
+            or bundle.analysis_revision_id != pending["analysis_revision_id"]):
+        raise ValueError("frozen evidence scope identity does not match the report row")
+    if bundle.reviewed_at != pending["reviewed_at"]:
+        raise ValueError("frozen sign-off date does not match the report row")
+    html = render_signed_off(snapshot, generated_at=pending["generated_at"])
+    relative = Path(str(bundle.analysis_run_id)) / f"report-v{pending['report_version']}-reviewed.html"
     path = reports_dir / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(html, encoding="utf-8")

@@ -1,0 +1,2 @@
+# Motion specification
+1920 × 1080, 30 fps, 62 s; three locally timed editorial sequences: opening 0–32, agent flow 32–52, ending 52–62. White #fff, charcoal #222, grey #60646b, red #e60028; Arial-compatible type. Display 72–104 px, body 32–40 px, disclosures 28 px minimum. Authentic historical report and original HKMA source are separate from the later synthetic demo. Static reading holds; 0.4–0.7 s motion in power2/3 easing. No invented UI, mandatory interpretation, decorative cards or fabricated metric. Covers are white/red and animate only at cuts.

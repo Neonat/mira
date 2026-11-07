@@ -1,0 +1,10 @@
+{
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "sequences": [
+    {"id":"opening","startSeconds":0,"durationSeconds":32,"compositionPath":"docs/demo/launch/hyperframes/project/index.html","sourceStartSeconds":0,"renderPath":"reports/demo-output/launch/motion/opening.mp4"},
+    {"id":"agents","startSeconds":52,"durationSeconds":20,"compositionPath":"docs/demo/launch/hyperframes/project/index.html","sourceStartSeconds":32,"renderPath":"reports/demo-output/launch/motion/agents.mp4"},
+    {"id":"ending","startSeconds":170,"durationSeconds":10,"compositionPath":"docs/demo/launch/hyperframes/project/index.html","sourceStartSeconds":52,"renderPath":"reports/demo-output/launch/motion/ending.mp4"}
+  ]
+}
