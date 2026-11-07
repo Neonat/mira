@@ -5,6 +5,7 @@
   "runtime_checkpoint_sha": "1c970c825565430ae7a36e736f6880da9371edcd",
   "telemetry_integration": {
     "base_sha": "aa05d8d0a535212e56e3009a45ccec6875598507",
+    "pushed_source_sha": "2445846747a22d446bfc1e3f607435e148911b9b",
     "tests_passed": 285,
     "subtests_passed": 8,
     "skipped": 0,

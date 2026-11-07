@@ -24,11 +24,11 @@ The project profiles select models explicitly. See `.codex/agents/`; the coordin
 
 | Agent/model | Deliverable | State and next step |
 |---|---|---|
-| coverage_engineer / Terra | [Coverage trace](coverage-trace.md) | Confirms the publication was not fetched; candidate-stage cause is unknown. Next: bounded selection telemetry and a scripted test, not a speculative ranking change. |
-| presentation_editor / Luna | [15-slide outline](../presentation/slide-outline.md) | Outline ready; editable local inputs identified. Actual deck editing and browser captures remain outstanding. |
-| demo_engineer / Sol | [E2E demo script](../demo/e2e-demo-script.md) | Script ready; screen steps are proposals. Browser rehearsal, review writes and video capture remain outstanding. |
+| coverage_engineer / Terra | [Telemetry implementation](telemetry-implementation.md), following the [historical trace](coverage-trace.md) | Implemented and reviewed; 285 tests + 8 subtests passed with PostgreSQL. Next: inspect future retained diagnostics before changing ranking. |
+| presentation_editor / Luna | [Deck production handoff](../presentation/production-handoff.md) | Updated 16-slide editable deck rendered and checked; output is local under `reports/presentation-output/current/`. Browser workflow captures remain outstanding. |
+| demo_engineer / Sol | [Demo production handoff](../demo/production-handoff.md) | Local 180-second silent saved-report walkthrough captured and playback-tested. Authenticated brief/history/review/sign-off still need rehearsal. |
 
-These bounded assignments completed against runtime checkpoint `1c970c8`. No new paid research run or runtime change was made. Read the handover before assigning implementation; workers are not continuing indefinitely in the background.
+The initial preparation assignments used checkpoint `1c970c8`; the production pass used `aa05d8d`, with tested telemetry pushed in `2445846`. No new paid research run was made. Read the completed production handovers before assigning more work; workers are not continuing indefinitely in the background. Generated deck/video artifacts remain ignored local deliverables, while their reproduction and limitations are tracked here.
 
 ## Work order and boundaries
 
