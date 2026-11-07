@@ -26,6 +26,8 @@ Sources/commands and results:
 
 Open risks: Original HTML/PDF capture retention and durable artifact storage/restore are still unfinished. Historical unbound checks/reviews require fresh checking/review for new sign-off; do not substitute live evidence for missing historical bundles. Human amendments remain reviewer attestations under existing D8 policy. Unknown publication dates remain unknown; latest saved content is not proof of historical webpage state. The prior video/browser rehearsal predates contract 1.4; this pass validates its review projection automatically. Live recall and human-labelled precision were not measured.
 
-Exact next step: Publish this source checkpoint to existing PR3. Subsequent work requires a newly bounded assignment; preserve the explicit ingestion/corroboration deferral and do not repeat paid research or historical backfills.
+Publication: implementation `27c28fac8631c9afdb8cdef60ab6b48b526ef5a7` is pushed to https://github.com/Neonat/mira/pull/4. PR3 was already merged, so a follow-up PR was opened; the merged PR description was restored to its prior state.
+
+Exact next step: Review PR4. Subsequent work requires a newly bounded assignment; preserve the explicit ingestion/corroboration deferral and do not repeat paid research or historical backfills.
 
 Status: complete (implementation, independent review and local database/integration validation).

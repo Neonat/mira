@@ -44,4 +44,4 @@ Owned new migration, pg_store.py, orchestrator.py, tests/test_pipeline_db.py, te
 - [x] Run full tests+eval once with local PostgreSQL after integration.
 - [x] Update PRD/checkpoint/handoffs; no generated artifacts/secrets.
 
-Publication follows this verified source checkpoint on existing PR3. Final validation: 350 tests plus 8 subtests, none skipped, including local PostgreSQL; 26 subsequent focused checks passed against the separate report-layout commit. Independent scoped review accepted the final backend/UI/index changes. No paid/live runs, remote deployment, ingestion expansion or corroboration.
+Implementation commit `27c28fa` is published in follow-up PR4 (PR3 was already merged). Final validation: 350 tests plus 8 subtests, none skipped, including local PostgreSQL; 26 subsequent focused checks passed against the separate report-layout commit. Independent scoped review accepted the final backend/UI/index changes. No paid/live runs, remote deployment, ingestion expansion or corroboration.
