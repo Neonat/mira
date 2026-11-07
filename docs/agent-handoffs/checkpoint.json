@@ -3,6 +3,16 @@
   "branch": "codex/nat-ingestion",
   "source_base_sha": "1d38e8916120d45d063d5157abcac6fc2db1af6f",
   "runtime_checkpoint_sha": "1c970c825565430ae7a36e736f6880da9371edcd",
+  "telemetry_integration": {
+    "base_sha": "aa05d8d0a535212e56e3009a45ccec6875598507",
+    "tests_passed": 285,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "database": "Local PostgreSQL included",
+    "new_paid_research_runs": 0,
+    "behavior": "Bounded successful-scout selection diagnostics; ranking unchanged",
+    "limitation": "Partial diagnostics are not persisted if a scout/model call raises before returning"
+  },
   "assignment_base": "Resolve git rev-parse HEAD after the checkpoint is pushed; source_base_sha is the pre-checkpoint baseline.",
   "verification": {
     "tests_passed": 280,

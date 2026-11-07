@@ -393,6 +393,7 @@ class _Run:
             fetch_reused=sum(1 for attempt in result.fetch_log if attempt.outcome == "reused"),
             fetch_failed=sum(1 for attempt in result.fetch_log if attempt.outcome == "failed"),
             fetch_log=[attempt.model_dump(mode="json") for attempt in result.fetch_log],
+            selection_diagnostics=result.selection_diagnostics,
         )
 
     def _check_coverage(self) -> None:

@@ -176,6 +176,7 @@ class ScoutResult(Contract):
     report: ScoutReport
     fetch_log: list[FetchAttempt]
     labels: dict[str, UUID]
+    selection_diagnostics: dict = Field(default_factory=dict)
 
 
 # --- Analyst (AI) --------------------------------------------------------------

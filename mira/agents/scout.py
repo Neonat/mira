@@ -25,7 +25,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
-from urllib.parse import urldefrag, urlsplit
+from urllib.parse import urldefrag, urlsplit, urlunsplit, parse_qsl, urlencode
 
 from mira.agents.common import NO_CONCLUSIONS_RULE, UNTRUSTED_TEXT_RULE, brief_text, quote_passage
 from mira.agents.temporal import TEMPORAL_RULE
@@ -42,6 +42,15 @@ from mira.sfc import search_payload
 
 PROMPT_VERSION = "scout/5"
 MAX_LINKS_SHOWN = 120
+MAX_DIAGNOSTIC_RECORDS = 300
+
+
+def _safe_url(url: str) -> str:
+    parts = urlsplit(url)
+    query = urlencode([(k[:80], v[:200] if k.lower() in {"refno", "lang", "year", "category"} else "[redacted]")
+                       for k, v in parse_qsl(parts.query, keep_blank_values=True)[:20]])
+    return urlunsplit((parts.scheme, parts.hostname or "", parts.path[:1000], query, ""))
+
 MAX_PASSAGES_SHOWN = 40
 MAX_PASSAGE_CHARS = 60_000
 STOPWORDS = {"the", "and", "for", "with", "that", "this", "from", "were", "what", "which", "into", "between",
@@ -136,6 +145,21 @@ class _ScoutRun:
         self.allowance = task.max_documents
         self.tokens_in = self.tokens_out = 0
         self.model: str | None = None
+        self.selection_diagnostics: list[dict] = []
+        self.discovery: list[dict] = []
+        self.discovery_omitted = 0
+        self.origins: dict[int, tuple[Link, dict]] = {}
+
+    def _record_discovery(self, links: list[Link], request_url: str, version_id: UUID | None) -> None:
+        for link in links:
+            origin = {"request_url": _safe_url(request_url), "document_version_id": str(version_id) if version_id else None}
+            record = {"url": _safe_url(link.url), "date": link.published.isoformat() if link.published else None,
+                      "reason": "seen" if link.url in self.seen else ("source_not_allowed" if not self.scout.fetcher.allow.allows(link.url) else "candidate"), **origin}
+            if len(self.discovery) < MAX_DIAGNOSTIC_RECORDS:
+                self.discovery.append(record)
+                self.origins[id(link)] = (link, origin)
+            else:
+                self.discovery_omitted += 1
 
     # --- Fetching -------------------------------------------------------------
 
@@ -168,6 +192,7 @@ class _ScoutRun:
             self.visits.append(visit)
             self.seen.add(visit.url)
         if extracted is not None:
+            self._record_discovery(extracted.links, url, visit.version_id if visit else None)
             self.candidates.extend(link for link in extracted.links
                                    if link.url not in self.seen and self.scout.fetcher.allow.allows(link.url))
         return extracted
@@ -201,6 +226,7 @@ class _ScoutRun:
         ))
         self.seen.add(page.url)
         self.visits.append(_Visit(page.url, saved.document_version_id, saved.passage_ids))
+        self._record_discovery(extracted.links, url, saved.document_version_id)
         for link in extracted.links:
             if link.url not in self.seen and self.scout.fetcher.allow.allows(link.url):
                 self.candidates.append(link)
@@ -271,14 +297,32 @@ class _ScoutRun:
         other_indexes.extend(url for queue in queues for url in queue)
         self.candidates.extend(Link(url, "Additional approved publication index", self.task.question)
                                for url in other_indexes if url not in self.seen)
+        stop_reason = "round_limit"
         for _ in range(self.scout.max_rounds):
-            if self.allowance <= 0 or not self.candidates or not self._within_tokens():
+            if self.allowance <= 0:
+                stop_reason = "document_allowance"
+                break
+            if not self.candidates:
+                stop_reason = "no_candidates"
+                break
+            if not self._within_tokens():
+                stop_reason = "token_limit"
                 break
             self._select_and_fetch()
+        else:
+            if self.allowance <= 0:
+                stop_reason = "document_allowance"
+            elif not self.candidates:
+                stop_reason = "no_candidates"
+            elif self.scout.max_rounds and not self._within_tokens():
+                stop_reason = "token_limit"
         report, labels = self._report()
         result = ScoutResult(
             analysis_run_id=self.ctx.analysis_run_id, agent_step_id=self.step_id, role=self.task.role,
             jurisdiction_code=self.task.jurisdiction_code, report=report, fetch_log=self.log, labels=labels,
+            selection_diagnostics={"discovered": self.discovery, "discovered_omitted": self.discovery_omitted,
+                                   "rounds": self.selection_diagnostics, "stop_reason": stop_reason,
+                                   "remaining_allowance": self.allowance},
         )
         return ScoutOutcome(result, self.model, PROMPT_VERSION, self.tokens_in, self.tokens_out)
 
@@ -292,17 +336,41 @@ class _ScoutRun:
                          if key[:2] == (self.ctx.workspace_id, self.ctx.analysis_run_id)
                          and future.done() and future.exception() is None
                          and future.result()[1] is not None}
-        for link in distinct_links(self.candidates):
+        diagnostic = {"round": len(self.selection_diagnostics) + 1, "filtered": [], "filtered_omitted": 0,
+                      "presented": [], "prompt_cap_omitted": 0, "remaining_allowance_start": self.allowance}
+        self.selection_diagnostics.append(diagnostic)
+
+        def filtered(link: Link, reason: str) -> None:
+            record = {"url": _safe_url(link.url), "date": link.published.isoformat() if link.published else None,
+                      "reason": reason, **self.origins.get(id(link), (link, {}))[1]}
+            if len(diagnostic["filtered"]) < MAX_DIAGNOSTIC_RECORDS:
+                diagnostic["filtered"].append(record)
+            else:
+                diagnostic["filtered_omitted"] += 1
+
+        distinct = distinct_links(self.candidates)
+        retained_ids = {id(link) for link in distinct}
+        accounted_ids: set[int] = set()
+        for link in self.candidates:
+            if id(link) not in retained_ids or id(link) in accounted_ids:
+                filtered(link, "duplicate_or_alias")
+            else:
+                accounted_ids.add(id(link))
+        for link in distinct:
             if link.url in self.seen or link.url in urls:
+                filtered(link, "seen")
                 continue
             if document_key(link.url) in completed:
+                filtered(link, "known_alias")
                 continue
             if link.published and not (earliest <= link.published <= brief.as_of_date):
+                filtered(link, "out_of_as_of" if link.published > brief.as_of_date else "before_period")
                 continue
             urls.add(link.url)
             fresh.append(link)
         self.candidates = []
         if not fresh:
+            diagnostic.update(stop_reason="no_candidates", remaining_allowance=self.allowance)
             return
         terms = _terms(self.task.question + " money laundering terrorism financing AML CFT")
         fresh.sort(key=lambda link: (link.published is None,
@@ -319,12 +387,29 @@ class _ScoutRun:
                     fresh.append(groups[host].pop(0))
                 if not groups[host]:
                     del groups[host]
+        diagnostic["prompt_cap_omitted"] = sum(len(group) for group in groups.values())
+        # Continue the same host rotation only for diagnostic ranks; do not change the prompt.
+        remaining = {host: list(links) for host, links in groups.items()}
+        rank = len(fresh)
+        while remaining:
+            for host in list(remaining):
+                rank += 1
+                link = remaining[host].pop(0)
+                before = len(diagnostic["filtered"])
+                filtered(link, "prompt_cap")
+                if len(diagnostic["filtered"]) > before:
+                    diagnostic["filtered"][-1]["rank"] = rank
+                if not remaining[host]:
+                    del remaining[host]
         labels = LabelMap()
         label_to_link: dict[str, Link] = {}
         lines = []
         for link in fresh:
             label = labels.add("L", UUID(int=len(label_to_link) + 1))
             label_to_link[label] = link
+            diagnostic["presented"].append({"label": label, "rank": len(label_to_link), "url": _safe_url(link.url),
+                "date": link.published.isoformat() if link.published else None, "selected": False,
+                **self.origins.get(id(link), (link, {}))[1]})
             date_text = link.published.isoformat() if link.published else "date unknown"
             context = link.context.replace("<", "(").replace(">", ")")[:200]
             lines.append(f'<link label="{label}" date="{date_text}" url="{link.url}">{link.text[:200]} | {context}</link>')
@@ -347,9 +432,24 @@ class _ScoutRun:
         self._used(result)
         selected_urls = {label_to_link[label].url for label in result.output.link_labels}
         self.candidates.extend(link for link in fresh if link.url not in selected_urls)
+        for item in diagnostic["presented"]:
+            item["selected"] = item["label"] in result.output.link_labels
         for label in result.output.link_labels:
             link = label_to_link[label]
+            item = next(item for item in diagnostic["presented"] if item["label"] == label)
+            start = len(self.log)
+            allowance_before = self.allowance
             self._fetch_document(link.url, link)
+            item.setdefault("fetch_attempts", []).extend(
+                {"url": _safe_url(a.url), "outcome": a.outcome,
+                 "document_version_id": str(a.document_version_id) if a.document_version_id else None}
+                for a in self.log[start:])
+            if len(self.log) > start:
+                item["fetch_status"] = "attempted"
+            else:
+                item.setdefault("fetch_status", "allowance_exhausted" if allowance_before <= 0 else "not_attempted")
+        diagnostic.update(stop_reason="selected" if result.output.link_labels else "no_selection",
+                          remaining_allowance=self.allowance)
 
     def _passages(self) -> list[PassageRecord]:
         ids = [passage_id for visit in self.visits for passage_id in visit.passage_ids]

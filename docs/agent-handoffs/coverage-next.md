@@ -1,6 +1,6 @@
 # Completed diagnostic assignment: one SFC enforcement miss
 
-**Status:** completed; see [coverage-trace.md](coverage-trace.md). Retain this original brief as provenance, and do not repeat it. The next task is the bounded candidate/selection telemetry described in the result.
+**Status:** completed; see [coverage-trace.md](coverage-trace.md). The resulting [telemetry implementation](telemetry-implementation.md) is also completed and regression-tested. Retain this original brief as provenance, and do not repeat either task. Historical candidate decisions remain unknown; future bounded validation can retain the new diagnostics.
 
 **Agent:** `coverage_engineer` — `gpt-6.1-terra`, medium. Fresh context, no inherited chat.
 

@@ -206,3 +206,113 @@ def test_passage_selection_covers_distinct_publications_before_more_pages(monkey
     chosen = run._passages()
 
     assert {p.document_id for p in chosen} == {first.document_id, other.document_id}
+
+
+def test_selection_diagnostics_distinguish_filtered_and_presented(monkeypatch):
+    from mira.agents import scout as module
+    from mira.extract import Link
+    from mira.contracts import LinkSelection
+
+    task = SimpleNamespace(max_documents=2, max_llm_tokens=None, question="AML", role="regulatory_scout")
+    run = _ScoutRun(WebScout("unused", None, SimpleNamespace(), max_rounds=1), None, context(), uuid4(), task)
+    run.candidates = [Link("https://example.org/future", "", "", date(2030, 1, 1), "date"),
+                      Link("https://example.org/a", "", ""), Link("https://example.org/b", "", "")]
+    monkeypatch.setattr(module, "call_checked", lambda *args, **kwargs: SimpleNamespace(output=LinkSelection(link_labels=["L1"], notes=None), model="scripted", tokens_in=0, tokens_out=0))
+    monkeypatch.setattr(run, "_fetch_document", lambda *args: None)
+    run._select_and_fetch()
+    diagnostic = run.selection_diagnostics[0]
+    assert [(item["url"], item["reason"]) for item in diagnostic["filtered"]] == [("https://example.org/future", "out_of_as_of")]
+    assert [(item["label"], item["url"], item["selected"]) for item in diagnostic["presented"]] == [
+        ("L1", "https://example.org/a", True), ("L2", "https://example.org/b", False)]
+
+
+def test_selection_diagnostics_cap_filtered_and_keep_presented(monkeypatch):
+    from mira.agents import scout as module
+    from mira.extract import Link
+    from mira.contracts import LinkSelection
+
+    task = SimpleNamespace(max_documents=2, max_llm_tokens=None, question="AML", role="regulatory_scout")
+    run = _ScoutRun(WebScout("unused", None, SimpleNamespace()), None, context(), uuid4(), task)
+    duplicate = Link("https://example.org/dup", "", "")
+    run.candidates = [duplicate, duplicate] + [Link(f"https://example.org/old{i}", "", "", date(2020, 1, 1), "date") for i in range(5)] + [Link(f"https://example.org/{i}", "", "") for i in range(4)]
+    monkeypatch.setattr(module, "MAX_DIAGNOSTIC_RECORDS", 2)
+    monkeypatch.setattr(module, "MAX_LINKS_SHOWN", 2)
+    monkeypatch.setattr(module, "call_checked", lambda *a, **kw: SimpleNamespace(output=LinkSelection(link_labels=[], notes=None), model="s", tokens_in=0, tokens_out=0))
+    run._select_and_fetch()
+    record = run.selection_diagnostics[0]
+    assert [item["reason"] for item in record["filtered"]] == ["duplicate_or_alias", "before_period"]
+    assert record["filtered_omitted"] == 7
+    assert record["prompt_cap_omitted"] == 3
+    assert [(item["rank"], item["label"], item["url"]) for item in record["presented"]] == [(1, "L1", "https://example.org/dup"), (2, "L2", "https://example.org/0")]
+    assert record["stop_reason"] == "no_selection"
+
+
+def test_scout_result_old_data_and_telemetry_step_persistence():
+    from test_orchestrator import FakeScout, make, steps
+    from mira.contracts import ScoutResult
+
+    class TelemetryScout(FakeScout):
+        def run(self, ctx, step_id, task):
+            outcome = super().run(ctx, step_id, task)
+            old = outcome.result.model_dump(mode="json", exclude={"selection_diagnostics"})
+            assert ScoutResult.model_validate(old).selection_diagnostics == {}
+            return replace(outcome, result=outcome.result.model_copy(update={"selection_diagnostics": {"rounds": [{"stop_reason": "no_selection"}], "remaining_allowance": 1}}))
+
+    orchestrator, store, _, _ = make(scout=TelemetryScout())
+    orchestrator.run(context())
+    record = next(r for r in steps(store) if r.role == "regulatory_scout")
+    assert record.output_refs["selection_diagnostics"] == {"rounds": [{"stop_reason": "no_selection"}], "remaining_allowance": 1}
+
+
+def test_selection_records_allowance_and_fetch_references(monkeypatch):
+    from datetime import UTC, datetime
+    from mira.agents import scout as module
+    from mira.extract import Link
+    from mira.contracts import FetchAttempt, LinkSelection
+
+    task = SimpleNamespace(max_documents=1, max_llm_tokens=None, question="AML", role="regulatory_scout")
+    run = _ScoutRun(WebScout("unused", None, SimpleNamespace(), links_per_round=2), None, context(), uuid4(), task)
+    run.allowance = 2
+    run.candidates = [Link("https://example.org/a", "", ""), Link("https://example.org/b", "", "")]
+    version = uuid4()
+    monkeypatch.setattr(module, "call_checked", lambda *a, **kw: SimpleNamespace(output=LinkSelection(link_labels=["L1", "L2"], notes=None), model="s", tokens_in=0, tokens_out=0))
+
+    def fetch(url, link):
+        if run.allowance:
+            run.allowance = 0
+            run.log.append(FetchAttempt(url=url, outcome="saved", document_version_id=version, error=None, attempted_at=datetime.now(UTC)))
+    monkeypatch.setattr(run, "_fetch_document", fetch)
+    run._select_and_fetch()
+    first, second = run.selection_diagnostics[0]["presented"]
+    assert first["fetch_attempts"] == [{"url": "https://example.org/a", "outcome": "saved", "document_version_id": str(version)}]
+    assert second["fetch_status"] == "allowance_exhausted"
+    assert run.selection_diagnostics[0]["remaining_allowance"] == 0
+
+
+def test_repeated_selected_label_keeps_original_fetch_diagnostic(monkeypatch):
+    from datetime import UTC, datetime
+    from mira.agents import scout as module
+    from mira.agents.scout import _Visit
+    from mira.extract import Link
+    from mira.contracts import FetchAttempt, LinkSelection
+
+    task = SimpleNamespace(max_documents=2, max_llm_tokens=None, question="AML", role="regulatory_scout")
+    run = _ScoutRun(WebScout("unused", None, SimpleNamespace(), links_per_round=2), None, context(), uuid4(), task)
+    url = "https://example.org/article"
+    version = uuid4()
+    run.candidates = [Link(url, "", "")]
+    monkeypatch.setattr(module, "call_checked", lambda *a, **kw: SimpleNamespace(output=LinkSelection(link_labels=["L1", "L1"], notes=None), model="s", tokens_in=0, tokens_out=0))
+
+    def fetch_new(url, link):
+        run.seen.add(url)
+        run.allowance -= 1
+        run.log.append(FetchAttempt(url=url, outcome="saved", document_version_id=version, error=None, attempted_at=datetime.now(UTC)))
+        run.visits.append(_Visit(url, version))
+        return Extracted("title", "complete", ["body"])
+
+    monkeypatch.setattr(run, "_fetch_new", fetch_new)
+    run._select_and_fetch()
+    record = run.selection_diagnostics[0]["presented"][0]
+    assert len(run.log) == 1
+    assert record["fetch_attempts"] == [{"url": url, "outcome": "saved", "document_version_id": str(version)}]
+    assert record["fetch_status"] == "attempted"

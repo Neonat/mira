@@ -107,6 +107,8 @@ Before increasing budgets, trace missed expected publications through discovery,
 
 Current coverage work adds category-specific HKMA/SFC indexes, SFC public POST search and full-publication JSON, consultation-conclusion PDF follow-through, year slices bounded by the reporting period, primary HKMA PDFs and official aliases. Fetches and gap attempts respect source permissions; passage selection is balanced with expanded context for selected documents, and fetch logs expose acquisition outcomes. Checklist v2 adds SFC circulars. Existing workspace connector/checklist records still need refresh; code/seed changes alone do not update them or expand permissions.
 
+Candidate-selection telemetry is now implemented for successful scout steps in `agent_steps.output_refs.selection_diagnostics`. It records bounded discovery/origin metadata, filtering reasons, prompt ranks and labels, selection, fetch references, allowance and stop reasons. Omitted record counts make truncation visible; raw article text and model reasoning are not included. Old scout results parse without diagnostics. A scout/model call that raises before returning still cannot persist its partial diagnostics. This observability does not change ranking, reconstruct historical decisions or establish a new recall gain.
+
 Publication-level completeness remains distinct from finding a category page. SFC enforcement and other publications, MAS access and industry storage permission remain gaps. Dated live HK results are in §7.3; the larger-capacity run remains partial and is not an equal-budget comparison.
 
 ### 5.4 Report output
@@ -176,6 +178,8 @@ V2's M0 was a pre-build gate; it cannot now be represented as having passed retr
 
 The local review migration is applied. Full-suite validation returned **280 passed and 8 subtests passed**, including PostgreSQL with no skips and scripted integration providers. The four implemented correctness fixes cover immutable review outcomes/latest ordering, displayed inference-metadata verification, item-linked no-change inspection, and imported evidence for sources that cannot be fetched. A browser rehearsal, human precision review and remote deployment remain outstanding.
 
+Subsequent candidate-selection telemetry integration passed **285 tests and 8 subtests**, including PostgreSQL with no skips. Focused regressions cover filtering versus presentation/selection, caps and omitted counts, allowance/fetch references, repeated selection labels, old-result compatibility and step persistence. No new paid research run was performed for this change. A partial saved-report video now demonstrates sign-in-screen loading, report inspection and source access; authenticated brief/history, reviewer decisions and sign-off are still unrehearsed. See the developer handover and demo production notes for observed versus proposed behavior.
+
 Live HK runs on **7 November 2026** produced:
 
 | Run | Document allowance | Findings: facts / inferences / unresolved | HK publication recall | Elapsed / estimated cost |
@@ -218,7 +222,7 @@ The document may be reviewed without resolving every item. Changes implementing 
 ## 10. Delivery order and specialist work
 
 1. **Update the PRD and push a checkpoint:** preserve v1/v2 history and the local validation record; checkpoint source/documentation changes, with generated run artifacts remaining local and ignored.
-2. **Continue coverage as the active priority:** split specialist work across discovery/source acquisition, publication-level completeness and missed-publication analysis, and evaluation/precision preparation. Refresh existing workspace connectors/checklist records without expanding permissions. Close or disclose SFC enforcement/other-publication, MAS and industry-source gaps.
+2. **Continue coverage as the active priority:** candidate-selection telemetry is integrated; inspect retained diagnostics from a future explicitly bounded validation before changing ranking. Do not repeat the completed historical-miss diagnosis or claim it has been retroactively reconstructed. Refresh existing workspace connectors/checklist records without expanding permissions. Close or disclose SFC enforcement/other-publication, MAS and industry-source gaps.
 3. **Prepare truthful slides and a demo script in parallel:** use the measured HK runs, budget differences and outstanding human/browser checks; no accepted precision, M0 win or remote-deployment claim.
 4. **Design and implement the approved corroboration feature after coverage:** settle D7 details, then demonstrate independence, bounded attempts, conflicts and agreed report/sign-off behavior. It remains future work until delivered.
 5. **Complete evaluation and browser demonstration:** adopt D9 measurement policy, human-review benchmark and precision, run the agreed comparison, and rehearse review/sign-off with the separate reviewed artifact.

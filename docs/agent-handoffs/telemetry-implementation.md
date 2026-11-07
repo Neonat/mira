@@ -1,0 +1,12 @@
+# Selection telemetry handover
+
+Objective: Record bounded, code-owned scout candidate and selection diagnostics; preserve retrieval behavior.
+Base SHA: aa05d8d0a535212e56e3009a45ccec6875598507
+Owned files: `mira/agents/scout.py`, `mira/contracts.py` (ScoutResult field), `mira/orchestrator.py` (step output), `tests/test_research_coverage.py`, this handover. Explicit coordinator assignment covered these shared files.
+Read-only files: `AGENTS.md`, `docs/agent-handoffs/README.md`, `coverage-trace.md`, `checkpoint.json`, relevant assigned code and tests.
+Sources/commands: focused pytest with `PYTHONDONTWRITEBYTECODE=1`, `-p no:cacheprovider`, and `/tmp/mira-selection-*` basetemp; no network or paid model.
+Changes: Code records bounded extracted candidates and retained origin request/version metadata, filter reasons, capped prompt ranks, presented labels, selection and fetch outcomes, allowances and stop reasons. Old ScoutResult data defaults to empty diagnostics. Successful scout step output_refs persists diagnostics. URL query values are restricted to known public identity parameters; other query values are redacted. Prompt, model output schema, source permissions and selection behavior are unchanged.
+Scoped checks and results: Initial focused scripted regression failed on missing `selection_diagnostics`, then passed. A repeated-label regression failed because the second no-op overwrote the saved fetch reference; diagnostics now accumulate attempts and preserve an attempted status without changing fetch calls. Focused coverage and orchestrator tests passed: 49 tests. The coordinator runs full integration verification.
+Open risks: Failed scout/model calls do not return a ScoutResult, so partial diagnostics are not persisted on exceptions. Discovery and filtered records are capped at 300 each per recording scope with omitted counts; presented records are retained within the existing prompt limit. Origin metadata can be omitted after the discovery cap; historical runs cannot be reconstructed. Round records are bounded by the configured scout round limit, not a separate telemetry limit. The general dictionary contract is backward-compatible but has no per-field schema validation. URL redaction can make distinct secret-bearing URLs indistinguishable.
+Exact next step: Coordinator reviews the diff, integrates with parallel work, and runs the one authorized full Postgres suite.
+Status: complete
