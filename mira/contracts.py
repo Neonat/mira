@@ -392,6 +392,7 @@ class FrozenPassage(Contract):
     page_number: int | None = None
     char_start: int | None = None
     char_end: int | None = None
+    acquisition_provenance: dict = Field(default_factory=dict)
 
 
 class EvidenceInput(Contract):

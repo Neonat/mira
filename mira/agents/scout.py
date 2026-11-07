@@ -20,7 +20,9 @@ scout never writes outside the evidence tables and never sees database IDs.
 from __future__ import annotations
 
 import re
+import hashlib
 import threading
+import time
 from concurrent.futures import Future
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -114,12 +116,14 @@ def distinct_links(links: list[Link]) -> list[Link]:
 
 class WebScout:
     def __init__(self, dsn: str, client: LLMClient, fetcher: Fetcher, *, max_rounds: int = 2,
-                 links_per_round: int = 8) -> None:
+                 links_per_round: int = 8, discovery=None, browser=None) -> None:
         self.dsn = dsn
         self.client = client
         self.fetcher = fetcher
         self.max_rounds = max_rounds
         self.links_per_round = links_per_round
+        self.discovery_adapter = discovery
+        self.browser_adapter = browser
         self._fetch_lock = threading.Lock()
         # Futures let concurrent tasks share one fetch/save, scoped to workspace and run.
         self._pages: dict[tuple[UUID, UUID, str], Future] = {}
@@ -141,6 +145,7 @@ class WebScout:
 
 class _ScoutRun:
     def __init__(self, scout: WebScout, conn, ctx: RunContext, step_id: UUID, task: ScoutTask) -> None:  # noqa: ANN001
+        self._started = time.monotonic()
         self.scout = scout
         self.conn = conn
         self.ctx = ctx
@@ -171,12 +176,32 @@ class _ScoutRun:
             else:
                 self.discovery_omitted += 1
 
+    def _remaining_seconds(self) -> float | None:
+        minutes = getattr(self.task, "max_minutes", None)
+        return None if minutes is None else max(0.0, minutes * 60 - (time.monotonic() - self._started))
+
     # --- Fetching -------------------------------------------------------------
 
     def _fetch(self, url: str, link: Link | None = None) -> Extracted | None:
         url = urldefrag(url)[0]
         if url in self.seen:
             return None
+        remaining = self._remaining_seconds()
+        if remaining is not None and remaining <= 0:
+            self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None,
+                                         error="task time limit reached", attempted_at=datetime.now(UTC)))
+            return None
+        scope = frozenset(getattr(self.task, "source_ids", ()))
+        if isinstance(self.scout.fetcher, Fetcher):
+            try:
+                source = self.scout.fetcher.allow.source_for(url)
+                if source.id not in scope:
+                    raise FetchRefused("URL is outside the task source scope")
+            except (FetchRefused, ValueError) as exc:
+                self.seen.add(url)
+                self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None,
+                                             error=str(exc), attempted_at=datetime.now(UTC)))
+                return None
         key = (self.ctx.workspace_id, self.ctx.analysis_run_id, url)
         with self.scout._fetch_lock:
             pending = self.scout._pages.get(key)
@@ -185,6 +210,7 @@ class _ScoutRun:
                 if self.allowance <= 0:
                     return None
                 pending = Future()
+                pending.source_scope = scope
                 self.scout._pages[key] = pending
         if owner:
             allowance_start = self.allowance
@@ -193,7 +219,11 @@ class _ScoutRun:
             try:
                 extracted = self._fetch_new(url, link)
                 visit = self.visits[-1] if extracted is not None else None
-                pending.set_result((extracted, visit, self.log[-1]))
+                attempt = self.log[-1]
+                with self.scout._fetch_lock:
+                    if attempt.outcome == "refused" and self.scout._pages.get(key) is pending:
+                        del self.scout._pages[key]
+                    pending.set_result((extracted, visit, attempt))
                 return extracted
             except BaseException as exc:
                 if isinstance(exc, Exception) and len(self.log) == log_start:
@@ -208,6 +238,22 @@ class _ScoutRun:
                 pending.set_exception(exc)
                 raise
         extracted, visit, attempt = pending.result()
+        if attempt.outcome == "refused":
+            if getattr(pending, "source_scope", scope) != scope:
+                return self._fetch(url, link)
+            self.seen.add(url)
+            self.log.append(attempt.model_copy(update={"attempted_at": datetime.now(UTC)}))
+            return None
+        if visit is not None and isinstance(self.scout.fetcher, Fetcher):
+            try:
+                source = self.scout.fetcher.allow.source_for(visit.url)
+                if source.id not in self.task.source_ids:
+                    raise FetchRefused("cached page is outside the task source scope")
+            except (FetchRefused, ValueError) as exc:
+                self.seen.add(url)
+                self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None,
+                                             error=str(exc), attempted_at=datetime.now(UTC)))
+                return None
         self.seen.add(url)
         self.log.append(attempt.model_copy(update={"outcome": "reused", "attempted_at": datetime.now(UTC)}))
         if visit is not None:
@@ -226,7 +272,10 @@ class _ScoutRun:
         now = datetime.now(UTC)
         payload = search_payload(url)
         try:
-            page = self.scout.fetcher.fetch(url, json_body=payload) if payload is not None else self.scout.fetcher.fetch(url)
+            options = {"source_ids": set(self.task.source_ids)} if isinstance(self.scout.fetcher, Fetcher) else {}
+            if payload is not None:
+                options["json_body"] = payload
+            page = self.scout.fetcher.fetch(url, **options)
         except FetchRefused as exc:
             self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None, error=str(exc), attempted_at=now))
             return None
@@ -237,10 +286,27 @@ class _ScoutRun:
             return None
         self.allowance -= 1
         extracted = extract(page)
+        provenance = {"request_method": "POST", "request_json": payload} if payload is not None else {}
+        if self.scout.browser_adapter is not None and page.kind == "html" and not extracted.text:
+            try:
+                remaining = self._remaining_seconds()
+                if remaining is not None and remaining <= 0:
+                    raise TimeoutError("task time limit reached")
+                adapter = self.scout.browser_adapter
+                if remaining is not None and hasattr(adapter, "with_timeout"):
+                    adapter = adapter.with_timeout(remaining)
+                captured = adapter.capture(page)
+                if captured is not None:
+                    rendered = extract(captured)
+                    if rendered.text:
+                        provenance.update(acquisition_method="offline_browser",
+                                          original_capture_sha256=hashlib.sha256(page.body).hexdigest())
+                        page, extracted = captured, rendered
+            except Exception as exc:
+                extracted.error = f"offline browser failed: {type(exc).__name__}"
         if extracted.published is None and link is not None and link.published and link.date_source:
             extracted.published = link.published
             extracted.published_basis = link.date_source
-        provenance = {"request_method": "POST", "request_json": payload} if payload is not None else None
         saved = self.writer.save(page, extracted, provenance)
         self.log.append(FetchAttempt(
             url=page.url, outcome="unchanged" if saved.unchanged else "saved",
@@ -319,8 +385,32 @@ class _ScoutRun:
         other_indexes.extend(url for queue in queues for url in queue)
         self.candidates.extend(Link(url, "Additional approved publication index", self.task.question)
                                for url in other_indexes if url not in self.seen)
+        if self.scout.discovery_adapter is not None and self.allowance > 0 and (self._remaining_seconds() is None or self._remaining_seconds() > 0):
+            try:
+                adapter = self.scout.discovery_adapter
+                remaining = self._remaining_seconds()
+                if remaining is not None and hasattr(adapter, "with_timeout"):
+                    adapter = adapter.with_timeout(remaining)
+                links = adapter.discover(
+                    self.task.question, list(self.task.source_ids), self.scout.fetcher.allow, self.ctx.brief.as_of_date)
+                safe = []
+                for link in links[:25]:
+                    try:
+                        source = self.scout.fetcher.allow.source_for(link.url)
+                        if source.id in self.task.source_ids and {"fetch", "store_text"} <= set(source.permitted_operations):
+                            if link.published is None or link.published <= self.ctx.brief.as_of_date:
+                                safe.append(Link(link.url, link.text[:200], "URL discovered by search provider"))
+                    except (FetchRefused, ValueError):
+                        continue
+                self._record_discovery(safe, "discovery", None)
+                self.candidates.extend(safe)
+            except Exception as exc:
+                self.discovery.append({"reason": "discovery_failed", "error": type(exc).__name__})
         stop_reason = "round_limit"
         for _ in range(self.scout.max_rounds):
+            if self._remaining_seconds() is not None and self._remaining_seconds() <= 0:
+                stop_reason = "time_limit"
+                break
             if self.allowance <= 0:
                 stop_reason = "document_allowance"
                 break
@@ -413,10 +503,12 @@ class _ScoutRun:
         # Continue the same host rotation only for diagnostic ranks; do not change the prompt.
         remaining = {host: list(links) for host, links in groups.items()}
         rank = len(fresh)
+        deferred: list[Link] = []
         while remaining:
             for host in list(remaining):
                 rank += 1
                 link = remaining[host].pop(0)
+                deferred.append(link)
                 before = len(diagnostic["filtered"])
                 filtered(link, "prompt_cap")
                 if len(diagnostic["filtered"]) > before:
@@ -454,6 +546,7 @@ class _ScoutRun:
         self._used(result)
         selected_urls = {label_to_link[label].url for label in result.output.link_labels}
         self.candidates.extend(link for link in fresh if link.url not in selected_urls)
+        self.candidates.extend(deferred)
         for item in diagnostic["presented"]:
             item["selected"] = item["label"] in result.output.link_labels
         for label in result.output.link_labels:

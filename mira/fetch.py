@@ -31,6 +31,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, Protocol
+from uuid import UUID
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from mira.store import SourceRecord
@@ -162,6 +163,11 @@ class AllowList:
             raise FetchRefused(f"host {host!r} is not on the allow-list")
         return self._hosts[host]
 
+    def domains_for_sources(self, source_ids: Iterable[UUID]) -> list[str]:
+        ids = set(source_ids)
+        return sorted(host for host, source in self._hosts.items()
+                      if source.id in ids and "store_text" in source.permitted_operations)
+
     def allows(self, url: str) -> bool:
         try:
             self.source_for(url)
@@ -200,7 +206,8 @@ class Fetcher:
         self._hosts_lock = threading.Lock()
         self._blocked: set[str] = set()
 
-    def fetch(self, url: str, *, json_body: dict[str, object] | None = None) -> FetchedPage:
+    def fetch(self, url: str, *, json_body: dict[str, object] | None = None,
+              source_ids: set[UUID] | None = None) -> FetchedPage:
         current = url
         for _ in range(MAX_REDIRECTS + 1):
             # HTML links can contain literal spaces; encode only the request target,
@@ -209,6 +216,8 @@ class Fetcher:
             current = urlunsplit((parts.scheme, parts.netloc, parts.path.replace(" ", "%20"),
                                   parts.query.replace(" ", "%20"), parts.fragment))
             source = self.allow.source_for(current)
+            if source_ids is not None and source.id not in source_ids:
+                raise FetchRefused("URL is outside the task source scope")
             if json_body is not None and search_payload(current) is None:
                 raise FetchRefused("JSON requests are limited to the SFC public publication-search endpoints")
             host = (urlsplit(current).hostname or "").lower()

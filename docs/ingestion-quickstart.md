@@ -125,3 +125,11 @@ Synthetic demo items cannot be exported through this handoff. Downloading a pack
 Ingestion requires curator/admin permissions; authenticated search requires workspace membership. Do not use elevated credentials to bypass a missing role. Saai owns migrations and shared persistence, while Nat owns extraction semantics. The local UI neither loads worker credentials nor writes to Supabase. The explicit CLI import performs the database writes.
 
 The research pipeline now provides scouts, an agent workflow, coverage checks and report review. OCR, semantic embeddings, production hosting and measured live evaluation remain separate work. Inspecting or downloading evidence does not mark a report reviewed.
+
+### Optional bounded discovery and offline DOM capture
+
+`MIRA_ENABLE_EXA_DISCOVERY=1` plus an `EXA_API_KEY` enables URL-only Exa discovery for a separately authorized run. A key alone does not activate it. Queries use task-source domains and results still pass local source, fetch and text-storage permission checks. Search titles are discovery metadata; provider extracts never become report evidence. See the [Exa search reference](https://exa.ai/docs/reference/search).
+
+`MIRA_ENABLE_OFFLINE_BROWSER=1` enables an optional fallback for already fetched, unreadable HTML only where the source explicitly has `connector_config.allow_browser=true`. Install `.[browser]` and the matching Playwright Chromium. An optional trusted local `MIRA_BROWSER_EXECUTABLE` selects an installed Chromium executable. The capture uses a new offline, script-disabled browser context with all resource routes aborted; it cannot resolve pages requiring external JavaScript/data and never retries access refusals or block pages. Missing browser dependencies appear as extraction errors. This is DOM capture, not a complete archived publisher original.
+
+Capture and extracted-text hashes are retained separately; extraction changes create immutable saved versions even if acquired bytes are unchanged. Original HTML/PDF binaries are still not retained durably. A first re-fetch of an old body-only version may create a new version under the expanded identity; no old rows or reviewed reports are rewritten.

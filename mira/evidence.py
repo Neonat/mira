@@ -13,6 +13,7 @@ writer, so a document downloaded by hand is stored exactly like a fetched one.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, time
 from uuid import UUID
@@ -36,6 +37,14 @@ class SavedPage:
     text_stored: bool
 
 
+def evidence_identity(page: FetchedPage, extracted: Extracted, method: str = "http_fetch") -> dict[str, str]:
+    capture = hashlib.sha256(page.body).hexdigest()
+    extraction = hashlib.sha256(extracted.text.encode("utf-8")).hexdigest()
+    material = json.dumps([capture, method, EXTRACTION_VERSION, extracted.status, extraction], separators=(",", ":"))
+    return {"capture_sha256": capture, "extraction_sha256": extraction,
+            "version_sha256": hashlib.sha256(material.encode()).hexdigest()}
+
+
 class EvidenceWriter:
     def __init__(self, conn: psycopg.Connection, workspace_id: UUID, user_id: UUID) -> None:
         self.conn = conn
@@ -47,7 +56,10 @@ class EvidenceWriter:
         ws, user = self.workspace_id, self.user_id
         source = page.source
         store_text = "store_text" in source.permitted_operations and extracted.status in ("complete", "partial")
-        digest = hashlib.sha256(page.body).hexdigest()
+        method = ("manual_import" if (provenance or {}).get("import") == "manual" else
+                  "offline_browser" if (provenance or {}).get("acquisition_method") == "offline_browser" else "http_fetch")
+        identity = evidence_identity(page, extracted, method)
+        digest = identity["version_sha256"]
         with acting_as(self.conn, user):
             document = self.conn.execute(
                 "select id from public.documents where workspace_id = %s and source_id = %s and canonical_url = %s",
@@ -95,7 +107,9 @@ class EvidenceWriter:
                  Jsonb({"content_type": page.content_type, "requested_url": page.requested_url, "kind": page.kind,
                         "text_stored": store_text, "links": len(extracted.links), "error": extracted.error,
                         "publication_date_evidence": extracted.published_basis,
-                        **(provenance or {})}),
+                        **(provenance or {}), "acquisition_method": method,
+                        "capture_sha256": identity["capture_sha256"], "original_retained": False,
+                        "extraction_sha256": identity["extraction_sha256"]}),
                  latest["id"] if latest else None),
             ).fetchone()["id"]
             passage_ids: list[UUID] = []

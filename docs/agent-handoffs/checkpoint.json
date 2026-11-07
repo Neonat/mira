@@ -162,5 +162,25 @@
     "pushed_source_sha": "27c28fac8631c9afdb8cdef60ab6b48b526ef5a7",
     "publication": "Follow-up PR4; PR3 is merged"
   },
-  "active_pr": "https://github.com/Neonat/mira/pull/4"
+  "active_pr": "https://github.com/Neonat/mira/pull/4",
+  "ingestion_expansion": {
+    "base_sha": "392f61740556d0c942f4be53f05fd9b980cfc9b9",
+    "status": "phase_1_complete",
+    "branch": "codex/ingestion-corroboration",
+    "tests_passed": 378,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "migration": "20261107190000_mira_acquisition_provenance.sql",
+    "migration_scope": "local PostgreSQL only",
+    "independent_review": "No remaining important blockers",
+    "offline_browser": "actual Chromium capture passed with synthetic HTML, scripts disabled and routes aborted",
+    "fixture_effect": "120 to 123 selection-frontier attempts at equal document allowance; extra selection call; no saved/live recall gain established",
+    "live_recall": "unmeasured",
+    "human_precision": "unlabelled",
+    "new_live_calls": 0,
+    "handoffs": [
+      "ingestion-expansion.md",
+      "ingestion-measurement.md"
+    ]
+  }
 }

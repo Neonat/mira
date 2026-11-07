@@ -300,7 +300,7 @@ def test_repeated_selected_label_keeps_original_fetch_diagnostic(monkeypatch):
     from mira.extract import Link
     from mira.contracts import FetchAttempt, LinkSelection
 
-    task = SimpleNamespace(max_documents=2, max_llm_tokens=None, question="AML", role="regulatory_scout")
+    task = SimpleNamespace(max_documents=2, max_llm_tokens=None, question="AML", role="regulatory_scout", source_ids=())
     run = _ScoutRun(WebScout("unused", None, SimpleNamespace(), links_per_round=2), None, context(), uuid4(), task)
     url = "https://example.org/article"
     version = uuid4()
@@ -359,3 +359,22 @@ def test_invalid_url_is_a_fetch_failure_instead_of_crashing_a_scout():
     transport._opener = BadOpener()
     with pytest.raises(FetchFailed, match='invalid request target'):
         transport.get('https://www.hkma.gov.hk/example', {}, 1, 1024)
+
+
+def test_prompt_cap_candidates_remain_available_in_later_round(monkeypatch):
+    from mira.agents import scout as module
+    from mira.extract import Link
+    from mira.contracts import LinkSelection
+
+    task = SimpleNamespace(max_documents=2, max_llm_tokens=None, question="AML", role="regulatory_scout")
+    run = _ScoutRun(WebScout("unused", None, SimpleNamespace(), links_per_round=1), None, context(), uuid4(), task)
+    run.candidates = [Link(f"https://example.org/{i}", "", "") for i in range(3)]
+    monkeypatch.setattr(module, "MAX_LINKS_SHOWN", 2)
+    monkeypatch.setattr(module, "call_checked", lambda *a, **kw: SimpleNamespace(output=LinkSelection(link_labels=["L1"], notes=None), model="s", tokens_in=0, tokens_out=0))
+    monkeypatch.setattr(run, "_fetch_document", lambda url, link: run.seen.add(url))
+
+    run._select_and_fetch()
+    run._select_and_fetch()
+
+    assert [item["url"] for item in run.selection_diagnostics[1]["presented"]] == [
+        "https://example.org/1", "https://example.org/2"]
