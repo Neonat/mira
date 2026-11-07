@@ -1,4 +1,6 @@
-# Next bounded assignment: one SFC enforcement miss
+# Completed diagnostic assignment: one SFC enforcement miss
+
+**Status:** completed; see [coverage-trace.md](coverage-trace.md). Retain this original brief as provenance, and do not repeat it. The next task is the bounded candidate/selection telemetry described in the result.
 
 **Agent:** `coverage_engineer` — `gpt-6.1-terra`, medium. Fresh context, no inherited chat.
 
