@@ -1,0 +1,20 @@
+{
+  "opening": {
+    "available": true,
+    "durationSeconds": 32,
+    "startSeconds": 0,
+    "asset": "motion-opening.mp4"
+  },
+  "agents": {
+    "available": true,
+    "durationSeconds": 20,
+    "startSeconds": 52,
+    "asset": "motion-agents.mp4"
+  },
+  "ending": {
+    "available": true,
+    "durationSeconds": 10,
+    "startSeconds": 170,
+    "asset": "motion-ending.mp4"
+  }
+}

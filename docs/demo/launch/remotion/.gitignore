@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+.env
+
+# Ignore the output video from Git but not videos you import into src/.
+out
+
+# Local reproducible media and output; sources/ledgers are in scripts and handoff.
+public/*
+!public/.gitkeep
+build/
