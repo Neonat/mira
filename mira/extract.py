@@ -8,19 +8,20 @@ boundaries so a citation points at a readable span with character offsets.
 from __future__ import annotations
 
 import io
+import json
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from email.utils import parsedate_to_datetime
-from html import unescape
+from html import escape, unescape
 from html.parser import HTMLParser
 from typing import Literal
-from urllib.parse import urldefrag, urljoin
+from urllib.parse import parse_qsl, urlencode, urldefrag, urljoin, urlsplit
 
 from mira.fetch import FetchedPage
 
-EXTRACTION_VERSION = "extract/1"
+EXTRACTION_VERSION = "extract/2"
 ExtractionStatus = Literal["complete", "partial", "failed", "unsupported"]
 
 BLOCK_TAGS = {
@@ -37,6 +38,7 @@ class Link:
     text: str
     context: str
     published: date | None = None
+    date_source: str | None = None
 
 
 @dataclass
@@ -47,6 +49,7 @@ class Extracted:
     links: list[Link] = field(default_factory=list)
     published: date | None = None
     error: str | None = None
+    published_basis: str | None = None
 
     @property
     def text(self) -> str:
@@ -68,6 +71,8 @@ def extract(page: FetchedPage) -> Extracted:
             return extract_html(page.body, page.url)
         if page.kind == "pdf":
             return extract_pdf(page.body, page.url)
+        if page.kind == "json":
+            return extract_sfc_json(page.body, page.url)
         return extract_feed(page.body, page.url)
     except Exception as exc:  # a broken page must stay visible, never an empty success (AG06)
         return Extracted(title=page.url, status="failed", pages=[], error=f"{type(exc).__name__}: {exc}")
@@ -92,6 +97,8 @@ class _HtmlText(HTMLParser):
         self._href: str | None = None
         self._link_text: list[str] = []
         self._link_pos = 0
+        self.records: list[tuple[int, int]] = []
+        self._record_starts: list[tuple[str, int]] = []
 
     @property
     def length(self) -> int:
@@ -99,6 +106,8 @@ class _HtmlText(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
+        if tag in ("tr", "li", "article"):
+            self._record_starts.append((tag, self.length))
         if tag in SKIP_TAGS:
             self._skip += 1
         elif tag in CHROME_TAGS:
@@ -119,6 +128,12 @@ class _HtmlText(HTMLParser):
             self.parts.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
+        if tag in ("tr", "li", "article"):
+            for index in range(len(self._record_starts) - 1, -1, -1):
+                if self._record_starts[index][0] == tag:
+                    _, start = self._record_starts.pop(index)
+                    self.records.append((start, self.length))
+                    break
         if tag in SKIP_TAGS:
             self._skip = max(0, self._skip - 1)
         elif tag in CHROME_TAGS:
@@ -166,12 +181,22 @@ def extract_html(body: bytes, url: str) -> Extracted:
         if link_url in seen:
             continue
         seen.add(link_url)
-        context = " ".join(raw[max(0, position - 160): position + len(text) + 160].split())
-        links.append(Link(link_url, text, context, find_date(context)))
+        records = [(start, end) for start, end in parser.records if start <= position < end]
+        if records:
+            start, end = min(records, key=lambda span: span[1] - span[0])
+            context = " ".join(raw[start:end].split())
+            dates = {find_date(match.group()) for pattern in DATE_PATTERNS for match in pattern.finditer(context)} - {None}
+            published = next(iter(dates)) if len(dates) == 1 else None
+        else:
+            context = " ".join(raw[max(0, position - 160): position + len(text) + 160].split())
+            published = None
+        links.append(Link(link_url, text, context, published,
+                          f"publication date in enclosing table/list record at {url}" if published else None))
     text = _tidy(raw)
     title = " ".join((parser.h1 or parser.title or url).split())
     return Extracted(title=title, status="complete" if text else "partial", pages=[text] if text else [],
-                     links=links, published=parser.published)
+                     links=links, published=parser.published,
+                     published_basis=f"publication meta tag in {url}" if parser.published else None)
 
 
 def _decode(body: bytes) -> str:
@@ -202,7 +227,18 @@ def extract_pdf(body: bytes, url: str) -> Extracted:
     if not any(pages):
         return Extracted(title=title, status="unsupported", pages=[], error="no extractable text (scanned PDF?)")
     status: ExtractionStatus = "complete" if all(pages) else "partial"
-    return Extracted(title=title, status=status, pages=pages)
+    published = None
+    basis = None
+    # HKMA circulars put the issue date on a standalone line before the salutation.
+    # Never treat a filename, PDF creation date, or an effective date in the body as publication.
+    if urlsplit(url).hostname == "brdr.hkma.gov.hk" and "Dear" in pages[0][:2000]:
+        header = pages[0][:2000].split("Dear", 1)[0]
+        dates = [line.strip() for line in header.splitlines()
+                 if re.fullmatch(r"\d{1,2}\s+[A-Za-z]+\s+\d{4}", line.strip())]
+        if len(set(dates)) == 1:
+            published = find_date(dates[0])
+            basis = f"HKMA circular header: {dates[0]}" if published else None
+    return Extracted(title=title, status=status, pages=pages, published=published, published_basis=basis)
 
 
 # --- RSS / Atom ------------------------------------------------------------------
@@ -219,19 +255,74 @@ def extract_feed(body: bytes, url: str) -> Extracted:
         published = parse_date(item.findtext("pubDate") or "")
         if link_url and item_title:
             summary = " ".join(unescape(re.sub(r"<[^>]+>", " ", item.findtext("description") or "")).split())[:300]
-            links.append(Link(urljoin(url, link_url), item_title, summary, published))
+            links.append(Link(urljoin(url, link_url), item_title, summary, published,
+                              f"RSS pubDate in {url}" if published else None))
     for entry in root.iter("{http://www.w3.org/2005/Atom}entry"):
         link = entry.find("atom:link", ns)
         link_url = link.get("href", "") if link is not None else ""
         entry_title = " ".join((entry.findtext("atom:title", namespaces=ns) or "").split())
-        published = parse_date(entry.findtext("atom:published", namespaces=ns) or entry.findtext("atom:updated", namespaces=ns) or "")
+        published = parse_date(entry.findtext("atom:published", namespaces=ns) or "")
         if link_url and entry_title:
-            links.append(Link(urljoin(url, link_url), entry_title, "", published))
+            links.append(Link(urljoin(url, link_url), entry_title, "", published,
+                              f"Atom published in {url}" if published else None))
     text = "\n".join(f"{link.published or ''} {link.text}".strip() for link in links)
     return Extracted(title=title, status="complete", pages=[text] if text else [], links=links)
 
 
 # --- Dates and passages ----------------------------------------------------------
+
+
+def extract_sfc_json(body: bytes, url: str) -> Extracted:
+    """Read the public SFC service used by its JavaScript publication pages."""
+    parts = urlsplit(url)
+    match = re.fullmatch(r"/edistributionWeb/api/(circular|news|consultation)/(search|content)", parts.path)
+    if parts.hostname != "apps.sfc.hk" or match is None:
+        return Extracted(title=url, status="unsupported", pages=[], error="unsupported publication JSON format")
+    kind, operation = match.groups()
+    data = json.loads(body)
+    if operation == "search":
+        links = []
+        for item in data["items"]:
+            if kind == "consultation":
+                # The consultation search pairs the paper and its conclusions.
+                # Both official routes use cpRefNo; the conclusion PDF is a
+                # separate publication with its own title and issue date.
+                reference = item.get("cpRefNo")
+                title = item.get("cpTitle")
+                published = parse_date(item.get("cpIssueDate") or "")
+                if reference and title:
+                    target = f"https://apps.sfc.hk/edistributionWeb/api/consultation/content?" + urlencode({"refNo": reference, "lang": "EN"})
+                    links.append(Link(target, title, title, published, "SFC public publication listing" if published else None))
+                    if item.get("ccRefNo") and item.get("ccTitle"):
+                        concluded = parse_date(item.get("ccIssueDate") or "")
+                        target = f"https://apps.sfc.hk/edistributionWeb/api/consultation/conclusion?" + urlencode({"refNo": reference, "lang": "EN"})
+                        links.append(Link(target, item["ccTitle"], item["ccTitle"], concluded,
+                                          "SFC public conclusions listing" if concluded else None))
+                continue
+            reference = item.get("refNo") or item.get("newsRefNo") or item.get("consultationRefNo")
+            title = item.get("title")
+            if not reference or not title:
+                continue
+            published = parse_date(item.get("releasedDate") or item.get("issueDate") or "")
+            target = f"https://apps.sfc.hk/edistributionWeb/api/{kind}/content?" + urlencode({"refNo": reference, "lang": "EN"})
+            links.append(Link(target, title, title, published, "SFC public publication listing" if published else None))
+        query = dict(parse_qsl(parts.query))
+        page_number = int(query.get("pageNo", "0"))
+        page_size = int(query.get("pageSize", "100"))
+        if (page_number + 1) * page_size < int(data.get("total", len(data["items"]))):
+            query["pageNo"] = str(page_number + 1)
+            links.append(Link(parts._replace(query=urlencode(query)).geturl(), "Next SFC publication results", kind))
+        # An index supplies discovery links, while claims cite the full publications.
+        return Extracted(title=f"SFC {kind} publication index", status="complete", pages=[], links=links)
+    title = str(data.get("title") or url)
+    html = data.get("html")
+    if not isinstance(html, str) or not html.strip():
+        return Extracted(title=title, status="unsupported", pages=[], error="SFC response has no publication text")
+    result = extract_html((f"<h1>{escape(title)}</h1>" + html).encode(), url)
+    date_field = "releasedDate" if data.get("releasedDate") else "issueDate"
+    result.published = parse_date(data.get(date_field) or "")
+    result.published_basis = f"SFC public API {date_field}" if result.published else None
+    return result
 
 MONTHS = {m: i for i, m in enumerate(
     ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}

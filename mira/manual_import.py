@@ -101,8 +101,13 @@ def load_source(conn: psycopg.Connection, workspace_id: UUID, source_key: str) -
 
 def prepare_page(item: ImportItem, source: SourceRecord, imported_at: datetime) -> FetchedPage:
     """Check one file against the rules above and wrap it as a page; raises ``ImportRefused``."""
-    parts = urlsplit(item.url)
-    if parts.scheme != "https" or not parts.hostname:
+    try:
+        parts = urlsplit(item.url)
+        port = parts.port
+    except ValueError as exc:
+        raise ImportRefused('Invalid source URL; give a valid https URL.') from exc
+    if (parts.scheme != "https" or not parts.hostname or parts.username or parts.password
+            or port not in (None, 443)):
         raise ImportRefused(f"{item.url}: give the https URL the document was downloaded from")
     if parts.hostname.lower() not in source_hosts(source):
         raise ImportRefused(f"{item.url}: not a {source.name} URL ({', '.join(sorted(source_hosts(source)))})")
@@ -150,7 +155,7 @@ def import_files(
             saved = writer.save(page, extracted, {"import": "manual", "file_name": item.path.name,
                                                   "ingestion_run_id": str(run_id)})
             error = extracted.error if extracted.status in ("failed", "unsupported") else None
-            results.append(ImportResult(item, "unchanged" if saved.unchanged else "saved", saved.document_version_id,
+            results.append(ImportResult(item, "failed" if error else ("unchanged" if saved.unchanged else "saved"), saved.document_version_id,
                                         len(saved.passage_ids), error))
             document_id = saved.document_id
         except (ImportRefused, OSError) as exc:

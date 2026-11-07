@@ -39,10 +39,11 @@ class Measured:
     @classmethod
     def from_client(cls, arm: str, client: object, coverage: float | None, cost_usd: float | None,
                     seconds: float | None, precision: float | None = None) -> Measured:
-        # Imported here so eval/ does not import the worker at module load. Only a real Anthropic client is live.
-        from mira.llm import AnthropicClient
+        # Imported here so eval/ does not import the worker at module load. Only real provider clients are live.
+        from mira.llm import AnthropicClient, OpenAIClient, ProviderClient
 
-        return cls(arm=arm, live=isinstance(client, AnthropicClient), coverage=coverage,
+        return cls(arm=arm, live=(isinstance(client, (AnthropicClient, OpenAIClient))
+                                   or (isinstance(client, ProviderClient) and client.live)), coverage=coverage,
                    cost_usd=cost_usd, seconds=seconds, precision=precision)
 
     @classmethod

@@ -41,6 +41,7 @@ Some guardrails are part of the product, not of the architecture, and the single
 - a claim with no quote that appears in its saved passage is `unsupported` and never reaches the report (deterministic);
 - an inference reaches the report only when every fact it rests on is verified (§6.3);
 - the writer sees verified claims only, and every non-structural sentence cites a verified claim (AG10);
+- final report text is assembled from complete saved claim content; the writer controls selection and order but cannot add prose or new inferences. This deterministic guard is shared by both arms and adds no verifier model call to the single-agent arm;
 - source text is quoted as data, never as instructions (AG14);
 - a fetch is refused for any URL off the allow-list (AG04).
 

@@ -36,11 +36,13 @@ from mira.agents import analyst, planner, writer
 from mira.brief import check_brief_scope
 from mira.budget import BudgetExhausted, BudgetTracker
 from mira.completeness import coverage_rows
+from mira.coverage_display import coverage_label
 from mira.contracts import (
     Brief,
     CONTRACT_VERSION,
     AgentRole,
     CoverageRow,
+    FetchAttempt,
     ReportSection,
     ReportSentence,
     ReportSnapshot,
@@ -49,7 +51,7 @@ from mira.contracts import (
     StepRecord,
     StepStatus,
 )
-from mira.interfaces import CheckOutcome, Scout, ScoutOutcome, ScoutTask, Verifier
+from mira.interfaces import CheckOutcome, Scout, ScoutFailure, ScoutOutcome, ScoutTask, Verifier
 from mira.llm import LLMClient, LLMError, LLMResult
 from mira.diff import diff_key, diff_runs
 from mira.report import ReportContext, render_html
@@ -251,7 +253,7 @@ class _Run:
         self._finish(step, "succeeded")
 
     @staticmethod
-    def _used(step: _Step, result: LLMResult | ScoutOutcome | CheckOutcome) -> None:
+    def _used(step: _Step, result: LLMResult | ScoutOutcome | ScoutFailure | CheckOutcome) -> None:
         step.model = result.model
         step.prompt_version = result.prompt_version
         step.tokens_in += result.tokens_in
@@ -341,10 +343,16 @@ class _Run:
                 try:
                     self._collect_scout(task, step, future.result())
                 except Exception as exc:
-                    if isinstance(exc, LLMError):
-                        step.tokens_in += exc.tokens_in
-                        step.tokens_out += exc.tokens_out
-                    self._finish(step, "failed", f"{type(exc).__name__}: {exc}")
+                    if isinstance(exc, ScoutFailure):
+                        self._used(step, exc)
+                        self._record_scout_fetches(step, exc.fetch_log, exc.selection_diagnostics)
+                        error_type = type(exc.cause).__name__
+                    else:
+                        if isinstance(exc, LLMError):
+                            step.tokens_in += exc.tokens_in
+                            step.tokens_out += exc.tokens_out
+                        error_type = type(exc).__name__
+                    self._finish(step, "failed", f"{error_type}: {exc}")
                     self.reasons.append(f"task {task.task_label} ({task.role.replace('_', ' ')}) failed: {exc}")
                     self.skipped[task.task_label] = f"scout failed: {exc}"
                 else:
@@ -353,8 +361,7 @@ class _Run:
     def _collect_scout(self, task: ScoutTask, step: _Step, outcome: ScoutOutcome) -> None:
         self._used(step, outcome)
         result = outcome.result
-        fetched = sum(1 for attempt in result.fetch_log if attempt.outcome != "refused")
-        self.budget.charge_documents(fetched)
+        self._record_scout_fetches(step, result.fetch_log, result.selection_diagnostics)
         if (result.analysis_run_id, result.agent_step_id, result.role) != (self.ctx.analysis_run_id, step.id, task.role):
             raise ValueError("scout result belongs to a different run, step or role")
         passage_ids: list[UUID] = []
@@ -364,18 +371,40 @@ class _Run:
                     raise ValueError(f"scout cited passage label {label!r} it did not define")
                 if result.labels[label] not in passage_ids:
                     passage_ids.append(result.labels[label])
+        document_passage_ids = set(passage_ids)
+        for status in result.report.expected_source_statuses:
+            for label in status.inspected_passage_labels:
+                passage_id = result.labels.get(label)
+                if not label.startswith("P") or passage_id is None:
+                    raise ValueError(f"scout cited inspection label {label!r} it did not define")
+                if passage_id not in passage_ids:
+                    passage_ids.append(passage_id)
         found = self.store.get_passages(self.ctx.workspace_id, passage_ids)
         missing = set(passage_ids) - {passage.id for passage in found}
         if missing:
             raise ValueError(f"{len(missing)} cited passages are not saved in the evidence store")
+        selected_versions = {p.document_version_id for p in found if p.id in document_passage_ids}
+        shown_ids = [real for label, real in result.labels.items() if label.startswith("P") and real not in passage_ids]
+        for passage in self.store.get_passages(self.ctx.workspace_id, shown_ids):
+            if passage.document_version_id in selected_versions:
+                found.append(passage)
+                passage_ids.append(passage.id)
         self.passages.update({passage.id: passage for passage in found})
         self.scout_results[task.task_label] = result
         step.output_refs.update(
             passage_ids=[str(i) for i in passage_ids],
             documents=len(result.report.documents),
-            fetch_attempts=len(result.fetch_log),
-            fetch_refused=sum(1 for attempt in result.fetch_log if attempt.outcome == "refused"),
-            fetch_failed=sum(1 for attempt in result.fetch_log if attempt.outcome == "failed"),
+        )
+
+    def _record_scout_fetches(self, step: _Step, fetch_log: list[FetchAttempt], diagnostics: dict) -> None:
+        self.budget.charge_documents(sum(1 for attempt in fetch_log if attempt.outcome not in ("refused", "reused")))
+        step.output_refs.update(
+            fetch_attempts=len(fetch_log),
+            fetch_refused=sum(1 for attempt in fetch_log if attempt.outcome == "refused"),
+            fetch_reused=sum(1 for attempt in fetch_log if attempt.outcome == "reused"),
+            fetch_failed=sum(1 for attempt in fetch_log if attempt.outcome == "failed"),
+            fetch_log=[attempt.model_dump(mode="json") for attempt in fetch_log],
+            selection_diagnostics=diagnostics,
         )
 
     def _check_coverage(self) -> None:
@@ -426,7 +455,8 @@ class _Run:
         for item in self.expected:
             row = latest.get(item.id)
             source = self.sources.get(item.source_id)
-            if row is None or row.status != "missing" or source is None or "fetch" not in source.permitted_operations:
+            if (row is None or row.status != "missing" or source is None
+                    or not {"fetch", "store_text"} <= set(source.permitted_operations)):
                 continue
             missing.append(item)
         return missing
@@ -474,9 +504,13 @@ class _Run:
 
     def _verify(self) -> None:
         for claim in self.claims:
+            if claim.draft.finding_type == "audit_question":
+                self.unresolved[claim.finding_id] = "out of scope: audit actions are for the auditor to decide"
+        for claim in self.claims:
             if not claim.draft.is_inference:
                 self._verify_fact(claim)
-        pending = [claim for claim in self.claims if claim.draft.is_inference]
+        pending = [claim for claim in self.claims
+                   if claim.draft.is_inference and claim.finding_id not in self.unresolved]
         progress = True
         while pending and progress:
             progress = False
@@ -556,6 +590,7 @@ class _Run:
                     self._used(step, written.llm)
                     sections = written.sections
                     step.output_refs["sections"] = [s.section for s in sections if not s.no_verified_items]
+                    step.output_refs["grounded_sentences"] = written.grounded_sentences
             except (LLMError, ValueError) as exc:
                 self.reasons.append(f"writer failed ({exc}); the report lists verified claims without a summary")
                 sections = writer.claim_sections(verified)
@@ -640,12 +675,13 @@ class _Run:
         if self.coverage:
             counts: dict[str, int] = {}
             for row in self.coverage:
-                counts[row.status] = counts.get(row.status, 0) + 1
+                label = coverage_label(row.status, row.note).lower()
+                counts[label] = counts.get(label, 0) + 1
             version = max(row.list_version for row in self.expected)
-            summary = ", ".join(f"{n} {name.replace('_', ' ')}" for name, n in sorted(counts.items()))
-            coverage_line = f"Coverage relative to the expected-source list v{version}, not complete: {summary}."
+            summary = " · ".join(f"{n} {label}" for label, n in sorted(counts.items()))
+            coverage_line = f"Source coverage checklist v{version} — {summary}."
         else:
-            coverage_line = "Coverage against the expected-source list was not checked in this run."
+            coverage_line = "This run did not check a configured source coverage checklist."
         lines = [
             coverage_line,
             f"{len(self.verified)} claims verified; {len(self.unresolved)} unresolved and kept out of the report body.",

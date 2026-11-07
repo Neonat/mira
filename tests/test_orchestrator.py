@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 
 from mira.budget import RunBudget
+from mira.completeness import coverage_rows
 from mira.contracts import Brief, ExpectedSourceStatusDraft, FetchAttempt, ScoutDocumentDraft, ScoutReport, ScoutResult, Verdict
 from mira.interfaces import CheckOutcome, ScoutOutcome
 from mira.llm import ScriptedClient
@@ -198,13 +199,13 @@ def test_full_run_produces_a_verified_draft_report():
     snapshot = store.reports[0].snapshot
     verified = {finding(store, label).finding_id for label in ("C1", "C2", "C3", "C4")}
     cited = {fid for section in snapshot.sections for s in section.sentences for fid in s.finding_ids}
-    assert cited and cited <= verified
+    assert cited == verified
     assert snapshot.unresolved_finding_ids == []
     assert snapshot.sections[-1].section == "coverage_limitations"
     assert store.plans[0]["labels"]["S1"] == str(MAS.id)
     html = store.reports[0].html
     assert "Draft, not reviewed" in html and "https://www.mas.gov.sg/notice-626" in html
-    assert 'class="tag">includes inference' in html
+    assert 'class="tag">Facts and inferences' in html
 
 
 def test_invented_passage_label_fails_the_analyst_and_the_run():
@@ -444,7 +445,7 @@ class ExpectedScout(FakeScout):
                 document_label="D1", instrument_type="notice", industry_category=None, title="Notice 626",
                 published_date=None, effective_date=None, change_type="amended",
                 relevant_passage_labels=[label for label in labels if label.startswith("P")],
-                expected_source_labels=[],
+                expected_source_labels=expected_labels,
             )],
             expected_source_statuses=statuses, notes=None,
         )
@@ -459,6 +460,26 @@ class ExpectedScout(FakeScout):
 
 def gap_plan(expected):
     return {"tasks": [plan_task(label="T1", expected=expected)], "notes": None}
+
+
+def test_unreadable_pdf_cannot_establish_no_change_on_the_checklist():
+    from mira.coverage_display import coverage_label
+    from mira.interfaces import ScoutTask
+
+    task = ScoutTask("T1", "regulatory_scout", "SG", "Check for updates", (MAS.id,), (E_RULE.id,), 1)
+    result = FakeScout().run(context(), uuid4(), task).result
+    result.labels["E1"] = E_RULE.id
+    result = result.model_copy(update={
+        "report": result.report.model_copy(update={"expected_source_statuses": [
+            ExpectedSourceStatusDraft(expected_source_label="E1", status="no_change", note=None)
+        ]}),
+        "fetch_log": [result.fetch_log[0].model_copy(update={"error": "no extractable text (scanned PDF?)"})],
+    })
+
+    row, = coverage_rows([E_RULE], {MAS.id: MAS}, [task], {"T1": result}, {})
+
+    assert row.status == "fetch_failed"
+    assert coverage_label(row.status, row.note) == "Could not extract text"
 
 
 def mas_expected_store():
@@ -624,3 +645,42 @@ def test_report_escapes_source_text_and_refuses_non_http_links():
     ))
     assert "<script>" not in html and "<img" not in html
     assert 'href="javascript' not in html
+
+
+def test_failed_scout_fetches_are_charged_and_persisted_before_gap_scouting():
+    from mira.interfaces import ScoutFailure, ScoutTask
+    from mira.orchestrator import _Run
+
+    now = datetime.now(UTC)
+    def attempt(url, outcome, version=None):
+        return FetchAttempt(url=url, outcome=outcome, document_version_id=version, error=None, attempted_at=now)
+
+    saved = attempt('https://www.mas.gov.sg/a', 'saved', VERSION_ID)
+    reused = attempt('https://www.mas.gov.sg/a', 'reused', VERSION_ID)
+    refused = attempt('https://www.mas.gov.sg/refused', 'refused')
+    diag = {'discovered': [{'url': saved.url}], 'rounds': [], 'stop_reason': 'exception'}
+
+    class FailureThenGap(FakeScout):
+        def run(self, ctx, step_id, task):
+            self.tasks.append(task)
+            if task.task_label == 'T1':
+                raise ScoutFailure(ValueError('bad page'), [saved, refused], diag, 'scripted', 'scout/test', 7, 5)
+            result = super().run(ctx, step_id, task)
+            log = [reused] if task.task_label == 'T2' else [saved]
+            return replace(result, result=result.result.model_copy(update={'fetch_log': log}))
+
+    scout = FailureThenGap()
+    orchestrator, store, *_ = make(scout=scout)
+    run = _Run(orchestrator, context(max_fetched_documents=2))
+    def task(name, gap=0):
+        return ScoutTask(name, 'regulatory_scout', 'SG', 'AML', (MAS.id,), (E_RULE.id,), 2, gap)
+    run._scout([task('T1'), task('T2')])
+    failed = next(s for s in steps(store) if s.status == 'failed')
+    assert [x['outcome'] for x in failed.output_refs['fetch_log']] == ['saved', 'refused']
+    assert failed.output_refs['selection_diagnostics'] == diag
+    assert (failed.tokens_in, failed.tokens_out) == (7, 5)
+    assert run.budget.documents_fetched == 1
+    assert run.budget.tokens_used == 12
+    run._scout([task('G1-T1', 1)])
+    assert next(t for t in scout.tasks if t.task_label == 'G1-T1').max_documents == 1
+    assert run.budget.documents_fetched == 2

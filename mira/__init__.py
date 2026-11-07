@@ -1,1 +1,1 @@
-"""Mira: agentic external driver research for internal audit."""
+"""Mira: agentic research and local evidence ingestion for internal audit."""

@@ -3,7 +3,7 @@
     python eval/run_live.py run [--jurisdictions SG HK] [--as-of 2026-10-26] [--months 12] [--sample 30]
     python eval/run_live.py score eval/results/<stamp>
 
-``run`` executes, on the trusted worker connection and with the real Claude client:
+``run`` executes, on the trusted worker connection and with the configured live provider clients:
 
 1. the multi-agent arm (the default orchestrator),
 2. the single-agent arm (``mira.single_agent``: code plan, one scout, quote-only verifier, no gap rounds),
@@ -147,8 +147,12 @@ def claim_rows(arm: str, finding_ids: Sequence[str], records: RunRecords) -> lis
     return rows
 
 
-def recall_summary(urls: Sequence[str]) -> dict[str, dict[str, int]]:
-    recall = score_recall(load_items(GROUND_TRUTH), urls)
+def recall_summary(urls: Sequence[str], brief=None) -> dict[str, dict[str, int]]:
+    scope = {} if brief is None else {
+        "jurisdictions": brief.jurisdictions, "period_start": brief.period_start,
+        "period_end": brief.period_end, "as_of_date": brief.as_of_date,
+    }
+    recall = score_recall(load_items(GROUND_TRUTH), urls, **scope)
     return {label: {"found": r.found, "total": r.total} for label, r in recall.items()}
 
 
@@ -262,11 +266,11 @@ def run(args: argparse.Namespace) -> int:
     from mira.budget import RunBudget
     from mira.contracts import Brief
     from mira.db import connect
-    from mira.llm import AnthropicClient
+    from mira.llm import ProviderClient
     from mira.pg_store import create_run
     from mira.runner import dev_user_id, execute_run, models_from_env, usage_by_role, workspace_id
 
-    client = AnthropicClient()
+    client = ProviderClient()
     dsn = os.environ["MIRA_WORKER_DATABASE_URL"]
     budget = RunBudget.from_env()
     if args.max_documents:
@@ -313,7 +317,7 @@ def run(args: argparse.Namespace) -> int:
                 records = load_records(conn, user, ctx.analysis_run_id)
                 cited = report_finding_ids(snapshot)
                 record["cited_urls"] = cited_urls(cited, records)
-                record["recall"] = recall_summary(record["cited_urls"])  # type: ignore[arg-type]
+                record["recall"] = recall_summary(record["cited_urls"], brief)  # type: ignore[arg-type]
                 record["report"] = f"reports/{ctx.analysis_run_id}"
                 rows += sample(claim_rows(arm, cited, records), args.sample)
             arms[arm] = record
@@ -327,7 +331,7 @@ def run(args: argparse.Namespace) -> int:
         seconds = time.monotonic() - started
         arms["plain_search"] = {
             "status": "draft", "reasons": result.notes, "seconds": round(seconds, 1), "cost_usd": 0.0, "tokens": 0,
-            "cited_urls": list(result.cited_urls), "recall": recall_summary(result.cited_urls),
+            "cited_urls": list(result.cited_urls), "recall": recall_summary(result.cited_urls, brief),
         }
         (folder / "plain_search.md").write_text(
             "\n".join([f"# {result.notes[0]}", "", *[f"- {url}" for url in result.cited_urls]]) + "\n",

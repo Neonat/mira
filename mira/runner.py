@@ -17,7 +17,7 @@ from mira.agents.scout import WebScout
 from mira.agents.verifier import LlmVerifier
 from mira.db import NotAuthorisedError, acting_as, require_role
 from mira.fetch import AllowList, Fetcher
-from mira.llm import ROLE_MODEL_ENV, AnthropicClient, LLMClient, estimated_cost
+from mira.llm import ROLE_MODEL_ENV, ProviderClient, LLMClient, estimated_cost
 from mira.orchestrator import Orchestrator, RunOutcome
 from mira.pg_store import PostgresStore, load_run
 from mira.single_agent import QuoteOnlyVerifier, code_plan
@@ -44,7 +44,7 @@ def models_from_env() -> dict[str, str]:
 
 
 def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, client: LLMClient | None = None) -> Orchestrator:
-    client = client or AnthropicClient()
+    client = client or ProviderClient()
     store = PostgresStore(conn)
     fetcher = Fetcher(AllowList(store.list_sources(workspace)))
     scout = WebScout(dsn, client, fetcher)
@@ -56,7 +56,7 @@ def build_single_agent_orchestrator(
 ) -> Orchestrator:
     """The single-agent comparison arm (docs/single_agent_arm_design.md §5): same store, scout and fetcher;
     a code-built plan, one scout and the quote-only verifier. Its runs must be created with no gap rounds."""
-    client = client or AnthropicClient()
+    client = client or ProviderClient()
     store = PostgresStore(conn)
     fetcher = Fetcher(AllowList(store.list_sources(workspace)))
     return Orchestrator(

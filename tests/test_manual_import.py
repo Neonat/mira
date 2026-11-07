@@ -35,6 +35,9 @@ def test_accepts_pdf_and_html_from_the_source_site(tmp_path):
     ("https://www.hkma.gov.hk/x", "not a MAS URL"),
     ("https://mas.gov.sg.example.com/x", "not a MAS URL"),
     ("not a url", "https"),
+    ("https://www.mas.gov.sg:invalid/x", "https"),
+    ("https://user:secret@www.mas.gov.sg/x", "https"),
+    ("https://www.mas.gov.sg:8443/x", "https"),
 ])
 def test_url_must_be_https_on_the_sources_own_site(tmp_path, url, reason):
     path = tmp_path / "a.html"

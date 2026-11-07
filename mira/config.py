@@ -14,6 +14,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 REPORTS_DIR = REPO_ROOT / "reports"
 
 
+def workspace_slug() -> str:
+    """Server-selected UI workspace; signed-in reads still use normal RLS."""
+    return os.environ.get("MIRA_WORKSPACE_SLUG", "mira").strip() or "mira"
+
+
 def report_file(relative: str | None, reports_dir: Path = REPORTS_DIR) -> Path | None:
     """The saved HTML report at ``relative``, or None if it is missing or outside ``reports_dir``.
 

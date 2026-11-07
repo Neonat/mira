@@ -29,14 +29,15 @@ from mira.brief import (
     project_revision_fields,
 )
 from mira.budget import RunBudget
-from mira.config import load_env, report_file
+from mira.config import load_env, report_file, workspace_slug
 from mira.contracts import Brief
+from mira.coverage_display import CHECKLIST_DESCRIPTION, coverage_label
 from mira.llm import ROLE_MODEL_ENV, estimated_cost
 from mira.report import TEMPLATE_VERSION
 
 UI_KEYS = {
     "SUPABASE_URL", "SUPABASE_ANON_KEY", "MIRA_DEV_EMAIL", "MIRA_MAX_FETCHED_DOCUMENTS", "MIRA_MAX_LLM_TOKENS",
-    "MIRA_MAX_RUN_MINUTES", "MIRA_MAX_GAP_ROUNDS", *ROLE_MODEL_ENV.values(),
+    "MIRA_MAX_RUN_MINUTES", "MIRA_MAX_GAP_ROUNDS", "MIRA_WORKSPACE_SLUG", *ROLE_MODEL_ENV.values(),
 }
 DECISIONS = ("accepted", "amended", "rejected", "needs_evidence")
 ACTIVE = ("queued", "running")
@@ -253,12 +254,16 @@ def runs_page(workspace_id: str, role: str) -> None:
     if coverage:
         expected = {e["id"]: e for e in rows(sb.table("expected_sources").select("id,jurisdiction_code,category,document_hint")
                                              .in_("id", [c["expected_source_id"] for c in coverage]))}
-        st.subheader("Coverage against the expected-source list")
+        latest = {}
+        for row in sorted(coverage, key=lambda c: c["gap_round"]):
+            latest[row["expected_source_id"]] = row
+        st.subheader("Source coverage checklist")
+        st.caption(CHECKLIST_DESCRIPTION)
         st.dataframe([{
-            "jurisdiction": expected[c["expected_source_id"]]["jurisdiction_code"].strip(),
-            "expected item": expected[c["expected_source_id"]]["document_hint"],
-            "status": c["status"].replace("_", " "), "note": c["note"] or "",
-        } for c in sorted(coverage, key=lambda c: c["status"])], hide_index=True, use_container_width=True)
+            "jurisdiction": expected.get(source_id, {}).get("jurisdiction_code", "").strip(),
+            "checklist item": expected.get(source_id, {}).get("document_hint", source_id),
+            "outcome": coverage_label(c["status"], c["note"]), "detail": c["note"] or "",
+        } for source_id, c in latest.items()], hide_index=True, use_container_width=True)
 
     if run["status"] in ACTIVE and st.toggle("Refresh every 5 seconds", value=True):
         time.sleep(5)
@@ -297,7 +302,7 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
     if signed:
         st.success(f"Signed off on {report['reviewed_at'][:16].replace('T', ' ')} (report version {report['report_version']}).")
     else:
-        st.warning("Draft. Every finding in the report needs a decision before sign-off.")
+        st.warning("Draft. Record a review outcome for each finding before sign-off.")
 
     snapshot = report["evidence_snapshot"]
     cited = {fid for section in snapshot["sections"] for sentence in section["sentences"] for fid in sentence["finding_ids"]}
@@ -307,7 +312,10 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
     checks = rows(sb.table("claim_checks").select("finding_id,method,verdict,reason,attempt")
                   .in_("finding_id", ids).order("checked_at")) if ids else []
     evidence = rows(sb.table("finding_evidence").select("finding_id,supporting_quote").in_("finding_id", ids)) if ids else []
-    reviews = rows(sb.table("finding_reviews").select("*").in_("finding_id", ids).order("reviewed_at")) if ids else []
+    reviews = rows(sb.table("finding_reviews").select("*").in_("finding_id", ids)
+                   .order("reviewed_at").order("review_sequence")) if ids else []
+    latest_reviews = {review["finding_id"]: review for review in reviews}
+    frozen_reviews = snapshot.get("review_outcomes", {})
 
     report_tab, findings_tab = st.tabs(["Report", f"Findings ({len(cited)} in report, {len(unresolved)} unresolved)"])
     with report_tab:
@@ -319,44 +327,53 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
     with findings_tab:
         can_review = role in ("admin", "reviewer")
         for finding in findings:
-            if finding["id"] not in cited | unresolved:
+            if finding["id"] not in cited | unresolved | set(frozen_reviews):
                 continue
             in_report = finding["id"] in cited
             mine = [r for r in reviews if r["finding_id"] == finding["id"]]
-            decision = mine[-1]["decision"].replace("_", " ") if mine else "no decision"
+            latest = frozen_reviews.get(finding["id"]) if signed else latest_reviews.get(finding["id"])
+            decision = latest["decision"].replace("_", " ") if latest and latest.get("decision") else "awaiting review"
             badge = "in report" if in_report else "unresolved, not in report"
             with st.expander(f"{finding['title']} · {badge} · {decision}"):
                 kind = "inference" if finding["is_inference"] else "fact"
                 st.markdown(f"*{finding['finding_type'].replace('_', ' ')} ({kind})* · priority **{finding['priority']}** · "
                             f"evidence confidence **{finding['evidence_confidence']}**")
-                st.write(finding["content"])
+                st.write(latest["amended_content"] if latest and latest.get("amended_content") else finding["content"])
+                if latest and latest.get("exclusion_reason"):
+                    st.caption(latest["exclusion_reason"])
                 for item in (e for e in evidence if e["finding_id"] == finding["id"]):
                     st.markdown(f"> {item['supporting_quote']}")
                 for check in (c for c in checks if c["finding_id"] == finding["id"]):
                     st.caption(f"Check {check['attempt']} · {check['method'].replace('_', ' ')}: "
                                f"**{check['verdict'].replace('_', ' ')}** · {check['reason']}")
-                for review in mine:
+                for review in ([] if signed else mine):
                     st.caption(f"Review: {review['decision'].replace('_', ' ')} · {review['reviewer_note'] or ''}")
                 if in_report and can_review and not signed:
                     _review_form(workspace_id, user_id, finding)
         if not can_review:
             st.caption(f"Your role is {role}; reviewers and admins record decisions.")
 
-    pending = [fid for fid in cited if not any(r["finding_id"] == fid for r in reviews)]
+    pending = [fid for fid in cited if fid not in latest_reviews]
     if not signed and role in ("admin", "reviewer"):
         if pending:
-            st.caption(f"{len(pending)} finding(s) in the report still need a decision before sign-off.")
+            st.caption(f"{len(pending)} finding(s) still need a review outcome before sign-off.")
         elif st.button("Sign off report", type="primary"):
-            _sign_off(workspace_id, user_id, report, run["id"])
-            st.rerun()
+            try:
+                _sign_off(workspace_id, user_id, report, run["id"])
+            except Exception as exc:
+                st.error(f"Could not sign off the report: {exc}")
+            else:
+                st.rerun()
 
 
 def _review_form(workspace_id: str, user_id: str, finding: dict[str, Any]) -> None:
     with st.form(f"review-{finding['id']}"):
-        decision = st.radio("Decision", DECISIONS, horizontal=True, format_func=lambda d: d.replace("_", " "))
+        decision = st.radio("Review outcome", DECISIONS, horizontal=True, format_func=lambda d: d.replace("_", " "))
         note = st.text_input("Note")
         amended = st.text_area("Amended text (only for 'amended')", value="")
-        if st.form_submit_button("Record decision"):
+        if decision == "amended":
+            st.caption("After amending a supporting fact, review its dependent inferences again.")
+        if st.form_submit_button("Save review"):
             if decision == "amended" and not amended.strip():
                 st.error("An amended decision needs the amended text.")
                 return
@@ -373,9 +390,9 @@ def _sign_off(workspace_id: str, user_id: str, report: dict[str, Any], run_id: s
     sb.table("reports").insert({
         "workspace_id": workspace_id, "analysis_revision_id": report["analysis_revision_id"],
         "report_version": report["report_version"] + 1, "format": report["format"], "review_status": "reviewed",
-        "template_version": report["template_version"] or TEMPLATE_VERSION, "evidence_snapshot": report["evidence_snapshot"],
-        # The reviewed file is rendered by the worker from the snapshot (mira.render). Leaving the path empty
-        # means this row never points at the draft file, which still says DRAFT.
+        "template_version": TEMPLATE_VERSION, "evidence_snapshot": report["evidence_snapshot"],
+        # The database freezes reviewer outcomes and applies them to the snapshot.
+        # The worker renders that reviewed version into its own artifact.
         "artifact_storage_path": None, "generated_by": user_id, "reviewed_by": user_id,
         "reviewed_at": datetime.now(UTC).isoformat(),
     }).execute()
@@ -395,9 +412,9 @@ def main() -> None:
         sign_in()
         return
     sb = client()
-    workspace = rows(sb.table("workspaces").select("id,name").eq("slug", "mira"))
+    workspace = rows(sb.table("workspaces").select("id,name").eq("slug", workspace_slug()))
     if not workspace:
-        st.error("You are not a member of the Mira workspace.")
+        st.error("You are not a member of the configured workspace.")
         return
     workspace_id = workspace[0]["id"]
     member = rows(sb.table("workspace_members").select("role").eq("workspace_id", workspace_id)

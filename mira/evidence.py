@@ -66,6 +66,14 @@ class EvidenceWriter:
                 (document_id, digest),
             ).fetchone()
             if existing:
+                if extracted.published and extracted.published_basis:
+                    self.conn.execute(
+                        """update public.document_versions set published_at = %s,
+                           metadata = metadata || %s where id = %s and workspace_id = %s
+                           and published_at is null""",
+                        (datetime.combine(extracted.published, time(), UTC),
+                         Jsonb({"publication_date_evidence": extracted.published_basis}), existing["id"], ws),
+                    )
                 passages = self.conn.execute(
                     "select id from public.document_passages where document_version_id = %s order by passage_number",
                     (existing["id"],),
@@ -86,6 +94,7 @@ class EvidenceWriter:
                  extracted.text if store_text else None, EXTRACTION_VERSION,
                  Jsonb({"content_type": page.content_type, "requested_url": page.requested_url, "kind": page.kind,
                         "text_stored": store_text, "links": len(extracted.links), "error": extracted.error,
+                        "publication_date_evidence": extracted.published_basis,
                         **(provenance or {})}),
                  latest["id"] if latest else None),
             ).fetchone()["id"]

@@ -18,7 +18,7 @@ from mira.interfaces import ScoutTask
 from mira.llm import LLMClient, LLMResult, call_checked
 from mira.store import ExpectedSourceRecord, SourceRecord
 
-PROMPT_VERSION = "planner/3"
+PROMPT_VERSION = "planner/4"
 
 SYSTEM = """You plan research for Mira, a research assistant for bank internal auditors.
 Given a research brief, the allow-listed sources and the expected-source checklist, return a research plan made of scout tasks.
@@ -29,6 +29,7 @@ Rules:
 - Put every expected source in expected_source_labels of at least one task, and give that task the expected source's own source. A task with a jurisdiction_code may list only expected sources of that jurisdiction.
 - International sources serve every jurisdiction in the brief. Cover all expected sources that come from international sources in one industry_scout task with jurisdiction_code null, and do not repeat those sources in per-jurisdiction tasks.
 - Write specific questions: name the instrument or publication type and the period.
+- Prefer sources permitting both fetch and store_text for new evidence. Metadata-only sources cannot supply citable passages. Assign their checklist items but preserve the document budget for usable evidence; existing permitted manual imports may still be used.
 - Refer to sources and expected sources only by the labels given (S1, E1). Label tasks T1, T2 and so on.
 - max_documents is how many pages the scout may fetch for the task. Together, the tasks' max_documents must stay within the run's document budget; give more to the sources most likely to hold new rules."""
 
@@ -103,7 +104,7 @@ def plan(
 
     source_lines = [
         f"{label}: {source.name} | jurisdiction {source.jurisdiction_code or 'international'} | "
-        f"type {source.source_type} | {source.base_url or 'manual import'}"
+        f"type {source.source_type} | {source.base_url or 'manual import'} | operations {', '.join(source.permitted_operations)}"
         for label, source in source_labels.items()
     ]
     expected_lines = [

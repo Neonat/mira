@@ -117,14 +117,24 @@ def render_one(conn: psycopg.Connection, workspace_id: UUID, pending: dict[str, 
         "select * from public.project_revisions where id = %s", (run["project_revision_id"],),
     ).fetchone()
     brief = brief_from_rows(revision_row, run)
-    cited_passages = conn.execute(
-        """select distinct ae.passage_id from public.finding_evidence e
-           join public.analysis_evidence ae on ae.id = e.analysis_evidence_id
-           where e.workspace_id = %s and e.finding_id = any(%s)""",
-        (workspace_id, finding_ids),
-    ).fetchall() if finding_ids else []
+    if finding_ids:
+        # A summary-only inference in an older snapshot may cite facts that
+        # do not appear directly in any section. Load their evidence as well.
+        finding_ids = [row["id"] for row in conn.execute(
+            """with recursive evidence_findings(id) as (
+                   select unnest(%s::uuid[])
+                   union
+                   select d.depends_on_finding_id from public.finding_dependencies d
+                   join evidence_findings f on f.id = d.finding_id
+                   where d.workspace_id = %s
+               )
+               select id from evidence_findings order by id""",
+            (finding_ids, workspace_id),
+        )]
+    findings = load_findings(conn, workspace_id, finding_ids)
+    passage_ids = {evidence.passage_id for finding in findings for evidence in finding.evidence}
     store = PostgresStore(conn, reports_dir=reports_dir)
-    passages = {p.id: p for p in store.get_passages(workspace_id, [r["passage_id"] for r in cited_passages])}
+    passages = {p.id: p for p in store.get_passages(workspace_id, list(passage_ids))}
     expected_rows = conn.execute(
         "select * from public.expected_sources where workspace_id = %s", (workspace_id,),
     ).fetchall()
@@ -134,7 +144,7 @@ def render_one(conn: psycopg.Connection, workspace_id: UUID, pending: dict[str, 
         for row in expected_rows
     }
     html = render_signed_off(
-        snapshot, brief=brief, findings=load_findings(conn, workspace_id, finding_ids), passages=passages,
+        snapshot, brief=brief, findings=findings, passages=passages,
         expected=expected, reviewer=reviewer_name(conn, pending["reviewed_by"]),
         decided_at=pending["reviewed_at"], generated_at=datetime.now(UTC),
     )

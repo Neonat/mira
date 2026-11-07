@@ -2,7 +2,9 @@
 
 Mira is an agentic research assistant for internal auditors. An auditor picks a topic (for example AML/CFT) and the jurisdictions to cover. Mira then plans the research, gathers regulatory and industry developments from authoritative sources, checks every claim against a cited passage, and produces a structured draft report. The auditor reviews and signs off. Every source snapshot, plan, agent step, finding and report version is stored in Supabase Postgres so a reviewer can trace each statement back to its original publication.
 
-**Build status: the current build is a Prototype/Minimum Viable Product (MVP).** It is an academic prototype, not a bank production system. A run works end to end on real regulator content:
+For the current engineering checkpoint, read the [revised PRD v3 draft](docs/mira_PRD_v3_draft.md) and [development handoff](docs/agent-handoffs/README.md). Project-scoped specialist profiles live in `.codex/agents/`, with ownership rules in [AGENTS.md](AGENTS.md). Mira's runtime model configuration is managed separately.
+
+**Build status: the current build is a Prototype/Minimum Viable Product (MVP).** It is an academic prototype, not a bank production system. The research pipeline implements:
 - a brief, from the Streamlit app or the command line
 - a plan
 - scouts that fetch and save allow-listed pages
@@ -14,6 +16,8 @@ Mira is an agentic research assistant for internal auditors. An auditor picks a 
 Still to build are listed under "Not built yet" below. The 24-item ground-truth list for the M0 recall gate (PRD v2 §11) is in [docs/mira_m0_ground_truth.md](docs/mira_m0_ground_truth.md) and needs review by a human auditor; the recall test itself has not been run.
 
 ## Start here
+
+- [Ingestion quickstart](docs/ingestion-quickstart.md): local PDF/HTML staging, inspection, and handoff to the authenticated research pipeline.
 
 - [PRD v2](docs/mira_PRD_v2.md): the primary, current product requirements, agent architecture, guardrails and MVP scope.
 - [`supabase/migrations/`](supabase/migrations/): canonical, ordered schema history.
@@ -75,16 +79,20 @@ The database tests in `tests/test_worker_db.py` and `tests/test_pipeline_db.py` 
 
 ## Run Mira
 
+The two entry points serve different stages: `streamlit run app.py` opens the local ingestion workbench (no credentials); `streamlit run app/streamlit_app.py` opens authenticated research and review. Use separate ports when running both. Local staging does not automatically publish evidence to Supabase.
+
+The authenticated app uses workspace slug `mira` by default. Set `MIRA_WORKSPACE_SLUG` on a separate app process to rehearse in a disposable workspace; membership checks and row-level security still apply. This setting does not select or start a research worker.
+
 With the local database running (see "Run the schema locally" below) and `.env` filled in:
 
 ```sh
 .venv/bin/pip install -e ".[dev,llm,ui]"
-.venv/bin/python -m mira seed                          # allow-list and expected-source list v1
+.venv/bin/python -m mira seed                          # allow-list and expected-source list v2
 .venv/bin/python -m mira worker                        # executes runs queued from the app
 .venv/bin/streamlit run app/streamlit_app.py           # brief, live run view, report and review
 ```
 
-The app signs in with Supabase Auth and works under row-level security. It reads only its own settings from `.env` and never the worker's database URL or the API key. The worker is the only process that calls Claude or fetches pages. For a quick run without the app:
+The app signs in with Supabase Auth and works under row-level security. It reads only its own settings from `.env` and never the worker's database URL or the API key. The worker is the only process that calls the configured model providers or fetches pages. For a quick run without the app:
 
 ```sh
 .venv/bin/python -m mira run --jurisdictions HK --max-documents 15
@@ -127,7 +135,7 @@ This writes `summary.md` with recall (all, fetchable, regulatory), precision, co
 | [`mira/agents/`](mira/agents/) | Planner, analyst (including the rewrite of a partially supported claim) and writer prompts, with code checks on their output |
 | [`mira/interfaces.py`](mira/interfaces.py) | `Scout` and `Verifier` interfaces the orchestrator calls |
 | [`mira/store.py`](mira/store.py) | `RunStore` interface to the evidence store, and an in-memory version for tests |
-| [`mira/llm.py`](mira/llm.py) | Structured-output calls to Claude per role (`MIRA_MODEL_<ROLE>`), one repair retry, and a scripted client |
+| [`mira/llm.py`](mira/llm.py) | Structured-output calls to Claude or OpenAI per role (`MIRA_MODEL_<ROLE>`), one repair retry, and a scripted client |
 | [`mira/budget.py`](mira/budget.py), [`mira/brief.py`](mira/brief.py) | Run budgets (§6.2); brief scope and storage (AG01) |
 | [`mira/report.py`](mira/report.py) | HTML report from saved records, with citations, the coverage table and the evidence appendix |
 | [`mira/fetch.py`](mira/fetch.py) | `fetch_allowed`: allow-list, redirect re-checks, public addresses only, robots.txt, crawl delay, size and type caps, block-page detection |
@@ -135,13 +143,28 @@ This writes `summary.md` with recall (all, fetchable, regulatory), precision, co
 | [`mira/agents/scout.py`](mira/agents/scout.py), [`mira/agents/verifier.py`](mira/agents/verifier.py) | Scouts (feeds, hub pages, model-chosen links, PDF follow-through); verifier (`quote_match`, then a fresh-context model check) |
 | [`mira/completeness.py`](mira/completeness.py) | Code-only coverage check against the expected-source list |
 | [`mira/pg_store.py`](mira/pg_store.py), [`mira/runner.py`](mira/runner.py), [`mira/__main__.py`](mira/__main__.py) | Postgres run store, run creation and pick-up, and the `python -m mira` command line |
-| [`mira/seed.py`](mira/seed.py) | Allow-list and expected-source list v1 |
+| [`mira/seed.py`](mira/seed.py) | Allow-list, category discovery connectors and expected-source list v2 |
 | [`mira/manual_import.py`](mira/manual_import.py) | `python -m mira import`: documents downloaded by hand, saved like fetched pages and cited by their original URL |
 | [`mira/single_agent.py`](mira/single_agent.py) | Single-agent comparison arm: a code-built plan and a quote-only verifier, run through the same orchestrator ([design](docs/single_agent_arm_design.md)) |
 | [`eval/`](eval/) | Ground truth, recall scorer, precision worksheet, the three comparison arms and the decision rule |
 | [`app/streamlit_app.py`](app/streamlit_app.py) | Streamlit app: brief, live run view, report, finding review and sign-off |
 
-Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered.
+Models never see database IDs. A label a model invents is rejected in code, and the writer can cite verified claims only. Calls to Claude use server-side fallback (`fallbacks: "default"`) if a model declines, and each step records the model that actually answered. OpenAI uses the Responses API with streaming, strict JSON Schema, and the same Pydantic validation and one repair retry. Refusals and incomplete responses stop the call with reported usage retained; OpenAI does not silently fall back to another model. Source fetching remains in Mira's scouts, not provider web-search tools.
+
+For OpenAI-only operation, install `pip install -e ".[llm]"`, configure `OPENAI_API_KEY` in the ignored `.env`, and use the five OpenAI role settings in `.env.example`. The example pairs `gpt-5.4` for planning/analysis/verification with `gpt-5.4-mini` for scouting/writing; it is a starting configuration, not a claim of quality equivalence to Claude. Mixed providers work by selecting each role independently; only a used provider needs its key. OpenAI requests use `store=False`. An OpenAI-only verifier runs in a separate context but is not cross-provider verification.
+
+The adapters preserve existing prompts, budgets, provenance and report review gates. OpenAI cost estimates use standard input/output rates (including reasoning output tokens), without cache discounts; they are estimates, not billing records. Rates were checked against the [GPT-5.4](https://developers.openai.com/api/docs/models/gpt-5.4) and [GPT-5.4 mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini) model pages on 6 November 2026. Implementation reference: [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
+
+The orchestrator runs a fixed sequence with bounded agent choices. The planner proposes scoped tasks and scouts choose links from approved sources. Code checks checklist coverage after scouting and can request a targeted re-plan and re-scout within the budget. The analyst drafts facts and inferences from saved passages, the verifier checks support, and the writer orders verified findings and selects the summary. The auditor reviews the findings and decides how to act.
+
+The detailed report includes all verified findings in their main sections. It renders their complete saved text and links to the evidence behind each claim. Facts describe sourced developments. Inferences explain trends, risks, or relevance based on verified claims. The source coverage checklist separately shows how the run checked the publications and document categories configured for the brief.
+
+Within a run, scouts share fetched pages across concurrent tasks and gap rounds. Reused pages are logged separately and do not spend the document allowance again. Known HKMA PDF/landing aliases are deduplicated, candidate lists balance hosts and prioritize question relevance, and passage retrieval stays within each task's sources. RSS feeds remain discovery sources, not aliases for every document they list. Coverage marked `found` needs an item-linked passage from the expected source, rather than just a successful hub fetch.
+
+Discovery starts at the task's configured publication category. HKMA uses its dedicated AML indexes and known primary PDF routes. SFC uses the public publication-search service behind its website, with year filters and full publication content; consultation papers and conclusions retain separate dates. These search indexes supply links, not citable claim text. Scouts reserve their allowance for publications, balance passages across distinct documents, and pass the available selected-document context to the analyst. Fetch-only sources without text-storage permission remain explicit gaps. Each scout step saves its fetch log for diagnosis. Existing workspaces need updated connector configuration/checklist data to use the new defaults; `seed` upserts the prototype defaults, including source permissions, so preserve any locally customized permissions when updating them.
+
+Publication metadata comes from explicit publication meta tags, RSS/Atom publication fields, an unambiguous dated publication-table/list record, SFC issue/release fields, or the unambiguous date in an HKMA circular header. Date evidence is retained in version metadata; an unchanged version may have an unknown date enriched, but a known date is not silently overwritten. Retrieval dates, feed update dates, filename dates and model guesses are not publication dates. Older saved HTML reports remain historical snapshots.
+
 
 Built since the first MVP:
 - re-run from the app (Runs page) and the CLI (`python -m mira run --previous RUN_ID`): the same brief on the same Project revision, linked to the run it re-runs (PRD v2 §4 step 8, §6.5)
@@ -153,14 +176,17 @@ Built since the first MVP:
 - guardrail fixtures: injected instructions in a fetched page have no effect, and seeded fabricated claims are caught by the quote check (PRD v2 §10 AG08, AG14)
 - M0 recall scorer with the 50% gate (`eval/score_recall.py`, run with `pytest eval/`)
 - the agent-design comparison harness: all three arms of PRD v2 §11 are built. Plain search is in `eval/arms.py`. The single agent is in `mira/single_agent.py`: a code-built plan and a quote-only verifier, run through the same orchestrator, as set out in the [single-agent design](docs/single_agent_arm_design.md). The multi-agent system is the default orchestrator. `eval/run_comparison.py` scores every arm with the same recall scorer, and `eval/compare.py` applies the decision rule: multi-agent must beat the single agent on coverage *or* precision. It refuses a verdict unless every arm ran with a live model client, and gives none while precision is unlabelled and coverage alone does not settle it.
-- live comparison runner (`eval/run_live.py`): runs all three arms on one brief against the real database and Claude, and writes `eval/results/<time>/` (gitignored). That folder holds each arm's cited URLs, recall, cost, time and report, plus one precision worksheet for both model arms. See "Run the comparison" below.
+- live comparison runner (`eval/run_live.py`): runs all three arms on one brief against the real database and configured model providers, and writes `eval/results/<time>/` (gitignored). That folder holds each arm's cited URLs, recall, cost, time and report, plus one precision worksheet for both model arms. See "Run the comparison" below.
 - precision worksheet (`eval/precision.py`): a fixed-seed sample of report claims with their cited passages. It is scored from human labels only, and reports no figure while any row is unlabelled.
 
 Not built yet, or not yet proven:
-- the **comparison itself**: `eval/run_live.py` exists but has not been run against the live database, so there is no verdict. Its database path is untested until then; only its pure parts have tests.
-- **measured results**: the only live run so far was a development run on Hong Kong (15 documents, about 125,000 tokens; see "Run Mira"). It was made to check cost, not scored. There is no recall figure yet, and the M0 gate has not been passed or failed.
+- the **comparison itself**: `eval/run_live.py` exists, but the complete live-model comparison has not been run, so there is no verdict. Its citation loading, inference dependencies, worksheet extraction and passage-search adapter pass local database integration checks (6 November 2026); that does not establish model quality or measured recall.
+- **accepted quality results**: development Hong Kong runs have been scored against the scoped benchmark, but these are single-run diagnostics, not an accepted auditor evaluation or a completed three-arm comparison. The historical M0 gate has not been established as passed. Benchmark review, citation-precision labels and a broader coverage validation remain necessary.
 - **precision labels** (PRD v2 §11): the sample and worksheet are built, but no human has labelled any claims yet, so there is no precision figure.
-- **the reviewed-report migration on a fresh Supabase stack**: migration `20261029120000` was applied to the local database and tested there, not yet to a freshly built stack.
+
+The live runner filters benchmark items by the brief's markets and dates. The scorer recognizes explicit official HKMA and SFC publication aliases, including PDF/landing links, without merging different publications. To reproduce a scoped score from a file of cited URLs, use `python -m eval.score_recall eval/m0_ground_truth.csv --run-urls urls.txt --jurisdictions HK --period-start 2025-11-04 --period-end 2026-11-04 --as-of 2026-11-04`. A missing second source does not affect this publication-recall measurement.
+
+Fresh-stack validation on 2 November 2026 applied all four migrations, including `20261029120000`, and passed the database tests. See [reconciliation validation](docs/reconciliation-validation.md) for scope and remaining live-test limits.
 
 ## Run the schema locally
 
