@@ -42,6 +42,7 @@ from mira.contracts import (
     CONTRACT_VERSION,
     AgentRole,
     CoverageRow,
+    FetchAttempt,
     ReportSection,
     ReportSentence,
     ReportSnapshot,
@@ -50,7 +51,7 @@ from mira.contracts import (
     StepRecord,
     StepStatus,
 )
-from mira.interfaces import CheckOutcome, Scout, ScoutOutcome, ScoutTask, Verifier
+from mira.interfaces import CheckOutcome, Scout, ScoutFailure, ScoutOutcome, ScoutTask, Verifier
 from mira.llm import LLMClient, LLMError, LLMResult
 from mira.diff import diff_key, diff_runs
 from mira.report import ReportContext, render_html
@@ -252,7 +253,7 @@ class _Run:
         self._finish(step, "succeeded")
 
     @staticmethod
-    def _used(step: _Step, result: LLMResult | ScoutOutcome | CheckOutcome) -> None:
+    def _used(step: _Step, result: LLMResult | ScoutOutcome | ScoutFailure | CheckOutcome) -> None:
         step.model = result.model
         step.prompt_version = result.prompt_version
         step.tokens_in += result.tokens_in
@@ -342,10 +343,16 @@ class _Run:
                 try:
                     self._collect_scout(task, step, future.result())
                 except Exception as exc:
-                    if isinstance(exc, LLMError):
-                        step.tokens_in += exc.tokens_in
-                        step.tokens_out += exc.tokens_out
-                    self._finish(step, "failed", f"{type(exc).__name__}: {exc}")
+                    if isinstance(exc, ScoutFailure):
+                        self._used(step, exc)
+                        self._record_scout_fetches(step, exc.fetch_log, exc.selection_diagnostics)
+                        error_type = type(exc.cause).__name__
+                    else:
+                        if isinstance(exc, LLMError):
+                            step.tokens_in += exc.tokens_in
+                            step.tokens_out += exc.tokens_out
+                        error_type = type(exc).__name__
+                    self._finish(step, "failed", f"{error_type}: {exc}")
                     self.reasons.append(f"task {task.task_label} ({task.role.replace('_', ' ')}) failed: {exc}")
                     self.skipped[task.task_label] = f"scout failed: {exc}"
                 else:
@@ -354,8 +361,7 @@ class _Run:
     def _collect_scout(self, task: ScoutTask, step: _Step, outcome: ScoutOutcome) -> None:
         self._used(step, outcome)
         result = outcome.result
-        fetched = sum(1 for attempt in result.fetch_log if attempt.outcome not in ("refused", "reused"))
-        self.budget.charge_documents(fetched)
+        self._record_scout_fetches(step, result.fetch_log, result.selection_diagnostics)
         if (result.analysis_run_id, result.agent_step_id, result.role) != (self.ctx.analysis_run_id, step.id, task.role):
             raise ValueError("scout result belongs to a different run, step or role")
         passage_ids: list[UUID] = []
@@ -388,12 +394,17 @@ class _Run:
         step.output_refs.update(
             passage_ids=[str(i) for i in passage_ids],
             documents=len(result.report.documents),
-            fetch_attempts=len(result.fetch_log),
-            fetch_refused=sum(1 for attempt in result.fetch_log if attempt.outcome == "refused"),
-            fetch_reused=sum(1 for attempt in result.fetch_log if attempt.outcome == "reused"),
-            fetch_failed=sum(1 for attempt in result.fetch_log if attempt.outcome == "failed"),
-            fetch_log=[attempt.model_dump(mode="json") for attempt in result.fetch_log],
-            selection_diagnostics=result.selection_diagnostics,
+        )
+
+    def _record_scout_fetches(self, step: _Step, fetch_log: list[FetchAttempt], diagnostics: dict) -> None:
+        self.budget.charge_documents(sum(1 for attempt in fetch_log if attempt.outcome not in ("refused", "reused")))
+        step.output_refs.update(
+            fetch_attempts=len(fetch_log),
+            fetch_refused=sum(1 for attempt in fetch_log if attempt.outcome == "refused"),
+            fetch_reused=sum(1 for attempt in fetch_log if attempt.outcome == "reused"),
+            fetch_failed=sum(1 for attempt in fetch_log if attempt.outcome == "failed"),
+            fetch_log=[attempt.model_dump(mode="json") for attempt in fetch_log],
+            selection_diagnostics=diagnostics,
         )
 
     def _check_coverage(self) -> None:

@@ -18,6 +18,7 @@ to HTML, PDF and RSS/Atom. The user agent is honest and never disguised.
 
 from __future__ import annotations
 
+import http.client
 import ipaddress
 import json
 import socket
@@ -30,7 +31,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, Protocol
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from mira.store import SourceRecord
 from mira.sfc import search_payload
@@ -106,7 +107,7 @@ class UrllibTransport:
         except urllib.error.HTTPError as exc:
             body = exc.read(max_bytes + 1) if exc.fp else b""
             return RawResponse(exc.code, {k.lower(): v for k, v in exc.headers.items()}, body)
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except (urllib.error.URLError, http.client.InvalidURL, TimeoutError, OSError) as exc:
             raise FetchFailed(f"network error: {exc}") from exc
         with response:
             body = response.read(max_bytes + 1)
@@ -202,6 +203,11 @@ class Fetcher:
     def fetch(self, url: str, *, json_body: dict[str, object] | None = None) -> FetchedPage:
         current = url
         for _ in range(MAX_REDIRECTS + 1):
+            # HTML links can contain literal spaces; encode only the request target,
+            # leaving the authority unchanged for all source and network checks.
+            parts = urlsplit(current)
+            current = urlunsplit((parts.scheme, parts.netloc, parts.path.replace(" ", "%20"),
+                                  parts.query.replace(" ", "%20"), parts.fragment))
             source = self.allow.source_for(current)
             if json_body is not None and search_payload(current) is None:
                 raise FetchRefused("JSON requests are limited to the SFC public publication-search endpoints")

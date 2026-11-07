@@ -19,7 +19,7 @@ from datetime import date
 from typing import Literal, Protocol
 from uuid import UUID
 
-from mira.contracts import ScoutResult, Verdict, VerdictLabel
+from mira.contracts import FetchAttempt, ScoutResult, Verdict, VerdictLabel
 from mira.store import ClaimEvidence, PassageRecord, RunContext, StoredClaim
 
 
@@ -46,6 +46,21 @@ class ScoutOutcome:
     prompt_version: str | None
     tokens_in: int
     tokens_out: int
+
+
+class ScoutFailure(Exception):
+    """A failed scout with the work it completed before the error."""
+
+    def __init__(self, cause: Exception, fetch_log: list[FetchAttempt], selection_diagnostics: dict,
+                 model: str | None, prompt_version: str | None, tokens_in: int, tokens_out: int) -> None:
+        super().__init__(str(cause))
+        self.cause = cause
+        self.fetch_log = fetch_log
+        self.selection_diagnostics = selection_diagnostics
+        self.model = model
+        self.prompt_version = prompt_version
+        self.tokens_in = tokens_in
+        self.tokens_out = tokens_out
 
 
 class Scout(Protocol):

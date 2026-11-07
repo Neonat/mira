@@ -1,6 +1,8 @@
-# Mira E2E demo — NEEDS REHEARSAL
+# Mira E2E demo — observed review supplement complete
 
-Script-only handover; no browser, services, DB writes, paid calls or recording. All screen steps/timings below are **proposals, unverified**. Base: `1c970c825565430ae7a36e736f6880da9371edcd`. Target: 3–5 minutes; `demo/recordings/mira-e2e-hk-review.mp4` (not created).
+Current status: historical saved-report playback and a separate authenticated synthetic review/signoff capture are complete. See [authenticated-review-handoff.md](authenticated-review-handoff.md) for observed steps, guard errors, artifact checks and the 204-second MP4. The table below preserves the original proposal and its historical scope; the synthetic fixture is not the measured HK report.
+
+Original script-only handover: no browser, services, DB writes, paid calls or recording at that earlier checkpoint. All screen steps/timings below are **proposals, unverified**. Base: `1c970c825565430ae7a36e736f6880da9371edcd`. Target: 3–5 minutes; `demo/recordings/mira-e2e-hk-review.mp4` (not created).
 
 **Setup:** capture owner confirms existing local environment, migration `20261107120000_mira_reviewed_report_outcomes.sql` (checkpoint: local Postgres 55432), authorized workspace membership and analyst/admin plus reviewer/admin access. App command: `.venv/bin/streamlit run app/streamlit_app.py` (not executed here). Hide credentials, emails, internal identifiers, unrelated data and terminals. No reset/seed/migration. Coordinator must authorize later review writes and safe worker rendering without queued paid research.
 

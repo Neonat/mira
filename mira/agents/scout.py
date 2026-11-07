@@ -34,8 +34,8 @@ from mira.db import connect
 from mira.evidence import EvidenceWriter
 from mira.extract import Extracted, Link, extract
 from mira.fetch import Fetcher, FetchFailed, FetchRefused, SiteBlocked
-from mira.interfaces import ScoutOutcome, ScoutTask
-from mira.llm import LLMClient, LLMResult, call_checked
+from mira.interfaces import ScoutFailure, ScoutOutcome, ScoutTask
+from mira.llm import LLMClient, LLMError, LLMResult, call_checked
 from mira.pg_store import PostgresStore
 from mira.store import PassageRecord, RunContext
 from mira.sfc import search_payload
@@ -126,7 +126,17 @@ class WebScout:
 
     def run(self, ctx: RunContext, step_id: UUID, task: ScoutTask) -> ScoutOutcome:
         with connect(self.dsn) as conn:
-            return _ScoutRun(self, conn, ctx, step_id, task).execute()
+            run = _ScoutRun(self, conn, ctx, step_id, task)
+            try:
+                return run.execute()
+            except Exception as exc:
+                tokens_in = run.tokens_in + (exc.tokens_in if isinstance(exc, LLMError) else 0)
+                tokens_out = run.tokens_out + (exc.tokens_out if isinstance(exc, LLMError) else 0)
+                diagnostics = {"discovered": run.discovery, "discovered_omitted": run.discovery_omitted,
+                               "rounds": run.selection_diagnostics, "stop_reason": "exception",
+                               "remaining_allowance": run.allowance}
+                raise ScoutFailure(exc, run.log, diagnostics, run.model, PROMPT_VERSION,
+                                   tokens_in, tokens_out) from exc
 
 
 class _ScoutRun:
@@ -177,12 +187,24 @@ class _ScoutRun:
                 pending = Future()
                 self.scout._pages[key] = pending
         if owner:
+            allowance_start = self.allowance
+            log_start = len(self.log)
+            attempted_at = datetime.now(UTC)
             try:
                 extracted = self._fetch_new(url, link)
                 visit = self.visits[-1] if extracted is not None else None
                 pending.set_result((extracted, visit, self.log[-1]))
                 return extracted
             except BaseException as exc:
+                if isinstance(exc, Exception) and len(self.log) == log_start:
+                    # Unexpected transport/extraction/storage failures may occur
+                    # before the normal fetch log is written. Retain and charge
+                    # this owned attempt once, even if allowance was already used.
+                    self.allowance = min(self.allowance, allowance_start - 1)
+                    self.log.append(FetchAttempt(
+                        url=url, outcome="failed", document_version_id=None,
+                        error=f"unexpected fetch error: {type(exc).__name__}", attempted_at=attempted_at,
+                    ))
                 pending.set_exception(exc)
                 raise
         extracted, visit, attempt = pending.result()

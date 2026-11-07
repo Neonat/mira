@@ -29,7 +29,7 @@ from mira.brief import (
     project_revision_fields,
 )
 from mira.budget import RunBudget
-from mira.config import load_env, report_file
+from mira.config import load_env, report_file, workspace_slug
 from mira.contracts import Brief
 from mira.coverage_display import CHECKLIST_DESCRIPTION, coverage_label
 from mira.llm import ROLE_MODEL_ENV, estimated_cost
@@ -37,7 +37,7 @@ from mira.report import TEMPLATE_VERSION
 
 UI_KEYS = {
     "SUPABASE_URL", "SUPABASE_ANON_KEY", "MIRA_DEV_EMAIL", "MIRA_MAX_FETCHED_DOCUMENTS", "MIRA_MAX_LLM_TOKENS",
-    "MIRA_MAX_RUN_MINUTES", "MIRA_MAX_GAP_ROUNDS", *ROLE_MODEL_ENV.values(),
+    "MIRA_MAX_RUN_MINUTES", "MIRA_MAX_GAP_ROUNDS", "MIRA_WORKSPACE_SLUG", *ROLE_MODEL_ENV.values(),
 }
 DECISIONS = ("accepted", "amended", "rejected", "needs_evidence")
 ACTIVE = ("queued", "running")
@@ -412,9 +412,9 @@ def main() -> None:
         sign_in()
         return
     sb = client()
-    workspace = rows(sb.table("workspaces").select("id,name").eq("slug", "mira"))
+    workspace = rows(sb.table("workspaces").select("id,name").eq("slug", workspace_slug()))
     if not workspace:
-        st.error("You are not a member of the Mira workspace.")
+        st.error("You are not a member of the configured workspace.")
         return
     workspace_id = workspace[0]["id"]
     member = rows(sb.table("workspace_members").select("role").eq("workspace_id", workspace_id)

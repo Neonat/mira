@@ -316,3 +316,42 @@ def test_repeated_selected_label_keeps_original_fetch_diagnostic(monkeypatch):
     assert len(run.log) == 1
     assert record["fetch_attempts"] == [{"url": url, "outcome": "saved", "document_version_id": str(version)}]
     assert record["fetch_status"] == "attempted"
+
+
+def test_fetcher_encodes_spaces_before_policy_checks_and_request():
+    from mira.fetch import AllowList, Fetcher, RawResponse
+
+    source = replace(HKMA, base_url='https://www.hkma.gov.hk', connector_config={})
+    requested = []
+
+    class Transport:
+        def get(self, url, headers, timeout, max_bytes):
+            requested.append(url)
+            if url.endswith('/robots.txt'):
+                return RawResponse(200, {}, b'User-agent: *\nDisallow: /restricted%20area\n')
+            return RawResponse(200, {'content-type': 'application/pdf'}, b'%PDF-1.4')
+
+    fetcher = Fetcher(AllowList([source]), transport=Transport(), resolver=lambda _: ['93.184.216.34'], sleep=lambda _: None)
+    original = 'https://www.hkma.gov.hk/guidelines/Policy May 2023.pdf'
+    page = fetcher.fetch(original)
+    assert page.url == 'https://www.hkma.gov.hk/guidelines/Policy%20May%202023.pdf'
+    assert page.requested_url == original
+    assert requested[-1] == page.url
+    from mira.fetch import FetchRefused
+    import pytest
+    with pytest.raises(FetchRefused, match='robots'):
+        fetcher.fetch('https://www.hkma.gov.hk/restricted area/file.pdf')
+
+
+def test_invalid_url_is_a_fetch_failure_instead_of_crashing_a_scout():
+    from http.client import InvalidURL
+    import pytest
+    from mira.fetch import FetchFailed, UrllibTransport
+
+    transport = UrllibTransport()
+    class BadOpener:
+        def open(self, request, timeout):
+            raise InvalidURL('invalid request target')
+    transport._opener = BadOpener()
+    with pytest.raises(FetchFailed, match='invalid request target'):
+        transport.get('https://www.hkma.gov.hk/example', {}, 1, 1024)

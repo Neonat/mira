@@ -15,14 +15,22 @@
     "limitation": "Partial diagnostics are not persisted if a scout/model call raises before returning"
   },
   "assignment_base": "Resolve git rev-parse HEAD after the checkpoint is pushed; source_base_sha is the pre-checkpoint baseline.",
+  "fresh_diagnosis_integration": {
+    "base_sha": "f153e716fa2587755b255068b9ef6e13e9f6a4fe",
+    "new_paid_research_runs": 1,
+    "fixes": ["Encode spaces in URL request targets; contain InvalidURL as a fetch failure", "Persist failed-scout partial diagnostics and known usage; charge owned fetches before gap rounds", "Configurable UI workspace preserving membership and RLS"],
+    "post_fix_live_recall": "Not measured",
+    "corroboration": "Deferred; not implemented",
+    "handoff": "hk-telemetry-diagnosis.md"
+  },
   "verification": {
-    "tests_passed": 280,
+    "tests_passed": 293,
     "subtests_passed": 8,
     "skipped": 0,
     "database": "Local PostgreSQL at localhost:55432, including review migration 20261107120000",
     "integration_providers": "Scripted; separate real-model HK runs recorded below",
     "human_precision": "Unlabelled",
-    "browser_rehearsal": "Outstanding",
+    "browser_rehearsal": "Local synthetic authenticated review/sign-off complete; 10 artifact checks and video playback passed. Full brief/approval/run-monitoring recording remains separate.",
     "remote_deployment": false
   },
   "runs": [
@@ -69,10 +77,34 @@
       "estimated_cost_usd": 1.4395,
       "status": "partial",
       "stop_reason": "Document allowance exhausted"
+    },
+    {
+      "id": "e2fda30f-36f9-4aa3-83c3-d78b81671b83",
+      "purpose": "Single fresh telemetry diagnosis; pre-fix acquisition",
+      "document_limit_requested": 30,
+      "saved_document_versions": 32,
+      "document_limit_enforced": false,
+      "token_limit": 600000,
+      "minute_limit": 25,
+      "tokens_recorded": 372220,
+      "usage_complete": false,
+      "benchmark_publications_cited": 9,
+      "benchmark_total": 18,
+      "regulatory_benchmark_cited": 9,
+      "regulatory_benchmark_total": 14,
+      "distinct_cited_source_urls": 13,
+      "facts": 19,
+      "inferences": 0,
+      "unresolved": 5,
+      "minutes": 21.68,
+      "estimated_recorded_cost_usd": 1.8290,
+      "status": "partial",
+      "stop_reason": "Regulatory scout InvalidURL; partial diagnostics and usage were not retained before the fix"
     }
   ],
   "caveats": [
     "Larger-budget validation is not an equal-budget comparison.",
+    "The fresh telemetry run exceeded its requested document allowance; failed-scout usage may be missing. Its recall is pre-fix, not a post-fix improvement.",
     "Publication acquisition, report citation recall and checklist category coverage are separate measures.",
     "Benchmark acceptance, human-labelled accuracy, time savings and a multi-agent win are not established.",
     "MAS automated access is blocked; some industry sources lack text-storage permission.",

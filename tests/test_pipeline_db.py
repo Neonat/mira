@@ -1029,3 +1029,34 @@ def test_publication_enrichment_preserves_saved_version_passages_and_known_dates
     assert row["published_at"].date() == date(2026, 8, 28)
     assert row["metadata"]["publication_date_evidence"] == extracted.published_basis
     assert row["extracted_text"] == extracted.text
+
+
+def test_failed_scout_partial_fetch_diagnostics_persist_on_postgres(conn, workspace, tmp_path):
+    from datetime import UTC, datetime
+    from mira.contracts import FetchAttempt
+    from mira.interfaces import ScoutFailure, ScoutTask
+    from mira.orchestrator import _Run
+
+    ws, user = workspace
+    brief = Brief(topic='AML/CFT', jurisdictions=['HK'], period_start=date(2025, 10, 26),
+                  period_end=date(2026, 10, 26), as_of_date=date(2026, 10, 26), plan_requires_approval=False)
+    ctx = create_run(conn, ws, user, brief, RunBudget(max_fetched_documents=2), {})
+    diagnostic = {'discovered': [{'url': 'https://example.org/a'}], 'rounds': [], 'stop_reason': 'exception'}
+    fetch = FetchAttempt(url='https://example.org/a', outcome='saved', document_version_id=uuid.uuid4(),
+                         error=None, attempted_at=datetime.now(UTC))
+
+    class FailedScout:
+        def run(self, ctx, step_id, task):
+            raise ScoutFailure(ValueError('fixture failure'), [fetch], diagnostic, 'scripted', 'scout/test', 3, 4)
+
+    store = PostgresStore(conn, reports_dir=tmp_path)
+    orchestrator = Orchestrator(store, ScriptedClient({}), {'regulatory_scout': FailedScout()}, None)
+    run = _Run(orchestrator, ctx)
+    run._scout([ScoutTask('T1', 'regulatory_scout', 'HK', 'AML', (), (), 2)])
+    row = conn.execute('select status, output_refs, tokens_in, tokens_out from public.agent_steps '
+                       'where analysis_run_id=%s', (ctx.analysis_run_id,)).fetchone()
+    assert row['status'] == 'failed'
+    assert row['output_refs']['fetch_log'][0]['outcome'] == 'saved'
+    assert row['output_refs']['selection_diagnostics'] == diagnostic
+    assert (row['tokens_in'], row['tokens_out']) == (3, 4)
+    assert run.budget.remaining_documents() == 1

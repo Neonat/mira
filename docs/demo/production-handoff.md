@@ -1,6 +1,6 @@
 # Demo production handoff
 
-Status: **partial capture complete; authenticated E2E rehearsal outstanding**. Base SHA: `aa05d8d0a535212e56e3009a45ccec6875598507`. Capture date: 7 November 2026. Objective: turn the existing script into an observed local rehearsal and playable asset, with no new research.
+Status: **saved-report capture complete; authenticated synthetic review/signoff now complete in the separate [authenticated handoff](authenticated-review-handoff.md)**. Base SHA: `aa05d8d0a535212e56e3009a45ccec6875598507`. Capture date: 7 November 2026. Objective: turn the existing script into an observed local rehearsal and playable asset, with no new research.
 
 Owned: this file and `reports/demo-output/current/`. Runtime, configuration, historical report, evaluation truth, PRD, slide files and other workers' files were read-only. No commit/push, migrations, source-permission changes, worker, new research, review writes or auth-account creation.
 
@@ -59,3 +59,8 @@ Burned captions disclose saved playback, partial status, 15.29-minute processing
 `ffprobe` confirms duration 180.000 seconds, H.264, 1440×1080, 24/1 fps and yuv420p. All ten storyboard frames were generated from actual capture inputs; visual inspection covered sign-in, report scope, citation appendix/redaction, inference, source document and coverage layout. Full FFmpeg decoding completed with no errors. Chromium played the MP4 and sought to 90 seconds: duration 180, readyState 4, error null (`browser-playback-check.json`). Decoder/playback checks are saved alongside the asset. No project test suite was run for this documentation/media-only task.
 
 Remaining gaps: authenticated brief/history, actual quote/check UI, real reviewer decisions/dependency gates and separate reviewed-artifact acceptance. The coordinator authorized a disposable local fixture after restoring services, but this first pass completed the unaffected partial capture instead. Exact next step: a separate bounded rehearsal creates an ephemeral local account and disposable public-evidence fixture, exercises review/sign-off without starting the general worker, and appends clearly labeled fixture footage only after the reviewed body/summary acceptance checks pass. Historical measured run remains read-only.
+
+
+## Authenticated follow-up completed
+
+The separate 204-second captioned MP4 is `reports/demo-output/authenticated/mira-authenticated-review.mp4` with `thumbnail.png`. Real local Auth/RLS, evidence inspection, supporting-fact amendment, stale-dependency guard, fresh inference review, needs-evidence guard, rejection, signoff and separate reviewed rendering passed. Ten artifact checks and full decode/browser playback passed. The fixture is synthetic and separate from the historical HK measured run. See [exact setup, observed flow and artifact hashes](authenticated-review-handoff.md). This follow-up supersedes the outstanding authenticated steps above; the prior partial video and its historical capture account remain unchanged.

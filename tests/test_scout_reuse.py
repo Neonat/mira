@@ -4,6 +4,8 @@ from types import SimpleNamespace
 from threading import Event
 from uuid import uuid4
 
+import pytest
+
 from mira.agents.scout import WebScout, _ScoutRun, _Visit, distinct_links, document_key
 from mira.contracts import FetchAttempt
 from mira.extract import Extracted, Link, extract_feed, extract_pdf
@@ -92,3 +94,48 @@ def test_found_requires_item_specific_evidence_not_just_a_fetched_hub():
     unlinked = result.report.documents[0].model_copy(update={"expected_source_labels": []})
     result = result.model_copy(update={"report": result.report.model_copy(update={"documents": [unlinked]})})
     assert coverage_rows(results={"T1": result}, **kwargs)[0].status == "missing"
+
+
+def test_failed_scout_preserves_partial_fetches_and_llm_usage(monkeypatch):
+    from datetime import UTC, datetime
+    from contextlib import nullcontext
+    import pytest
+    from mira.interfaces import ScoutFailure
+    from mira.llm import LLMError
+    from mira import agents
+
+    monkeypatch.setattr(agents.scout, 'connect', lambda _: nullcontext(None))
+    def fail_after_work(run):
+        run.log.append(FetchAttempt(url='https://www.hkma.gov.hk/doc', outcome='saved',
+                                    document_version_id=uuid4(), error=None, attempted_at=datetime.now(UTC)))
+        run.discovery.append({'url': 'https://www.hkma.gov.hk/doc'})
+        run.tokens_in, run.tokens_out, run.model = 3, 4, 'scripted'
+        raise LLMError('model failed', 5, 6)
+    monkeypatch.setattr(_ScoutRun, 'execute', fail_after_work)
+    scout = WebScout('unused', None, SimpleNamespace())
+    with pytest.raises(ScoutFailure) as caught:
+        scout.run(context(), uuid4(), SimpleNamespace(max_documents=2))
+    failure = caught.value
+    assert [a.outcome for a in failure.fetch_log] == ['saved']
+    assert failure.selection_diagnostics['discovered'][0]['url'].endswith('/doc')
+    assert (failure.tokens_in, failure.tokens_out) == (8, 10)
+    assert isinstance(failure.cause, LLMError)
+
+
+@pytest.mark.parametrize('response_received', [False, True])
+def test_unexpected_error_during_owned_fetch_records_one_charged_attempt(monkeypatch, response_received):
+    scout = WebScout('unused', None, SimpleNamespace())
+    run = _ScoutRun(scout, None, context(), uuid4(), SimpleNamespace(max_documents=2))
+    def fails_after_response(run, url, link=None):
+        if response_received:
+            run.allowance -= 1
+        raise ValueError('extraction failed')
+    monkeypatch.setattr(_ScoutRun, '_fetch_new', fails_after_response)
+    with pytest.raises(ValueError, match='extraction failed'):
+        run._fetch('https://www.hkma.gov.hk/a')
+    assert run.allowance == 1
+    assert len(run.log) == 1 and run.log[0].outcome == 'failed'
+    reuser = _ScoutRun(scout, None, run.ctx, uuid4(), SimpleNamespace(max_documents=2))
+    with pytest.raises(ValueError, match='extraction failed'):
+        reuser._fetch('https://www.hkma.gov.hk/a')
+    assert reuser.allowance == 2 and reuser.log == []

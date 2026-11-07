@@ -43,3 +43,14 @@ def test_app_reads_only_its_own_settings():
     source = (ROOT / "app" / "streamlit_app.py").read_text()
     assert "MIRA_WORKER_DATABASE_URL" not in source and "ANTHROPIC_API_KEY" not in source
     assert "load_env(keys=UI_KEYS)" in source
+
+
+def test_workspace_setting_defaults_to_mira_and_can_isolate_a_rehearsal(monkeypatch):
+    from mira.config import workspace_slug
+
+    monkeypatch.delenv("MIRA_WORKSPACE_SLUG", raising=False)
+    assert workspace_slug() == "mira"
+    monkeypatch.setenv("MIRA_WORKSPACE_SLUG", " local-review-rehearsal ")
+    assert workspace_slug() == "local-review-rehearsal"
+    monkeypatch.setenv("MIRA_WORKSPACE_SLUG", " ")
+    assert workspace_slug() == "mira"

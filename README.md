@@ -81,6 +81,8 @@ The database tests in `tests/test_worker_db.py` and `tests/test_pipeline_db.py` 
 
 The two entry points serve different stages: `streamlit run app.py` opens the local ingestion workbench (no credentials); `streamlit run app/streamlit_app.py` opens authenticated research and review. Use separate ports when running both. Local staging does not automatically publish evidence to Supabase.
 
+The authenticated app uses workspace slug `mira` by default. Set `MIRA_WORKSPACE_SLUG` on a separate app process to rehearse in a disposable workspace; membership checks and row-level security still apply. This setting does not select or start a research worker.
+
 With the local database running (see "Run the schema locally" below) and `.env` filled in:
 
 ```sh

@@ -645,3 +645,42 @@ def test_report_escapes_source_text_and_refuses_non_http_links():
     ))
     assert "<script>" not in html and "<img" not in html
     assert 'href="javascript' not in html
+
+
+def test_failed_scout_fetches_are_charged_and_persisted_before_gap_scouting():
+    from mira.interfaces import ScoutFailure, ScoutTask
+    from mira.orchestrator import _Run
+
+    now = datetime.now(UTC)
+    def attempt(url, outcome, version=None):
+        return FetchAttempt(url=url, outcome=outcome, document_version_id=version, error=None, attempted_at=now)
+
+    saved = attempt('https://www.mas.gov.sg/a', 'saved', VERSION_ID)
+    reused = attempt('https://www.mas.gov.sg/a', 'reused', VERSION_ID)
+    refused = attempt('https://www.mas.gov.sg/refused', 'refused')
+    diag = {'discovered': [{'url': saved.url}], 'rounds': [], 'stop_reason': 'exception'}
+
+    class FailureThenGap(FakeScout):
+        def run(self, ctx, step_id, task):
+            self.tasks.append(task)
+            if task.task_label == 'T1':
+                raise ScoutFailure(ValueError('bad page'), [saved, refused], diag, 'scripted', 'scout/test', 7, 5)
+            result = super().run(ctx, step_id, task)
+            log = [reused] if task.task_label == 'T2' else [saved]
+            return replace(result, result=result.result.model_copy(update={'fetch_log': log}))
+
+    scout = FailureThenGap()
+    orchestrator, store, *_ = make(scout=scout)
+    run = _Run(orchestrator, context(max_fetched_documents=2))
+    def task(name, gap=0):
+        return ScoutTask(name, 'regulatory_scout', 'SG', 'AML', (MAS.id,), (E_RULE.id,), 2, gap)
+    run._scout([task('T1'), task('T2')])
+    failed = next(s for s in steps(store) if s.status == 'failed')
+    assert [x['outcome'] for x in failed.output_refs['fetch_log']] == ['saved', 'refused']
+    assert failed.output_refs['selection_diagnostics'] == diag
+    assert (failed.tokens_in, failed.tokens_out) == (7, 5)
+    assert run.budget.documents_fetched == 1
+    assert run.budget.tokens_used == 12
+    run._scout([task('G1-T1', 1)])
+    assert next(t for t in scout.tasks if t.task_label == 'G1-T1').max_documents == 1
+    assert run.budget.documents_fetched == 2
