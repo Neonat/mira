@@ -12,7 +12,7 @@
 | 4 | A cited research draft | Show an actual Hong Kong PEP finding with its linked citation | Authentic saved-report crop; local report preview |
 | 5 | System architecture | Explain where the app, worker, evidence store and external services sit | Editable connected architecture; PRD v3 draft §§3–4 |
 | 6 | Research workflow | Show parallel scouts, code's bounded gap loop and later analysis steps | Editable connected workflow; PRD v3 draft §§3–4 |
-| 7 | Follow the evidence | Move from the system explanation to the product-film preview | Coordinator verified the clickable local preview `http://localhost:3100/FollowTheEvidence` returned HTTP 200. Portable `Mira_Follow_the_Evidence.mp4` link; MP4 is not exported |
+| 7 | Follow the evidence | Move from the system explanation to the product film | Final approved poster and audience copy. “Watch the film” links to `Mira_Follow_the_Evidence.mp4` beside the deck; standalone movie and ZIP are verified. Editable preview remains in notes |
 | 8 | HKMA guidance for PEP controls | Carry the source language forward and preserve its qualification | Official PDF, page 2, 28 August 2026; preserves “expected to consider adopting” |
 | 9 | Proposed DBS roadmap | Turn the prototype discussion into proposed gates, without suggesting approval | Discussion gates only; no DBS integration or delivery dates are approved |
 | 10 | Current limits and deployment boundaries | Set deployment and evidence limits before presenting run results | Local prototype; incomplete coverage, unmeasured accuracy/time savings and unapproved routes |

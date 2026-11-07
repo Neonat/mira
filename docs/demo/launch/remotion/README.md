@@ -1,6 +1,6 @@
 # Mira · Follow the evidence
 
-Editable Remotion Studio assembly, 180 seconds / 5,400 frames / 1920×1080 / 30 fps. Preview: **http://localhost:3100/FollowTheEvidence**. No final MP4 has been exported. Export follows preview approval or an explicit export request.
+Editable Remotion Studio assembly, 180 seconds / 5,400 frames / 1920×1080 / 30 fps. Preview: **http://localhost:3100/FollowTheEvidence**. The user explicitly approved “Export the final MP4”; the checked final is root `reports/demo-output/launch/Mira_Follow_the_Evidence.mp4`. It is exactly 180 seconds with H.264 yuv420p video and AAC audio.
 
 From this directory:
 
@@ -33,3 +33,15 @@ node scripts/qa.cjs
 `qa.cjs` uses the installed Playwright Chrome (or `CHROME_PATH`) to render hero and boundary stills, without final video export. Current QA is under root `reports/demo-output/launch/qa/`.
 
 The fixture/capture scripts are a record of one authorized local rehearsal, not general setup commands. **Do not rerun against the completed fixture.** `fixture.py setup` refuses existing metadata; `capture-workflow.cjs` refuses a second queue operation after the metadata has a run. The saved review capture and historical HK workspaces remain unchanged. See `../../launch-production-handoff.md` for exact run IDs, source paths, observations and limits.
+
+## Approved final export
+
+Run from this project directory (the browser path is this workstation’s installed Playwright Chrome):
+
+```sh
+npm_config_cache=/tmp/mira-video-npm-cache npx remotion render src/index.ts FollowTheEvidence ../../../../reports/demo-output/launch/Mira_Follow_the_Evidence.mp4 --codec=h264 --pixel-format=yuv420p --audio-codec=aac --crf=18 --port=3120 --browser-executable='/Users/natsim/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing' --concurrency=2 --log=error
+```
+
+The renderer completed but marked its JPEG-derived video as full-range YUV and left an 11 ms AAC tail. The final delivery was normalized locally with FFmpeg using `-vf 'scale=in_range=pc:out_range=tv,format=yuv420p' -color_range tv -c:v libx264 -crf 18 -preset medium -c:a aac -af 'atrim=duration=180' -t 180 -movflags +faststart`. The unchanged renderer output remains `Mira_Follow_the_Evidence-remotion-fullrange.mp4` for provenance; deliver the exact final filename only.
+
+Final verification: 5,400 frames / 180.000 seconds / 1920×1080 / 30 fps / H.264 yuv420p TV range; AAC 48 kHz stereo, 180.000 seconds. Full decode passed; Chromium played/searched at 0, 45, 90, 135 and 179 seconds with no error. Mean audio −36.2 dBFS; peak −25.0 dBFS. No subjective listening was performed because no audible inspection tool was available. Exact commands/check artifacts are in the production handoff and root launch output folder.

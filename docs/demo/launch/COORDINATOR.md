@@ -7,7 +7,7 @@ Design and immediate production were approved on 7 November 2026. The user chose
 - Editable 16-slide deck: reports/presentation-output/storytelling/Mira_DBS_Storytelling.pptx. Ten main slides follow the requested story, with six appendices. Updated diagrams and enlarged report crop passed coordinator and independent review. Finalizer reports zero findings/warnings, 16 speaker notes and both movie/preview links.
 - Complete Remotion preview: http://localhost:3100/FollowTheEvidence. Verified HTTP 200, browser playback and no current overlay error. Exactly 5,400 frames, 180 seconds, 1920×1080, 30 fps. IAB tab1 is marked as a deliverable. Three actual motion clips are integrated; no placeholders remain.
 - Editable HyperFrames preview: http://localhost:3010/#project/project. The 62-second source supplies opening32s, agents20s, ending10s. Clips decoded successfully; HyperFrames check returned zero errors and 11 structural organization warnings. Shots are editable elements in one root rather than separate scene files.
-- Final film MP4 is not exported. The user was asked to review the complete preview and choose export/adjust/keep-preview. Do not infer approval from elapsed time. After explicit export approval, render, decode/playback-check and place Mira_Follow_the_Evidence.mp4 beside the PPTX.
+- The user explicitly selected **Export the final MP4**. Final MP4 passed exact 180-second metadata, full decode and five browser playback/seek checks: H.264 yuv420p, 1920×1080 at 30fps, AAC stereo. It is beside the final PPTX in `reports/presentation-output/storytelling/`. `Mira_DBS_Presentation_Package.zip` contains both files plus instructions; copy hashes and ZIP CRC passed. No further export or packaging work remains.
 
 ## Production writers and handoffs
 
@@ -16,6 +16,8 @@ Design and immediate production were approved on 7 November 2026. The user chose
 - motion_sequences (Terra): docs/demo/launch/hyperframes and generated launch/motion assets. README, prepare-assets.sh and MEDIA/REVIEW.md record reproduction and source checks.
 - storytelling_delivery_review (Astra): read-only combined spec/quality verdict, no blockers for preview delivery. Reviewed source/security boundaries and selected film/deck frames; audible taste and final export remain unverified.
 - Root owns shared manifest, approved design/plan, integration docs and pushes. Workers were fresh-context, disjoint writers, with no recursive delegation or commits/pushes.
+
+Coordinator opened the PPTX in native Microsoft PowerPoint without an import/repair prompt and inspected its 16-slide sorter with notes present. After the poster-only slide7 revision, the final PPTX was reopened successfully in PowerPoint. Its movie hyperlink is an exact relative filename resolving to the packaged, verified MP4. Native external-player launch was not exercised; browser playback passed. Keep both files together after extracting the ZIP.
 
 ## Evidence boundaries
 

@@ -18,7 +18,11 @@
   "fresh_diagnosis_integration": {
     "base_sha": "f153e716fa2587755b255068b9ef6e13e9f6a4fe",
     "new_paid_research_runs": 1,
-    "fixes": ["Encode spaces in URL request targets; contain InvalidURL as a fetch failure", "Persist failed-scout partial diagnostics and known usage; charge owned fetches before gap rounds", "Configurable UI workspace preserving membership and RLS"],
+    "fixes": [
+      "Encode spaces in URL request targets; contain InvalidURL as a fetch failure",
+      "Persist failed-scout partial diagnostics and known usage; charge owned fetches before gap rounds",
+      "Configurable UI workspace preserving membership and RLS"
+    ],
     "post_fix_live_recall": "Not measured",
     "corroboration": "Deferred; not implemented",
     "handoff": "hk-telemetry-diagnosis.md"
@@ -97,7 +101,7 @@
       "inferences": 0,
       "unresolved": 5,
       "minutes": 21.68,
-      "estimated_recorded_cost_usd": 1.8290,
+      "estimated_recorded_cost_usd": 1.829,
       "status": "partial",
       "stop_reason": "Regulatory scout InvalidURL; partial diagnostics and usage were not retained before the fix"
     }
@@ -109,5 +113,23 @@
     "Benchmark acceptance, human-labelled accuracy, time savings and a multi-agent win are not established.",
     "MAS automated access is blocked; some industry sources lack text-storage permission.",
     "Generated report artifacts remain local and ignored; this summary carries no secrets or private evidence."
-  ]
+  ],
+  "storytelling_delivery": {
+    "source_checkpoint": "b8ed04f",
+    "deck_slides": 16,
+    "speaker_notes": 16,
+    "film_seconds": 180,
+    "film_format": "1920x1080, 30fps, H264 yuv420p, AAC stereo",
+    "export_approved": true,
+    "decode_errors": 0,
+    "browser_playback_checks": 5,
+    "package_crc": "passed",
+    "native_powerpoint_opened": true,
+    "package_local_path": "reports/presentation-output/storytelling/Mira_DBS_Presentation_Package.zip",
+    "scope": "Historical HK research, separate synthetic brief/approval/progress and synthetic review; edited time disclosed",
+    "new_paid_research_runs": 0,
+    "new_runtime_changes": false,
+    "human_accuracy": "Unlabelled",
+    "corroboration": "Deferred"
+  }
 }

@@ -1,6 +1,6 @@
 # Follow the evidence · showcase handoff
 
-Status: **editable 180-second preview ready for coordinator/user review; final MP4 not exported**. Objective: assemble approved product/e2e film using authentic saved research and a separate disclosed synthetic workflow/review. Base SHA: `f7f2745`. No commits or pushes.
+Status: **approved final MP4 exported and verified; editable preview retained**. Objective: assemble approved product/e2e film using authentic saved research and a separate disclosed synthetic workflow/review. Base SHA: `f7f2745`. No commits or pushes.
 
 Owned: `docs/demo/launch/remotion/**`, this handoff and `reports/demo-output/launch/**` except `motion/**`. Read-only: runtime, model configuration, PRD/evaluation, historical reports and captures, coordinator HyperFrames source/manifest/motion assets, other workers’ files. No runtime code change, paid call, general research worker, migration, reset or historical workspace mutation.
 
@@ -11,7 +11,7 @@ Owned: `docs/demo/launch/remotion/**`, this handoff and `reports/demo-output/lau
 - Connected compositions: `SyntheticWorkflow`, `SavedHKResearch`, `SyntheticReview`, `ReviewedArtifacts`.
 - Coordinator motion imports: actual `opening.mp4` 32 seconds, `agents.mp4` 20 seconds, `ending.mp4` 10 seconds from manifest paths. All three available; no labelled motion placeholder remains in the current preview.
 - Ignored media under project `public/`, with source/hash ledger `public/asset-ledger.json`. Originals and source captures preserved under ignored `reports/`.
-- Final MP4 is deliberately absent pending preview approval/export instruction. Deck link remains a future packaged relative filename.
+- Final MP4: `reports/demo-output/launch/Mira_Follow_the_Evidence.mp4`, exported after the user explicitly instructed “Export the final MP4”. Root owns packaging/copying beside the deck.
 
 ## Exact setup and commands
 
@@ -78,4 +78,34 @@ Visual QA tightened the PEP paragraph, original source line, quote/checks and re
 
 Remaining limits: authored preview uses genuine screenshots and selected raw action intervals, with disclosed reading holds; it is an edited demonstration, not real-time processing. Static screenshots enlarge to read and retain their native softness. The instrumental has numerical level checks but needs an audible taste/level check during user preview. No runtime suite was rerun for media-only changes. Existing measured checkpoint remains 293 tests plus 8 subtests; latest pre-fix HK result 9/18, 32 saved versus 30 requested is not represented as a gain. Independent-source corroboration remains deferred.
 
-Exact next step: coordinator reviews the playable preview, full-size heroes and audio; requests any concrete edits, then obtains preview approval or explicit export instruction before rendering `Mira_Follow_the_Evidence.mp4`. After export, verify final metadata/decode/playback, package ignored assets explicitly and update the deck link. Status: **complete for assigned preview; final export awaits approval**.
+Coordinator packaging is complete: the final MP4 and final PPTX are together in `reports/presentation-output/storytelling/`, and `Mira_DBS_Presentation_Package.zip` contains both plus extraction/playback instructions. Movie hyperlink is the exact relative filename; copy SHA-256 and ZIP CRC checks passed. Final PPTX reopened in native PowerPoint without repair. Native external-player launch was not exercised; the MP4 passed browser playback. Exact next step: deliver the ZIP and preserve the editable sources/ignored media. Status: **complete for approved preview, export and packaging**.
+
+## Explicitly approved final export
+
+The user explicitly approved **“Export the final MP4”**. The validated composition/assets were reused without a new fixture, research call or preview QA rebuild. The initial render failed before frame 0 when its temporary localhost:3000 server returned no response. A retry with a dedicated local render port and concurrency 2 completed; Studio on 3100 remained intact.
+
+Exact successful render command, from `docs/demo/launch/remotion/`:
+
+```sh
+npm_config_cache=/tmp/mira-video-npm-cache npx remotion render src/index.ts FollowTheEvidence /Users/natsim/Documents/dbsearch/reports/demo-output/launch/Mira_Follow_the_Evidence.mp4 --codec=h264 --pixel-format=yuv420p --audio-codec=aac --crf=18 --port=3120 --browser-executable='/Users/natsim/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing' --concurrency=2 --log=error
+```
+
+FFprobe found a renderer delivery detail despite the requested CLI pixel format: 180.000-second H.264 video marked `yuvj420p`/full range, with an AAC tail extending the container to 180.011 seconds. The approved picture/timing and audio mix were preserved; local FFmpeg normalized the output to the requested exact format/duration:
+
+```sh
+/Applications/AdaL.app/Contents/Resources/bin/ffmpeg -hide_banner -loglevel error -i reports/demo-output/launch/Mira_Follow_the_Evidence.mp4 -map 0:v:0 -map 0:a:0 -vf 'scale=in_range=pc:out_range=tv,format=yuv420p' -color_range tv -c:v libx264 -crf 18 -preset medium -c:a aac -af 'atrim=duration=180' -t 180 -movflags +faststart -y reports/demo-output/launch/Mira_Follow_the_Evidence-normalized.mp4
+```
+
+The unchanged Remotion output was renamed `Mira_Follow_the_Evidence-remotion-fullrange.mp4`; the normalized file was promoted to **`Mira_Follow_the_Evidence.mp4`**. Deliver the latter only.
+
+Final file: **7,486,227 bytes**; SHA-256 **`ca759c32dab5dc5523edead03de6d34ec4645f686bae3a70f2467071cd8bd938`**. Format, video and audio durations are all exactly **180.000 seconds**. Video: **H.264 / yuv420p / TV range / 1920×1080 / 30 fps / 5,400 frames**. Audio: **AAC / 48,000 Hz / stereo**.
+
+All final-file checks passed:
+
+- `ffprobe -v error -show_format -show_streams -of json …` → `export-metadata.json`.
+- `ffmpeg -v error -i … -f null /dev/null` → `export-decode.log`, empty; exit 0, full video/audio decode.
+- `ffmpeg -hide_banner -i … -vn -af volumedetect -f null /dev/null` → `export-audio-level.log`: mean **−36.2 dBFS**, peak **−25.0 dBFS**, no clipping. Quiet approved mix retained.
+- `node reports/demo-output/launch/export-playback-check.cjs` → `export-playback-check.json`: real Chromium play/seek at **0, 45, 90, 135 and 179 seconds**, readyState 4 throughout, no media/page errors, duration 180, 1920×1080. Screenshot `qa/export-playback-final.png` retained.
+- `export-verification.json` summarizes final metadata/hash/results. No subjective listening was performed: no audible inspection tool was available in this session. Numerical levels and actual browser playback are verified; taste/volume judgement is not claimed.
+
+No deck files were edited or copied by this worker. Coordinator owns packaging and final deck-link validation. All disclosures, chapter timing and deferred-corroboration limits remain as approved. Export status: **complete**.

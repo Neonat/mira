@@ -63,10 +63,10 @@ Read-only: motion manifest/HyperFrames source, approved spec, existing recording
 
 - [x] Independently inspect deck, motion snapshots, Remotion preview and actual source-to-claim example.
 - [x] Fresh reviewer checks exact deliverables against approved spec, truthfulness and readability; fix concrete findings.
-- [x] Package deck and preview. Final MP4 export remains a separate pending user approval; preserve original assets.
+- [x] Package the approved final deck and MP4; verify relative movie target, matching copy hashes and ZIP integrity. Preserve original assets.
 - [x] Update production handoffs and this checklist. Commit/push only owned reproducible sources/docs; exclude generated media and secrets. No runtime suite repetition for media-only edits.
 
 ## Progress
 
-- Design approved; builder check: no important questions left. Production and focused delivery review completed; no blockers for preview delivery. Final MP4 export awaits the user’s preview decision.
+- Design approved; builder check: no important questions left. Production and focused delivery review completed. User explicitly approved final export; exact 180-second MP4 passed decode and five browser playback checks. Final PPTX opened in PowerPoint. ZIP/copy hashes passed, and the exact relative movie target resolves to the packaged file. Approved production is complete.
 - Parallel paths are explicit; shared checkout is acceptable under AGENTS.md and avoids copying ignored assets/credentials.
