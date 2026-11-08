@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from collections.abc import Sequence
 from difflib import SequenceMatcher
 
@@ -54,8 +55,23 @@ def normalise(text: str) -> str:
     return text.strip(" .,;:'\"")
 
 
+_NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+# Characters either side of a fuzzy window that may still hold a number cut at its edge.
+NUMBER_WINDOW_PAD = 16
+
+
+def _numbers(text: str) -> Counter[str]:
+    """Numbers as written, ignoring thousands separators: '300,000' and '300000' are the same."""
+    return Counter(match.replace(",", "") for match in _NUMBER.findall(text))
+
+
 def quote_match(quote: str, passage: str) -> bool:
-    """True if ``quote`` appears in ``passage``, exactly after normalising or with fuzzy ratio >= 0.9."""
+    """True if ``quote`` appears in ``passage``, exactly after normalising or with fuzzy ratio >= 0.9.
+
+    Fuzzy matching tolerates extraction noise in wording only. Every number in the quote
+    (amounts, dates, references) must also appear in the matched part of the passage, so
+    "$5 million" never matches a passage that says "$3 million".
+    """
     q, p = normalise(quote), normalise(passage)
     if not q:
         return False
@@ -63,11 +79,15 @@ def quote_match(quote: str, passage: str) -> bool:
         return True
     if len(q) > len(p) * 1.1:
         return False
+    wanted = _numbers(q)
     width = len(q)
     step = max(1, width // 8)
     for start in range(0, max(1, len(p) - width + 1), step):
         window = p[start:start + width]
-        if SequenceMatcher(None, q, window, autojunk=False).ratio() >= FUZZY_THRESHOLD:
+        if SequenceMatcher(None, q, window, autojunk=False).ratio() < FUZZY_THRESHOLD:
+            continue
+        nearby = p[max(0, start - NUMBER_WINDOW_PAD):start + width + NUMBER_WINDOW_PAD]
+        if not wanted - _numbers(nearby):
             return True
     return False
 
