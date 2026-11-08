@@ -1,0 +1,1162 @@
+{
+  "current": {
+    "run_id": "7be59cdf-8dc7-4c5f-ae22-1c3db4c10b82",
+    "status": "partial",
+    "started_at": "2026-11-08 08:53:02.542021+00:00",
+    "finished_at": "2026-11-08 09:18:02.547539+00:00",
+    "brief": {
+      "topic": "AML/CFT",
+      "jurisdictions": [
+        "HK"
+      ],
+      "period_start": "2025-11-04",
+      "period_end": "2026-11-04",
+      "as_of_date": "2026-11-04",
+      "plan_requires_approval": false
+    },
+    "workspace_run_count": 1,
+    "saved_versions": 30,
+    "acquired": {
+      "distinct_publications": 30,
+      "recall": {
+        "all": {
+          "found": 6,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 6,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 6,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT04",
+        "GT06",
+        "GT08",
+        "GT21",
+        "GT22",
+        "GT23"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT05",
+        "GT07",
+        "GT09",
+        "GT11",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT20",
+        "GT24"
+      ]
+    },
+    "stored_text": {
+      "distinct_publications": 30,
+      "recall": {
+        "all": {
+          "found": 6,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 6,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 6,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT04",
+        "GT06",
+        "GT08",
+        "GT21",
+        "GT22",
+        "GT23"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT05",
+        "GT07",
+        "GT09",
+        "GT11",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT20",
+        "GT24"
+      ]
+    },
+    "cited": {
+      "distinct_publications": 8,
+      "recall": {
+        "all": {
+          "found": 5,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 5,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 5,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT04",
+        "GT06",
+        "GT08",
+        "GT21",
+        "GT22"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT05",
+        "GT07",
+        "GT09",
+        "GT11",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT20",
+        "GT23",
+        "GT24"
+      ]
+    },
+    "report_exists": true,
+    "report_facts": 19,
+    "report_inferences": 0,
+    "unresolved": 3,
+    "checklist": {
+      "missing": 4,
+      "found": 5,
+      "no_change": 3,
+      "fetch_failed": 1
+    },
+    "step_statuses": {
+      "succeeded": 77,
+      "failed": 1
+    },
+    "recorded_tokens": 478544,
+    "recorded_cost_estimate_usd": 2.2638000000000003,
+    "validation_events": {
+      "counts": {
+        "run_started": 1,
+        "model_started": 68,
+        "model_completed": 63,
+        "exa_requested": 5,
+        "exa_completed": 5,
+        "model_error": 5,
+        "run_finished": 1
+      },
+      "corroboration_model_calls": {
+        "requested": 12,
+        "completed": 8,
+        "errors": 4,
+        "explicitly_reported_timeouts": 0,
+        "prompt_version_instrumented": true
+      },
+      "provider_tokens_known": 478544,
+      "unknown_usage_reserved_tokens": 90685,
+      "unknown_usage_calls": 1,
+      "exa_requests": 5,
+      "exa_completed": 5,
+      "exa_errors": 0,
+      "exa_timeouts": 0,
+      "model_requests": 68,
+      "api_calls": 73
+    },
+    "corroboration": {
+      "steps": 27,
+      "step_statuses": {
+        "succeeded": 27
+      },
+      "completed_steps": 27,
+      "failed_steps": 0,
+      "assessments": 12,
+      "statuses": {
+        "primary_source_only": 5,
+        "inconclusive": 7
+      },
+      "persisted_reserved_tokens": 0,
+      "assessment_errors": 4,
+      "time_limit_stops": 0,
+      "completed_assessments": 5
+    },
+    "browser": {
+      "actual_attempts": 0,
+      "log_entries": 0,
+      "saved": 0
+    },
+    "mas": {
+      "active": false,
+      "fetches": 0,
+      "versions": 0,
+      "zero": true
+    },
+    "writer": {
+      "llm_succeeded": false,
+      "deterministic_fallback": true
+    },
+    "clean": {
+      "unresumed": true,
+      "run_started_events": 1,
+      "initial_analysis_steps": 1,
+      "initial_analysis_once": true
+    }
+  },
+  "historical_comparisons": {
+    "fe65444d": {
+      "reference": {
+        "run_id": "fe65444d-589c-4a76-b3db-c216d76757ae",
+        "saved_versions": 30,
+        "acquisition_recall": {
+          "all": {
+            "found": 5,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 5,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 5,
+            "total": 14
+          }
+        },
+        "stored_text_recall": {
+          "all": {
+            "found": 5,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 5,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 5,
+            "total": 14
+          }
+        },
+        "acquired_benchmark_ids": [
+          "GT04",
+          "GT06",
+          "GT11",
+          "GT16",
+          "GT21"
+        ],
+        "report_exists": true,
+        "report_cited_claims": 8,
+        "report_facts": 8,
+        "report_inferences": 0,
+        "unresolved": 4,
+        "cited_distinct_urls": 8,
+        "citation_recall": {
+          "all": {
+            "found": 5,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 5,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 5,
+            "total": 14
+          }
+        },
+        "cited_benchmark_ids": [
+          "GT04",
+          "GT06",
+          "GT11",
+          "GT16",
+          "GT21"
+        ],
+        "checklist": [
+          {
+            "status": "fetch_failed",
+            "count": 1
+          },
+          {
+            "status": "found",
+            "count": 3
+          },
+          {
+            "status": "missing",
+            "count": 5
+          },
+          {
+            "status": "no_change",
+            "count": 4
+          }
+        ],
+        "recorded_tokens": 321591,
+        "estimated_cost_usd": 1.2729,
+        "step_statuses": {
+          "succeeded": 35,
+          "failed": 7
+        },
+        "fetch_log_entries": 36,
+        "charged_scout_attempts": 30,
+        "fetch_outcomes": {
+          "refused": 3,
+          "saved": 30,
+          "reused": 3
+        },
+        "fetch_methods": {
+          "http_fetch": 36
+        },
+        "corroboration_assessments": 4,
+        "corroboration_statuses": {
+          "inconclusive": 4
+        }
+      },
+      "acquired_delta": 1,
+      "newly_acquired": [
+        "GT08",
+        "GT22",
+        "GT23"
+      ],
+      "not_reacquired": [
+        "GT11",
+        "GT16"
+      ]
+    },
+    "a88dd20e": {
+      "reference": {
+        "run_id": "a88dd20e-2fe8-41c2-8839-0b6ef85569a3",
+        "saved_versions": 30,
+        "acquisition_recall": {
+          "all": {
+            "found": 7,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 7,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 7,
+            "total": 14
+          }
+        },
+        "stored_text_recall": {
+          "all": {
+            "found": 7,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 7,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 7,
+            "total": 14
+          }
+        },
+        "acquired_benchmark_ids": [
+          "GT04",
+          "GT05",
+          "GT06",
+          "GT11",
+          "GT16",
+          "GT21",
+          "GT22"
+        ],
+        "report_exists": false,
+        "report_cited_claims": 0,
+        "report_facts": 0,
+        "report_inferences": 0,
+        "unresolved": null,
+        "cited_distinct_urls": 0,
+        "citation_recall": null,
+        "cited_benchmark_ids": [],
+        "checklist": [
+          {
+            "status": "fetch_failed",
+            "count": 1
+          },
+          {
+            "status": "found",
+            "count": 4
+          },
+          {
+            "status": "missing",
+            "count": 6
+          },
+          {
+            "status": "no_change",
+            "count": 2
+          }
+        ],
+        "recorded_tokens": 254700,
+        "estimated_cost_usd": 0.6603,
+        "step_statuses": {
+          "succeeded": 18,
+          "failed": 2
+        },
+        "fetch_log_entries": 43,
+        "charged_scout_attempts": 30,
+        "fetch_outcomes": {
+          "saved": 30,
+          "refused": 3,
+          "reused": 10
+        },
+        "fetch_methods": {
+          "http_fetch": 43
+        },
+        "corroboration_assessments": 0,
+        "corroboration_statuses": {}
+      },
+      "acquired_delta": -1,
+      "newly_acquired": [
+        "GT08",
+        "GT23"
+      ],
+      "not_reacquired": [
+        "GT05",
+        "GT11",
+        "GT16"
+      ]
+    },
+    "e2fda30f": {
+      "reference": {
+        "run_id": "e2fda30f-36f9-4aa3-83c3-d78b81671b83",
+        "saved_versions": 32,
+        "acquisition_recall": {
+          "all": {
+            "found": 9,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 9,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 9,
+            "total": 14
+          }
+        },
+        "stored_text_recall": {
+          "all": {
+            "found": 9,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 9,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 9,
+            "total": 14
+          }
+        },
+        "acquired_benchmark_ids": [
+          "GT03",
+          "GT04",
+          "GT05",
+          "GT06",
+          "GT11",
+          "GT16",
+          "GT21",
+          "GT22",
+          "GT24"
+        ],
+        "report_exists": true,
+        "report_cited_claims": 19,
+        "report_facts": 19,
+        "report_inferences": 0,
+        "unresolved": 5,
+        "cited_distinct_urls": 13,
+        "citation_recall": {
+          "all": {
+            "found": 9,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 9,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 9,
+            "total": 14
+          }
+        },
+        "cited_benchmark_ids": [
+          "GT03",
+          "GT04",
+          "GT05",
+          "GT06",
+          "GT11",
+          "GT16",
+          "GT21",
+          "GT22",
+          "GT24"
+        ],
+        "checklist": [
+          {
+            "status": "found",
+            "count": 4
+          },
+          {
+            "status": "missing",
+            "count": 6
+          },
+          {
+            "status": "no_change",
+            "count": 3
+          }
+        ],
+        "recorded_tokens": 372220,
+        "estimated_cost_usd": 1.829,
+        "step_statuses": {
+          "succeeded": 47,
+          "failed": 1
+        },
+        "fetch_log_entries": 36,
+        "charged_scout_attempts": 30,
+        "fetch_outcomes": {
+          "saved": 30,
+          "reused": 6
+        },
+        "fetch_methods": {
+          "http_fetch": 36
+        },
+        "corroboration_assessments": 0,
+        "corroboration_statuses": {}
+      },
+      "acquired_delta": -3,
+      "newly_acquired": [
+        "GT08",
+        "GT23"
+      ],
+      "not_reacquired": [
+        "GT03",
+        "GT05",
+        "GT11",
+        "GT16",
+        "GT24"
+      ]
+    }
+  },
+  "source_sha": "c1cf68297ced2a8ca08ceb7dfdcf6309ce5580cf",
+  "budget": {
+    "max_fetched_documents": 30,
+    "max_llm_tokens": 600000,
+    "max_run_minutes": 25.0,
+    "max_gap_rounds": 2
+  },
+  "models": {
+    "planner": "openai:gpt-5.4",
+    "regulatory_scout": "openai:gpt-5.4-mini",
+    "industry_scout": "openai:gpt-5.4-mini",
+    "analyst": "openai:gpt-5.4",
+    "verifier": "openai:gpt-5.4",
+    "writer": "openai:gpt-5.4-mini"
+  },
+  "human_precision": "unlabelled; no review sign-off",
+  "limitations": [
+    "Historical observations, not a controlled equal-budget or causal feature comparison.",
+    "e2fda30f saved 32 versus 30 allowed; a88dd20e had no report; fe65444d was resumed.",
+    "Provider reservations are not measured usage; cost excludes Exa and unknown provider usage.",
+    "Journal and persisted corroboration reservations are separate provenance views; do not add them as disjoint costs.",
+    "Assessment statuses are model checks, not human precision labels.",
+    "Corroboration time_limit_stops are persisted stop reasons, not independently timed provider-call counts.",
+    "Four of twelve corroboration requests reached the 4096 output-token cap; zero timeouts is not an all-call success.",
+    "Writer timed out at the global deadline; report is partial and uses verified-claim fallback.",
+    "Browser acquisition was enabled but never attempted in this run."
+  ],
+  "previous_clean_comparison": {
+    "run_id": "7e877c4e-e10e-4e19-9025-450db0666773",
+    "reference": {
+      "run_id": "7e877c4e-e10e-4e19-9025-450db0666773",
+      "status": "draft",
+      "started_at": "2026-11-08 08:16:07.265010+00:00",
+      "finished_at": "2026-11-08 08:34:25.001096+00:00",
+      "brief": {
+        "topic": "AML/CFT",
+        "jurisdictions": [
+          "HK"
+        ],
+        "period_start": "2025-11-04",
+        "period_end": "2026-11-04",
+        "as_of_date": "2026-11-04",
+        "plan_requires_approval": false
+      },
+      "workspace_run_count": 1,
+      "saved_versions": 30,
+      "acquired": {
+        "distinct_publications": 30,
+        "recall": {
+          "all": {
+            "found": 5,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 5,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 5,
+            "total": 14
+          }
+        },
+        "benchmark_ids": [
+          "GT03",
+          "GT04",
+          "GT06",
+          "GT21",
+          "GT23"
+        ],
+        "missing_benchmark_ids": [
+          "GT02",
+          "GT05",
+          "GT07",
+          "GT08",
+          "GT09",
+          "GT11",
+          "GT16",
+          "GT17",
+          "GT18",
+          "GT19",
+          "GT20",
+          "GT22",
+          "GT24"
+        ]
+      },
+      "stored_text": {
+        "distinct_publications": 30,
+        "recall": {
+          "all": {
+            "found": 5,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 5,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 5,
+            "total": 14
+          }
+        },
+        "benchmark_ids": [
+          "GT03",
+          "GT04",
+          "GT06",
+          "GT21",
+          "GT23"
+        ],
+        "missing_benchmark_ids": [
+          "GT02",
+          "GT05",
+          "GT07",
+          "GT08",
+          "GT09",
+          "GT11",
+          "GT16",
+          "GT17",
+          "GT18",
+          "GT19",
+          "GT20",
+          "GT22",
+          "GT24"
+        ]
+      },
+      "cited": {
+        "distinct_publications": 10,
+        "recall": {
+          "all": {
+            "found": 5,
+            "total": 18
+          },
+          "fetchable": {
+            "found": 5,
+            "total": 18
+          },
+          "regulatory": {
+            "found": 5,
+            "total": 14
+          }
+        },
+        "benchmark_ids": [
+          "GT03",
+          "GT04",
+          "GT06",
+          "GT21",
+          "GT23"
+        ],
+        "missing_benchmark_ids": [
+          "GT02",
+          "GT05",
+          "GT07",
+          "GT08",
+          "GT09",
+          "GT11",
+          "GT16",
+          "GT17",
+          "GT18",
+          "GT19",
+          "GT20",
+          "GT22",
+          "GT24"
+        ]
+      },
+      "report_exists": true,
+      "report_facts": 16,
+      "report_inferences": 0,
+      "unresolved": 3,
+      "checklist": {
+        "missing": 4,
+        "found": 4,
+        "no_change": 4,
+        "fetch_failed": 1
+      },
+      "step_statuses": {
+        "succeeded": 56
+      },
+      "recorded_tokens": 375187,
+      "recorded_cost_estimate_usd": 1.518,
+      "validation_events": {
+        "counts": {
+          "run_started": 1,
+          "model_started": 46,
+          "model_completed": 40,
+          "exa_requested": 6,
+          "exa_completed": 6,
+          "exa_cap_reached": 1,
+          "model_error": 6,
+          "run_finished": 1
+        },
+        "corroboration_model_calls": {
+          "requested": 6,
+          "completed": 0,
+          "errors": 6,
+          "explicitly_reported_timeouts": 6,
+          "prompt_version_instrumented": true
+        },
+        "provider_tokens_known": 375187,
+        "unknown_usage_reserved_tokens": 139295,
+        "unknown_usage_calls": 6,
+        "exa_requests": 6,
+        "exa_completed": 6,
+        "exa_errors": 0,
+        "exa_timeouts": 0,
+        "model_requests": 46,
+        "api_calls": 52
+      },
+      "corroboration": {
+        "steps": 19,
+        "step_statuses": {
+          "succeeded": 19
+        },
+        "completed_steps": 19,
+        "failed_steps": 0,
+        "assessments": 6,
+        "statuses": {
+          "inconclusive": 6
+        },
+        "persisted_reserved_tokens": 114719,
+        "assessment_errors": 6,
+        "time_limit_stops": 6,
+        "completed_assessments": 0
+      },
+      "browser": {
+        "actual_attempts": 0,
+        "log_entries": 0,
+        "saved": 0
+      },
+      "mas": {
+        "active": false,
+        "fetches": 0,
+        "versions": 0,
+        "zero": true
+      },
+      "writer": {
+        "llm_succeeded": true,
+        "deterministic_fallback": false
+      },
+      "clean": {
+        "unresumed": true,
+        "run_started_events": 1,
+        "initial_analysis_steps": 1,
+        "initial_analysis_once": true
+      }
+    },
+    "acquired_delta": 1,
+    "cited_delta": 0,
+    "newly_acquired": [
+      "GT08",
+      "GT22"
+    ],
+    "not_reacquired": [
+      "GT03"
+    ]
+  },
+  "manifest": {
+    "run_id": "7be59cdf-8dc7-4c5f-ae22-1c3db4c10b82",
+    "workspace_id": "7cb6e6fd-ed06-426f-8e87-ff03a992820b",
+    "baseline_run_id": "e2fda30f-36f9-4aa3-83c3-d78b81671b83",
+    "git_sha": "c1cf68297ced2a8ca08ceb7dfdcf6309ce5580cf",
+    "brief": {
+      "topic": "AML/CFT",
+      "jurisdictions": [
+        "HK"
+      ],
+      "period_start": "2025-11-04",
+      "period_end": "2026-11-04",
+      "as_of_date": "2026-11-04",
+      "plan_requires_approval": false
+    },
+    "budget": {
+      "max_fetched_documents": 30,
+      "max_llm_tokens": 600000,
+      "max_run_minutes": 25.0,
+      "max_gap_rounds": 2
+    },
+    "models": {
+      "planner": "openai:gpt-5.4",
+      "regulatory_scout": "openai:gpt-5.4-mini",
+      "industry_scout": "openai:gpt-5.4-mini",
+      "analyst": "openai:gpt-5.4",
+      "verifier": "openai:gpt-5.4",
+      "writer": "openai:gpt-5.4-mini"
+    },
+    "sources": [
+      {
+        "source_key": "abs",
+        "is_active": false,
+        "permitted_operations": [
+          "metadata",
+          "fetch"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "apg",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "basel-institute",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "bis",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "egmont",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "fatf",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "fstb",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "hk-elegislation",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch",
+          "store_text",
+          "quote",
+          "embed"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "hkab",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "hkma",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch",
+          "store_text",
+          "quote",
+          "embed"
+        ],
+        "live_browser": true
+      },
+      {
+        "source_key": "jfiu",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "mas",
+        "is_active": false,
+        "permitted_operations": [
+          "metadata",
+          "fetch",
+          "store_text",
+          "quote",
+          "embed"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "sfc",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch",
+          "store_text",
+          "quote",
+          "embed"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "sso",
+        "is_active": false,
+        "permitted_operations": [
+          "metadata",
+          "fetch",
+          "store_text",
+          "quote",
+          "embed"
+        ],
+        "live_browser": null
+      },
+      {
+        "source_key": "wolfsberg",
+        "is_active": true,
+        "permitted_operations": [
+          "metadata",
+          "fetch"
+        ],
+        "live_browser": null
+      }
+    ],
+    "exa": {
+      "transport": "actual ExaHTTP API-key transport, ordinary runner factory plus validation cap instrumentation",
+      "max_queries": 6,
+      "max_results": 10,
+      "timeout_seconds": 10,
+      "production_HTTP_auth_tested": "see completed request events"
+    },
+    "browser": {
+      "enabled": true,
+      "approved_sources": [
+        "hkma"
+      ],
+      "http_block_fallback": false,
+      "maximum_attempt_seconds": 30
+    },
+    "corroboration": {
+      "enabled": true,
+      "same_shared_budget": true,
+      "saved_passage_limit": 1,
+      "service_deadline_seconds": 60,
+      "bounded_excerpt_chars": 1800
+    },
+    "validation_model_caps": {
+      "per_call_timeout_seconds": 360,
+      "per_call_max_output_tokens": 64000,
+      "total_token_accounting": "UTF-8 prompt/schema envelope reservation plus 8192 framing; unused reservation refunded on known usage; unknown retained"
+    },
+    "started_at": "2026-11-08T08:53:02.522175+00:00",
+    "clean_single_execution": true,
+    "authorization": "Explicit user approval for one additional bounded run; no continuation or replacement",
+    "previous_clean_run_id": "7e877c4e-e10e-4e19-9025-450db0666773"
+  },
+  "outcome": {
+    "status": "partial",
+    "reasons": [
+      "writer failed (bounded request timed out; provider usage may be unavailable); the report lists verified claims without a summary"
+    ],
+    "report_id": "2c799d0b-e7dd-4472-89c2-36cc516799a4",
+    "seconds": 1500.0711199999787
+  },
+  "authorization": "User explicitly authorized one additional bounded run after the prior single-run allowance was used.",
+  "implementation_verification": {
+    "full_tests": 538,
+    "subtests": 8,
+    "skipped": 0,
+    "seconds": 52.38,
+    "repeated_this_assignment": false
+  },
+  "acceptance_observations": {
+    "uninterrupted": true,
+    "coverage_above_previous_clean": true,
+    "coverage_at_least_earlier_local": false,
+    "corroboration_timeouts": 0,
+    "corroboration_completions": 8,
+    "all_corroboration_requests_completed": false
+  },
+  "corroboration_request_timings": [
+    {
+      "request_id": "e3b46c036a124a419cd11e9a718549b4",
+      "input_characters": 6731,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.9973126668483,
+      "elapsed_seconds": 31.245044,
+      "terminal": "model_completed",
+      "error_code": null
+    },
+    {
+      "request_id": "49548b792b9c4c298a16d95990b098a8",
+      "input_characters": 7138,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.998367749969475,
+      "elapsed_seconds": 30.217454,
+      "terminal": "model_completed",
+      "error_code": null
+    },
+    {
+      "request_id": "59bc6b6dd68048dfb1ebd138cc5884fb",
+      "input_characters": 5436,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.99829812394455,
+      "elapsed_seconds": 22.962347,
+      "terminal": "model_completed",
+      "error_code": null
+    },
+    {
+      "request_id": "614ac6e7b1324c0c87f6426bcfe4d808",
+      "input_characters": 7347,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.99831429205369,
+      "elapsed_seconds": 35.389958,
+      "terminal": "model_completed",
+      "error_code": null
+    },
+    {
+      "request_id": "6460982c843a4eaeb2cdfbcdbb9c731b",
+      "input_characters": 7391,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.998434707988054,
+      "elapsed_seconds": 44.710077,
+      "terminal": "model_error",
+      "error_code": "output_limit"
+    },
+    {
+      "request_id": "212eb96d645945d398f7523222e52ae4",
+      "input_characters": 7617,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.99847241595853,
+      "elapsed_seconds": 30.430847,
+      "terminal": "model_completed",
+      "error_code": null
+    },
+    {
+      "request_id": "0e403cf2ff594c858e396e6abf6cb50d",
+      "input_characters": 7662,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.99745762604289,
+      "elapsed_seconds": 36.809256,
+      "terminal": "model_completed",
+      "error_code": null
+    },
+    {
+      "request_id": "949534de76c749c28ee5a6cf6afdf449",
+      "input_characters": 6574,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.99814295792021,
+      "elapsed_seconds": 49.048178,
+      "terminal": "model_error",
+      "error_code": "output_limit"
+    },
+    {
+      "request_id": "01d3722aa0bb4550b88489d7ebd60c15",
+      "input_characters": 7168,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.998228042037226,
+      "elapsed_seconds": 26.795541,
+      "terminal": "model_completed",
+      "error_code": null
+    },
+    {
+      "request_id": "9ee3b6e683e940d59fd0848cdf00ef2f",
+      "input_characters": 6611,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.99825187504757,
+      "elapsed_seconds": 38.779655,
+      "terminal": "model_completed",
+      "error_code": null
+    },
+    {
+      "request_id": "f48d56e177d64477b58fde9349290e0e",
+      "input_characters": 7151,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.99812891706824,
+      "elapsed_seconds": 49.01395,
+      "terminal": "model_error",
+      "error_code": "output_limit"
+    },
+    {
+      "request_id": "e608a8f27ef042f6a2dfa8beeb3dc259",
+      "input_characters": 7141,
+      "output_token_cap": 4096,
+      "deadline_seconds": 59.998258125036955,
+      "elapsed_seconds": 45.409969,
+      "terminal": "model_error",
+      "error_code": "output_limit"
+    }
+  ],
+  "read_only_post_run_checks": {
+    "result": "passed",
+    "single_run_and_initial_analysis": true,
+    "no_continuation": true,
+    "document_search_token_time_caps": true,
+    "configured_models_unchanged": true,
+    "all_report_findings_have_latest_supported_verdict": true,
+    "report_file_exists_and_review_status_draft": true,
+    "mas_inactive_zero_versions": true,
+    "temporary_browser_grants_removed": true
+  }
+}
