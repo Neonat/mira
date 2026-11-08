@@ -91,6 +91,7 @@ class _Step:
     prompt_version: str | None = None
     tokens_in: int = 0
     tokens_out: int = 0
+    tokens_precharged: bool = False
     output_refs: dict[str, object] = field(default_factory=dict)
 
 
@@ -106,8 +107,10 @@ class Orchestrator:
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
         max_parallel_scouts: int = 4,
         plan_strategy: PlanStrategy | None = None,
+        corroborator: Callable | None = None,
     ) -> None:
         self.store = store
+        self.corroborator = corroborator
         self.client = client
         self.scouts = scouts
         self.verifier = verifier
@@ -120,7 +123,12 @@ class Orchestrator:
 
     def run(self, ctx: RunContext) -> RunOutcome:
         check_brief_scope(ctx.brief)
-        return _Run(self, ctx).execute()
+        try:
+            return _Run(self, ctx).execute()
+        finally:
+            close = getattr(self.corroborator, "close", None)
+            if close is not None:
+                close()
 
 
 def split_documents(maxima: Sequence[int], allowance: int) -> list[int]:
@@ -160,6 +168,7 @@ class _Run:
         self.claims: list[StoredClaim] = []
         self.verified: dict[UUID, StoredClaim] = {}
         self.unresolved: dict[UUID, str] = {}
+        self.corroboration: dict[UUID, dict] = {}
 
     # --- Run ----------------------------------------------------------------------
 
@@ -217,7 +226,8 @@ class _Run:
         return _Step(self.store.start_step(self.ctx, record), record)
 
     def _finish(self, step: _Step, status: StepStatus, error: str | None = None) -> None:
-        self.budget.charge_tokens(step.tokens_in, step.tokens_out)
+        if not step.tokens_precharged:
+            self.budget.charge_tokens(step.tokens_in, step.tokens_out)
         used_llm = step.model is not None or step.tokens_in or step.tokens_out
         record = step.record.model_copy(update={
             "status": status,
@@ -520,7 +530,7 @@ class _Run:
                     self.unresolved[claim.finding_id] = "rests on a claim that was not verified"
                 elif all(dependency in self.verified for dependency in claim.depends_on):
                     facts = [self.verified[dependency] for dependency in claim.depends_on]
-                    outcome = self._check(claim, 1, lambda: self.o.verifier.check_inference(claim, facts, 1))
+                    outcome = self._check(claim, 1, lambda: self.o.verifier.check_inference(claim, facts, 1, **self._corroboration_kwargs(claim)))
                     self._decide(claim, outcome)
                 else:
                     continue
@@ -531,8 +541,9 @@ class _Run:
 
     def _verify_fact(self, claim: StoredClaim) -> None:
         for attempt in (1, 2):
+            self._corroborate(claim)
             passages = [self.passages[item.passage_id] for item in claim.evidence]
-            outcome = self._check(claim, attempt, lambda: self.o.verifier.check_fact(claim, passages, attempt))
+            outcome = self._check(claim, attempt, lambda: self.o.verifier.check_fact(claim, passages, attempt, **self._corroboration_kwargs(claim)))
             if outcome is None or outcome.verdict != "partially_supported" or attempt == 2:
                 self._decide(claim, outcome)
                 return
@@ -542,12 +553,37 @@ class _Run:
                 return
             claim = rewritten
 
+    def _corroboration_kwargs(self, claim):
+        captured = build_verification_input(self.ctx, claim,
+            {c.finding_id:c for c in self.claims}, self.passages, self.corroboration)
+        return {"corroboration":captured.corroboration} if captured.corroboration else {}
+
+    def _corroborate(self, claim):
+        if self.o.corroborator is None:
+            return
+        with self._step("verifier", check_budget=False,
+                        input_refs={"finding_id":str(claim.finding_id),"purpose":"corroboration"}) as step:
+            base = build_verification_input(self.ctx,claim,
+                {c.finding_id:c for c in self.claims},self.passages).model_dump(mode="json")
+            # The service consumes this shared budget during bounded follow-up calls.
+            step.tokens_precharged = True
+            envelope = self.o.corroborator(self.ctx,claim,base,self.budget)
+            self.corroboration[claim.finding_id] = envelope
+            assessment = envelope["assessment"]
+            step.tokens_in = assessment.get("tokens_in",0)
+            step.tokens_out = assessment.get("tokens_out",0)
+            step.model = assessment.get("model")
+            step.prompt_version = assessment.get("prompt_version")
+            step.output_refs.update(assessment_id=envelope["assessment_id"],
+                                    corroboration_status=assessment["status"],
+                                    reserved_tokens=assessment.get("reserved_tokens",0))
+
     def _check(self, claim: StoredClaim, attempt: int, call: Callable[[], CheckOutcome]) -> CheckOutcome | None:
         refs = {"finding_id": str(claim.finding_id), "attempt": attempt}
         try:
             with self._step("verifier", input_refs=refs) as step:
                 checked_input = build_verification_input(
-                    self.ctx, claim, {item.finding_id: item for item in self.claims}, self.passages,
+                    self.ctx, claim, {item.finding_id: item for item in self.claims}, self.passages, self.corroboration,
                 )
                 outcome = call()
                 self._used(step, outcome)
@@ -623,6 +659,7 @@ class _Run:
             unresolved=self.unresolved,
             generated_at=self.o.now(),
             expected={row.id: row for row in self.expected},
+            corroboration=self.corroboration,
         )
         report_id = self.store.save_report(self.ctx, snapshot, render_html(snapshot, context))
         return report_id, snapshot, status

@@ -1,7 +1,7 @@
 """Pure review-screen projections; reviewed evidence never comes from live rows."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -20,6 +20,7 @@ class ReviewDisplay:
     evidence: list[dict[str, Any]]
     checks: list[dict[str, Any]]
     legacy_note: str | None = None
+    corroboration: dict = field(default_factory=dict)
 
 
 def dependency_closure(roots: set[str], edges: list[dict[str, Any]]) -> set[str]:
@@ -85,4 +86,4 @@ def reviewed_display(raw_snapshot: dict[str, Any], *, workspace_id: str,
             # An excluded outcome need not retain the original claim text.
             findings.append({"id": str(fid), "title": "Excluded finding", "content": "",
                              "excluded_only": True})
-    return ReviewDisplay(findings, evidence, checks)
+    return ReviewDisplay(findings, evidence, checks, corroboration={str(fid):entry for fid,entry in (bundle.corroboration or {}).items()})

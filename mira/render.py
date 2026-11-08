@@ -142,6 +142,36 @@ def frozen_context(snapshot: ReportSnapshot, generated_at: datetime) -> ReportCo
     # Validate roots first, then any extra frozen entries so corrupt data cannot hide unused.
     for finding_id in sorted(cited_finding_ids(snapshot) | set(bundle.findings), key=str):
         hydrate(finding_id)
+    if snapshot.contract_version == "1.5" and not bundle.corroboration:
+        raise ValueError("corroboration snapshot is incomplete")
+    if bundle.corroboration:
+        from mira.contracts import EvidenceInput
+        from mira.corroboration import CorroborationAssessment, validate_frozen_assessment
+        for fid,envelope in bundle.corroboration.items():
+            if fid not in bundle.findings or int(envelope.get("sequence",0)) < 1:
+                raise ValueError("frozen corroboration finding or sequence is invalid")
+            UUID(str(envelope.get("assessment_id")))
+            assessment = CorroborationAssessment.model_validate(envelope.get("assessment"))
+            if (assessment.workspace_id != bundle.workspace_id or assessment.analysis_run_id != bundle.analysis_run_id
+                or assessment.analysis_revision_id != bundle.analysis_revision_id or assessment.finding_id != fid
+                or assessment.checked_at > bundle.reviewed_at):
+                raise ValueError("frozen corroboration scope/date mismatch")
+            needed=set()
+            def retain(item):
+                if item in needed:
+                    return
+                needed.add(item)
+                for dependency in bundle.findings[item].depends_on:
+                    retain(dependency)
+            retain(fid)
+            ids={e.passage_id for item in needed for e in bundle.findings[item].evidence}
+            base=EvidenceInput(workspace_id=bundle.workspace_id,analysis_run_id=bundle.analysis_run_id,
+                analysis_revision_id=bundle.analysis_revision_id,
+                findings={item:bundle.findings[item] for item in needed},passages={pid:bundle.passages[pid] for pid in ids})
+            if assessment.base_evidence_input != base.model_dump(mode="json"):
+                raise ValueError("frozen corroboration base differs from checked evidence")
+            validate_frozen_assessment(assessment)
+
     passages = {pid: PassageRecord(**p.model_dump()) for pid, p in bundle.passages.items()}
     expected = {eid: ExpectedSourceRecord(**e.model_dump()) for eid, e in bundle.expected_sources.items()}
     return ReportContext(
@@ -149,6 +179,7 @@ def frozen_context(snapshot: ReportSnapshot, generated_at: datetime) -> ReportCo
         unresolved={fid: REASON_NOT_STORED for fid in snapshot.unresolved_finding_ids},
         generated_at=generated_at, expected=expected,
         reviewer=bundle.reviewer_display_name, decided_at=bundle.reviewed_at,
+        corroboration=bundle.corroboration or {},
     )
 
 

@@ -30,7 +30,7 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator, model_serializer
 
 CONTRACT_VERSION = "1.4"
 
@@ -402,6 +402,14 @@ class EvidenceInput(Contract):
     analysis_revision_id: UUID
     findings: dict[UUID, FrozenFinding]
     passages: dict[UUID, FrozenPassage]
+    corroboration: dict[UUID, dict] | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_corroboration(self, handler):
+        payload = handler(self)
+        if not self.corroboration:
+            payload.pop("corroboration", None)
+        return payload
 
 
 class FrozenExpectedSource(Contract):

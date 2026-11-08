@@ -20,6 +20,7 @@ from mira.db import NotAuthorisedError, acting_as, require_role
 from mira.fetch import AllowList, Fetcher
 from mira.llm import ROLE_MODEL_ENV, ProviderClient, LLMClient, estimated_cost
 from mira.orchestrator import Orchestrator, RunOutcome
+from mira.corroboration_runtime import ClaimCorroborator
 from mira.pg_store import PostgresStore, load_run
 from mira.single_agent import QuoteOnlyVerifier, code_plan
 
@@ -73,8 +74,11 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
     client = client or ProviderClient()
     store = PostgresStore(conn)
     fetcher = Fetcher(AllowList(store.list_sources(workspace)))
-    scout = WebScout(dsn, client, fetcher, discovery=discovery_from_env(store.list_sources(workspace)), browser=browser_from_env())
-    return Orchestrator(store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client))
+    discovery = discovery_from_env(store.list_sources(workspace))
+    browser = browser_from_env()
+    scout = WebScout(dsn, client, fetcher, discovery=discovery, browser=browser)
+    return Orchestrator(store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client),
+                        corroborator=ClaimCorroborator(conn,client,discovery=discovery,browser=browser))
 
 
 def build_single_agent_orchestrator(

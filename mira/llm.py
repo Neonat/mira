@@ -250,6 +250,35 @@ class ProviderClient:
                                  output_type=output_type, prompt_version=prompt_version)
 
 
+    def structured_bounded(self, *, role, system, user, output_type, prompt_version,
+                           timeout_seconds: float, max_output_tokens: int):
+        """One isolated request; kill its process on deadline, never leave a paid thread running.
+
+        Model and effort configuration are unchanged. Prompts travel on stdin.
+        Timeout cannot recover provider usage that was never reported.
+        """
+        import json
+        import subprocess
+        import sys
+        if timeout_seconds <= 0 or max_output_tokens < 1:
+            raise LLMError("bounded request has no remaining allowance")
+        payload = dict(role=role, system=system, user=user, prompt_version=prompt_version,
+                       output_module=output_type.__module__, output_name=output_type.__name__,
+                       timeout_seconds=timeout_seconds, max_output_tokens=max_output_tokens)
+        try:
+            result = subprocess.run([sys.executable, "-c", "from mira.llm import _bounded_child; _bounded_child()"],
+                input=json.dumps(payload).encode(), capture_output=True, timeout=timeout_seconds, check=True)
+            data = json.loads(result.stdout)
+        except subprocess.TimeoutExpired:
+            raise LLMError("bounded request timed out; provider usage may be unavailable") from None
+        except Exception:
+            raise LLMError("bounded request failed; provider usage may be unavailable") from None
+        if "error" in data:
+            raise LLMError("bounded request failed", data.get("tokens_in", 0), data.get("tokens_out", 0))
+        return LLMResult(output_type.model_validate(data["output"]), data["model"], prompt_version,
+                         data["tokens_in"], data["tokens_out"])
+
+
 def call_checked(
     client: LLMClient,
     *,
@@ -314,6 +343,16 @@ class ScriptedClient:
     model: str = "scripted"
     calls: list[ScriptedCall] = field(default_factory=list)
 
+
+    def structured_bounded(self, *, timeout_seconds: float, max_output_tokens: int, **kwargs):
+        if timeout_seconds <= 0 or max_output_tokens < 1:
+            raise LLMError("bounded request has no remaining allowance")
+        result = self.structured(**kwargs)
+        if result.tokens_out > max_output_tokens:
+            raise LLMError("bounded output token limit reached", result.tokens_in, result.tokens_out)
+        return result
+
+
     def structured(
         self, *, role: AgentRole, system: str, user: str, output_type: type[T], prompt_version: str
     ) -> LLMResult[T]:
@@ -331,3 +370,26 @@ class ScriptedClient:
         except ValidationError as exc:
             raise LLMOutputError(str(exc), self.tokens_in, self.tokens_out) from exc
         return LLMResult(output, self.model, prompt_version, self.tokens_in, self.tokens_out)
+
+
+def _bounded_child():
+    """Internal subprocess entrypoint; emit structured output or safe usage only."""
+    import importlib
+    import json
+    import sys
+    value = json.load(sys.stdin)
+    output_type = getattr(importlib.import_module(value["output_module"]), value["output_name"])
+    try:
+        spec = model_for(value["role"])
+        factories = {"anthropic": AnthropicClient, "openai": OpenAIClient}
+        client = factories[spec.provider](max_tokens=value["max_output_tokens"])
+        client._client = client._client.with_options(timeout=value["timeout_seconds"], max_retries=0)
+        result = client.structured(role=value["role"], system=value["system"], user=value["user"],
+            output_type=output_type, prompt_version=value["prompt_version"])
+        data = dict(output=result.output.model_dump(mode="json"), model=result.model,
+                    tokens_in=result.tokens_in, tokens_out=result.tokens_out)
+    except LLMError as exc:
+        data = dict(error=True, tokens_in=exc.tokens_in, tokens_out=exc.tokens_out)
+    except Exception:
+        data = dict(error=True, tokens_in=0, tokens_out=0)
+    sys.stdout.write(json.dumps(data))

@@ -129,6 +129,7 @@ class ReportContext:
     # Sign-off record for a reviewed report (PRD v2 §6.6). Required when run_status is "reviewed".
     reviewer: str | None = None
     decided_at: datetime | None = None
+    corroboration: Mapping[UUID, dict] = field(default_factory=dict)
 
 
 def _link(url: str, label: str) -> str:
@@ -385,6 +386,16 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
             parts.append("</ul>")
 
         parts.append('<p class="back"><a href="#contents">Back to contents</a></p></section>')
+
+    if context.corroboration:
+        from mira.corroboration_display import assessment_html
+        parts.append('<section aria-labelledby="section-corroboration"><h2 id="section-corroboration">Corroboration</h2>'
+                     '<p>Claim support, source independence and auditor review are separate decisions. '
+                     'Primary-source-only evidence is not a finding that the fact is false.</p>')
+        for fid,envelope in context.corroboration.items():
+            if fid in context.claims:
+                parts.append(assessment_html(envelope,title=context.claims[fid].draft.title))
+        parts.append('</section>')
 
     parts.append(f'<section aria-labelledby="section-evidence"><h2 id="section-evidence">'
                  f'{appendix_number}. Evidence appendix</h2><ol>')
