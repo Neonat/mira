@@ -1,5 +1,6 @@
 """Auditor-facing outcome and source detail, from saved/frozen assessments only."""
 from html import escape
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 LABELS = {
@@ -17,12 +18,33 @@ def _link(url, text):
     return escape(text)
 
 
+def _checked_time(raw):
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z","+00:00")).astimezone(timezone.utc).strftime("%d %b %Y, %H:%M UTC")
+    except (ValueError,TypeError):
+        return "date unknown"
+
+
+def provenance_html(passage):
+    provenance=passage.get("acquisition_provenance") or {}
+    if not provenance:
+        return ""
+    items={"Acquisition method":provenance.get("acquisition_method"),
+           "Acquired at":provenance.get("acquired_at"),"Capture SHA-256":provenance.get("capture_sha256"),
+           "Original capture SHA-256":provenance.get("original_capture_sha256"),
+           "Extraction SHA-256":provenance.get("extraction_sha256"),
+           "Original retained":provenance.get("original_retained")}
+    return '<details><summary>Capture and extraction provenance</summary><dl>'+''.join(
+        f'<dt>{escape(key)}</dt><dd>{escape(str(value) if value is not None else "unknown")}</dd>'
+        for key,value in items.items())+'</dl></details>'
+
+
 def assessment_html(envelope, *, title=None):
     """Escape all source data; display support/origin decisions separately."""
     result = envelope.get('assessment',{})
     status = LABELS.get(result.get('status'),'Not checked')
-    parts = [f'<div class="corroboration"><h3>{escape(title or "Corroboration")}</h3>',
-             f'<p><strong>{status}</strong> · {escape(str(result.get("checked_at") or "date unknown"))}</p>']
+    parts = ['<style>.corroboration {font-family:system-ui,sans-serif;overflow-wrap:anywhere;line-height:1.55}.corroboration p {text-align:left;hyphens:none}.corroboration dd {margin:0 0 .6rem;font-size:.85em}</style>', f'<div class="corroboration"><h3>{escape(title or "Corroboration")}</h3>',
+             f'<p><strong>{status}</strong> · {escape(_checked_time(result.get("checked_at")))}</p>']
     reasons = result.get('reasons') or ([result['reason']] if result.get('reason') else [])
     for reason in reasons:
         parts.append(f'<p>{escape(str(reason))}</p>')
@@ -46,6 +68,12 @@ def assessment_html(envelope, *, title=None):
             parts.append(f'<p>Origin evidence: {_link(source.get("source_url", ""), source.get("title") or "Saved passage")} · '
                          f'{escape(str(origin.get("reason", "")))}</p>'
                          f'<blockquote>{escape(str(origin.get("quote", "")))}</blockquote>')
+        parts.append(provenance_html(passage))
+    limits=result.get('limits',{})
+    if limits:
+        parts.append(f'<p>Search allowance: {limits.get("max_queries",0)} queries, '
+                     f'{limits.get("max_documents",0)} documents, {limits.get("max_passages",0)} passages, '
+                     f'{limits.get("max_seconds",0):g} seconds.</p>')
     stops = result.get('stop_reasons',[])
     if stops:
         parts.append(f'<p>Search limits and outcome: {escape(", ".join(str(s).replace("_", " ") for s in stops))}. '

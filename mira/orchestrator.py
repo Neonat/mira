@@ -570,7 +570,16 @@ class _Run:
                 {c.finding_id:c for c in self.claims},self.passages).model_dump(mode="json")
             # The service consumes this shared budget during bounded follow-up calls.
             step.tokens_precharged = True
-            envelope = self.o.corroborator(self.ctx,claim,base,self.budget)
+            try:
+                envelope = self.o.corroborator(self.ctx,claim,base,self.budget)
+            except Exception as exc:
+                failed = getattr(exc,"assessment",{})
+                step.tokens_in = failed.get("tokens_in",0)
+                step.tokens_out = failed.get("tokens_out",0)
+                step.model = failed.get("model")
+                step.prompt_version = failed.get("prompt_version")
+                step.output_refs["reserved_tokens"] = failed.get("reserved_tokens",0)
+                raise
             self.corroboration[claim.finding_id] = envelope
             assessment = envelope["assessment"]
             step.tokens_in = assessment.get("tokens_in",0)

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time as time_module
 from dataclasses import dataclass
 from datetime import UTC, datetime, time
 from uuid import UUID
@@ -51,7 +52,8 @@ class EvidenceWriter:
         self.workspace_id = workspace_id
         self.user_id = user_id
 
-    def save(self, page: FetchedPage, extracted: Extracted, provenance: dict[str, object] | None = None) -> SavedPage:
+    def save(self, page: FetchedPage, extracted: Extracted, provenance: dict[str, object] | None = None,
+             *, deadline: float | None = None) -> SavedPage:
         """Save ``page``; ``provenance`` (for example a manual import) is kept in the version metadata."""
         ws, user = self.workspace_id, self.user_id
         source = page.source
@@ -60,43 +62,53 @@ class EvidenceWriter:
                   "offline_browser" if (provenance or {}).get("acquisition_method") == "offline_browser" else "http_fetch")
         identity = evidence_identity(page, extracted, method)
         digest = identity["version_sha256"]
+        def execute(query, params):
+            if deadline is not None:
+                for setting in ("statement_timeout", "lock_timeout"):
+                    remaining = deadline - time_module.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError("evidence save deadline reached")
+                    self.conn.execute(f"SET LOCAL {setting} = {max(1, int(remaining * 1000))}", ())
+                if deadline - time_module.monotonic() <= 0:
+                    raise TimeoutError("evidence save deadline reached")
+            return self.conn.execute(query, params)
         with acting_as(self.conn, user):
-            document = self.conn.execute(
+            document = execute(
                 "select id from public.documents where workspace_id = %s and source_id = %s and canonical_url = %s",
                 (ws, source.id, page.url),
             ).fetchone()
             if document is None:
-                document = self.conn.execute(
+                document = execute(
                     """insert into public.documents (workspace_id, source_id, document_type, canonical_url, title, created_by)
                        values (%s, %s, %s, %s, %s, %s) returning id""",
                     (ws, source.id, "other" if page.kind == "feed" else DOCUMENT_TYPES.get(source.source_type, "other"),
                      page.url, extracted.title[:500] or page.url, user),
                 ).fetchone()
             document_id = document["id"]
-            existing = self.conn.execute(
+            existing = execute(
                 "select id from public.document_versions where document_id = %s and content_sha256 = %s",
                 (document_id, digest),
             ).fetchone()
             if existing:
                 if extracted.published and extracted.published_basis:
-                    self.conn.execute(
+                    execute(
                         """update public.document_versions set published_at = %s,
                            metadata = metadata || %s where id = %s and workspace_id = %s
                            and published_at is null""",
                         (datetime.combine(extracted.published, time(), UTC),
                          Jsonb({"publication_date_evidence": extracted.published_basis}), existing["id"], ws),
                     )
-                passages = self.conn.execute(
+                passages = execute(
                     "select id from public.document_passages where document_version_id = %s order by passage_number",
                     (existing["id"],),
                 ).fetchall()
                 return SavedPage(document_id, existing["id"], [row["id"] for row in passages], True, bool(passages))
-            latest = self.conn.execute(
+            latest = execute(
                 "select id, version_number from public.document_versions where document_id = %s order by version_number desc limit 1",
                 (document_id,),
             ).fetchone()
             published = datetime.combine(extracted.published, time(), UTC) if extracted.published else None
-            version_id = self.conn.execute(
+            version_id = execute(
                 """insert into public.document_versions
                      (workspace_id, document_id, version_number, content_sha256, source_url, title, published_at,
                       retrieved_at, extraction_status, extracted_text, extraction_version, metadata, supersedes_version_id)
@@ -115,7 +127,7 @@ class EvidenceWriter:
             passage_ids: list[UUID] = []
             if store_text:
                 for span in split_passages(extracted):
-                    passage_ids.append(self.conn.execute(
+                    passage_ids.append(execute(
                         """insert into public.document_passages
                              (workspace_id, document_version_id, passage_number, content, page_number, char_start,
                               char_end, extraction_version)

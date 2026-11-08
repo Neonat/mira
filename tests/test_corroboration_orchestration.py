@@ -24,3 +24,18 @@ def test_assessment_precedes_checks_is_bound_and_tokens_are_not_double_charged()
     assert called
     checks = [c for c in store.check_inputs if c]
     assert any('corroboration' in c for c in checks)
+
+
+def test_failed_assessment_persistence_keeps_known_usage_in_failed_step():
+    import pytest
+    orchestrator,store,_,_=make()
+    class PersistenceFailure(RuntimeError):
+        assessment={'tokens_in':11,'tokens_out':5,'model':'fixture','prompt_version':'fixture/1','reserved_tokens':0}
+    def fail(ctx,claim,base,budget):
+        budget.charge_tokens(11,5)
+        raise PersistenceFailure('failed to save assessment')
+    orchestrator.corroborator=fail
+    with pytest.raises(PersistenceFailure):
+        orchestrator.run(context())
+    step=next(s for s in store.steps.values() if s.input_refs.get('purpose')=='corroboration')
+    assert step.status=='failed' and step.tokens_in==11 and step.tokens_out==5

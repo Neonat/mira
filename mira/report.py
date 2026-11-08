@@ -274,6 +274,8 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
                 parts.append('<li><a href="#source-coverage">Source coverage checklist</a></li>')
             if context.unresolved:
                 parts.append('<li><a href="#unresolved-items">Unresolved items</a></li>')
+    if context.corroboration:
+        parts.append('<li><a href="#section-corroboration">Corroboration</a></li>')
     parts.append(f'<li><a href="#section-evidence">{appendix_number}. Evidence appendix</a></li></ol></nav>')
     index = 0
     for key, title in SECTION_TITLES.items():
@@ -395,10 +397,12 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
         for fid,envelope in context.corroboration.items():
             if fid in context.claims:
                 parts.append(assessment_html(envelope,title=context.claims[fid].draft.title))
-        parts.append('</section>')
+        parts.append('<p class="back"><a href="#contents">Back to contents</a></p></section>')
 
     parts.append(f'<section aria-labelledby="section-evidence"><h2 id="section-evidence">'
                  f'{appendix_number}. Evidence appendix</h2><ol>')
+    from mira.corroboration_display import provenance_html
+    from dataclasses import asdict
     for passage_id, number in sorted(numbers.items(), key=lambda item: item[1]):
         passage = context.passages.get(passage_id)
         if passage is None:
@@ -409,7 +413,7 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
             f'<li id="e{number}" value="{number}">{escape(passage.source_name)}, '
             f"<em>{escape(passage.title)}</em> ({published}). {_link(passage.source_url, passage.source_url)}. "
             f"Passage {passage.passage_number}, document version {passage.document_version_id}."
-            f"{' Imported by hand from a downloaded copy.' if passage.imported else ''}</li>"
+            f"{' Imported by hand from a downloaded copy.' if passage.imported else ''}{provenance_html(asdict(passage))}</li>"
         )
     parts.append('</ol><p class="back"><a href="#contents">Back to contents</a></p></section></body></html>')
     return "\n".join(part for part in parts if part)
