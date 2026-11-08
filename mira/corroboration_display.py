@@ -3,6 +3,8 @@ from html import escape
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
+from mira.source_links import reader_source_url
+
 LABELS = {
     'independently_corroborated':'Independently corroborated',
     'primary_source_only':'Primary-source only',
@@ -13,8 +15,11 @@ LABELS = {
 
 
 def _link(url, text):
-    if urlsplit(url).scheme in {'http','https'}:
-        return f'<a href="{escape(url,quote=True)}" target="_blank" rel="noopener noreferrer">{escape(text)}</a>'
+    reader_url = reader_source_url(url)
+    if text == url:
+        text = reader_url
+    if urlsplit(reader_url).scheme in {'http','https'}:
+        return f'<a href="{escape(reader_url,quote=True)}" target="_blank" rel="noopener noreferrer">{escape(text)}</a>'
     return escape(text)
 
 
