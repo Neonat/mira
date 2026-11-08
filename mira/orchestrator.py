@@ -33,6 +33,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from mira.agents import analyst, planner, writer
+from mira.analysis_batches import AnalysisLimits, namespace_claims, plan_batches
 from mira.brief import check_brief_scope
 from mira.budget import BudgetExhausted, BudgetTracker
 from mira.completeness import coverage_rows
@@ -40,6 +41,7 @@ from mira.coverage_display import coverage_label
 from mira.contracts import (
     Brief,
     CONTRACT_VERSION,
+    ANALYSIS_REPORT_CONTRACT_VERSION,
     AgentRole,
     CoverageRow,
     FetchAttempt,
@@ -56,7 +58,7 @@ from mira.llm import LLMClient, LLMError, LLMResult
 from mira.diff import diff_key, diff_runs
 from mira.evidence_snapshot import build_verification_input
 from mira.report import ReportContext, render_html
-from mira.store import ExpectedSourceRecord, PassageRecord, RunContext, RunStore, SourceRecord, StoredClaim
+from mira.store import ExpectedSourceRecord, PassageRecord, RunContext, RunStore, SourceRecord, StoredClaim, passage_event
 
 
 class RunCancelled(Exception):
@@ -108,8 +110,10 @@ class Orchestrator:
         max_parallel_scouts: int = 4,
         plan_strategy: PlanStrategy | None = None,
         corroborator: Callable | None = None,
+        analysis_limits: AnalysisLimits | None = None,
     ) -> None:
         self.store = store
+        self.analysis_limits = analysis_limits
         self.corroborator = corroborator
         self.client = client
         self.scouts = scouts
@@ -169,6 +173,10 @@ class _Run:
         self.verified: dict[UUID, StoredClaim] = {}
         self.unresolved: dict[UUID, str] = {}
         self.corroboration: dict[UUID, dict] = {}
+        self.analysis_selections: dict[UUID, set[UUID]] = {}
+        self.analysis_started = False
+        self.analysis_loaded = False
+        self.analysis_terminal: set[UUID] = set()
 
     # --- Run ----------------------------------------------------------------------
 
@@ -183,6 +191,9 @@ class _Run:
                     # queued and resumes once an approval is recorded (research_plans.approved_at).
                     self.store.set_run_status(ctx, "queued", "waiting for plan approval")
                     return RunOutcome("awaiting_approval", ["waiting for plan approval"], None, None)
+                if self.o.analysis_limits is not None:
+                    self.store.begin_analysis_coverage(ctx, list(self.sources))
+                    self.analysis_started = True
                 self._scout(self.tasks)
                 self._check_coverage()
                 self._fill_gaps()
@@ -195,6 +206,7 @@ class _Run:
                     self.unresolved[claim.finding_id] = "not checked: the run stopped before this claim"
             report_id, snapshot, status = self._write()
         except RunCancelled:
+            self._finalize_analysis("cancelled")
             self.store.set_run_status(ctx, "cancelled", "cancelled by user")
             return RunOutcome("cancelled", self.reasons, None, None)
         except RunFailed as exc:
@@ -357,6 +369,7 @@ class _Run:
                     if isinstance(exc, ScoutFailure):
                         self._used(step, exc)
                         self._record_scout_fetches(step, exc.fetch_log, exc.selection_diagnostics)
+                        self._select_analysis_versions(task, exc.fetch_log)
                         error_type = type(exc.cause).__name__
                     else:
                         if isinstance(exc, LLMError):
@@ -395,6 +408,11 @@ class _Run:
         if missing:
             raise ValueError(f"{len(missing)} cited passages are not saved in the evidence store")
         selected_versions = {p.document_version_id for p in found if p.id in document_passage_ids}
+        # Checklist inspection references also select stored evidence. They must
+        # expand to the full version even when no new publication was fetched.
+        for version_id in {p.document_version_id for p in found}:
+            self.analysis_selections.setdefault(version_id, set()).update(task.source_ids)
+        self._select_analysis_versions(task, result.fetch_log)
         shown_ids = [real for label, real in result.labels.items() if label.startswith("P") and real not in passage_ids]
         for passage in self.store.get_passages(self.ctx.workspace_id, shown_ids):
             if passage.document_version_id in selected_versions:
@@ -407,7 +425,20 @@ class _Run:
             documents=len(result.report.documents),
         )
 
+    def _select_analysis_versions(self, task: ScoutTask, fetch_log: Sequence[FetchAttempt]) -> None:
+        for attempt in fetch_log:
+            if attempt.document_version_id is not None and attempt.outcome in ("saved", "unchanged", "reused"):
+                self.analysis_selections.setdefault(attempt.document_version_id, set()).update(task.source_ids)
+
     def _record_scout_fetches(self, step: _Step, fetch_log: list[FetchAttempt], diagnostics: dict) -> None:
+        hybrid = diagnostics.get('hybrid') or {}
+        for key in ('tokens','reserved_tokens'):
+            count = hybrid.get(key,0)
+            if type(count) is not int or count < 0:
+                raise ValueError('invalid hybrid usage accounting')
+            self.budget.charge_tokens(count,0)
+        if hybrid:
+            step.output_refs['embedding_usage'] = hybrid
         self.budget.charge_documents(sum(1 for attempt in fetch_log if attempt.outcome not in ("refused", "reused") and attempt.request_sent))
         step.output_refs.update(
             fetch_attempts=len(fetch_log),
@@ -504,6 +535,9 @@ class _Run:
             step.output_refs.update(counts)
 
     def _analyse(self) -> None:
+        if self.o.analysis_limits is not None:
+            self._analyse_batches()
+            return
         if not self.passages:
             self._skip("analyst", "no passages were found")
             return
@@ -515,6 +549,64 @@ class _Run:
                 step.output_refs["finding_ids"] = [str(claim.finding_id) for claim in self.claims]
         except (LLMError, ValueError) as exc:
             raise RunFailed(f"analyst failed: {exc}") from exc
+
+    def _load_analysis(self) -> None:
+        if self.analysis_started and not self.analysis_loaded:
+            pool = self.store.load_analysis_candidates(self.ctx, self.analysis_selections)
+            self.passages = {p.id:p for p in pool}
+            self.analysis_loaded = True
+
+    def _defer_analysis(self, passages: Sequence[PassageRecord], reason: str) -> None:
+        pending = [p for p in passages if p.id not in self.analysis_terminal]
+        self.store.append_analysis_events(self.ctx, [passage_event(p,"deferred",reason=reason) for p in pending])
+        self.analysis_terminal.update(p.id for p in pending)
+
+    def _finalize_analysis(self, reason: str = "run_stopped") -> None:
+        if self.analysis_started:
+            self._load_analysis()
+            self._defer_analysis(list(self.passages.values()), reason)
+
+    def _analyse_batches(self) -> None:
+        self._load_analysis()
+        limits = self.o.analysis_limits
+        plan = plan_batches(list(self.passages.values()), limits)
+        for pid, reason in plan.deferred.items():
+            self._defer_analysis([self.passages[pid]], reason)
+        for index, batch in enumerate(plan.batches, 1):
+            self._check_cancel()
+            reservation = analyst.request_reservation(self.ctx.brief, batch, limits.max_output_tokens)
+            if self.budget.remaining_tokens() < reservation + limits.reserve_tokens:
+                self._defer_analysis(list(self.passages.values()), "token_budget")
+                break
+            seconds = self.budget.remaining_minutes()*60 - limits.reserve_seconds
+            if seconds <= 0:
+                self._defer_analysis(list(self.passages.values()), "time_budget")
+                break
+            batch_id = f"B{index}"
+            try:
+                with self._step("analyst", input_refs={"batch_id":batch_id,
+                        "passage_ids":[str(p.id) for p in batch], "reservation_tokens":reservation,
+                        "max_output_tokens":limits.max_output_tokens,
+                        "timeout_seconds":min(seconds,limits.timeout_seconds)}) as step:
+                    self.store.append_analysis_events(self.ctx, [passage_event(p,"attempted",batch_id,step.id) for p in batch])
+                    try:
+                        analysis = analyst.analyse(self.o.client,self.ctx.brief,batch,
+                            timeout_seconds=min(seconds,limits.timeout_seconds),max_output_tokens=limits.max_output_tokens)
+                    except LLMError as exc:
+                        if not exc.tokens_in and not exc.tokens_out:
+                            self.budget.charge_tokens(reservation,0)
+                            step.output_refs['reserved_tokens'] = reservation
+                        raise
+                    self._used(step,analysis.llm)
+                    claims = namespace_claims(analysis.claims,len(self.claims))
+                    saved = self.store.save_analysis_batch(self.ctx,batch_id,step.id,claims,batch)
+                    self.claims.extend(saved)
+                    self.analysis_terminal.update(p.id for p in batch)
+                    step.output_refs['finding_ids'] = [str(c.finding_id) for c in saved]
+            except (LLMError, ValueError) as exc:
+                self.store.append_analysis_events(self.ctx,[passage_event(p,'failed',batch_id,step.id,type(exc).__name__) for p in batch])
+                self.analysis_terminal.update(p.id for p in batch)
+                self.reasons.append(f"analysis batch {batch_id} failed ({type(exc).__name__}); saved findings were retained")
 
     def _verify(self) -> None:
         for claim in self.claims:
@@ -642,6 +734,11 @@ class _Run:
         return stored
 
     def _write(self) -> tuple[UUID, ReportSnapshot, RunStatus]:
+        self._finalize_analysis()
+        analysis_coverage = self.store.analysis_coverage(self.ctx) if self.analysis_started else None
+        if analysis_coverage and (analysis_coverage.failed_passages or analysis_coverage.deferred_passages or analysis_coverage.pending_passages
+                                  or any(d.disposition != 'eligible' for d in analysis_coverage.documents)):
+            self.reasons.append("Passage analysis is incomplete; see passage analysis coverage for recorded dispositions.")
         verified = [claim for claim in self.claims if claim.finding_id in self.verified]
         if not verified:
             self._skip("writer", "no verified claims")
@@ -665,12 +762,13 @@ class _Run:
             sections.append(changes)
         sections.append(self._coverage_section())
         snapshot = ReportSnapshot(
-            contract_version=CONTRACT_VERSION,
+            contract_version=ANALYSIS_REPORT_CONTRACT_VERSION if analysis_coverage is not None else CONTRACT_VERSION,
             analysis_run_id=self.ctx.analysis_run_id,
             analysis_revision_id=self.ctx.analysis_revision_id,
             sections=sections,
             coverage=self.coverage,
             unresolved_finding_ids=list(self.unresolved),
+            analysis_coverage=analysis_coverage,
         )
         context = ReportContext(
             brief=self.ctx.brief,

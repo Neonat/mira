@@ -96,3 +96,19 @@ def test_unrelated_or_ambiguous_links_are_not_retargeted(source_url):
         BRIEF, "draft", {saved.finding_id: _stored(saved)}, {passage.id: passage}, {}, AT,
     ))
     assert source_url in Anchors(html).hrefs
+
+
+def test_known_pdf_passage_links_open_its_page_without_changing_saved_url():
+    from mira.source_links import passage_source_url
+    url='https://example.org/circular.pdf?download=1'
+    assert passage_source_url(url,7)==url+'#page=7'
+    assert passage_source_url('https://example.org/article',7)=='https://example.org/article'
+    assert passage_source_url(url,0)==url
+    snapshot,saved,passage=fixture()
+    passage=replace(passage, source_url=url, page_number=7)
+    snapshot=freeze(snapshot,[saved],[passage])
+    before=snapshot.model_dump_json()
+    html=render_signed_off(snapshot,generated_at=AT)
+    assert url+'#page=7' in Anchors(html).hrefs
+    assert 'Page 7' in html
+    assert snapshot.model_dump_json()==before

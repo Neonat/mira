@@ -16,7 +16,7 @@ from uuid import UUID
 
 from mira.contracts import Brief, ReportSentence, ReportSnapshot, RunStatus
 from mira.coverage_display import CHECKLIST_DESCRIPTION, coverage_label
-from mira.source_links import reader_source_url
+from mira.source_links import passage_source_url, reader_source_url
 from mira.store import ExpectedSourceRecord, PassageRecord, StoredClaim
 
 TEMPLATE_VERSION = "report/6"
@@ -106,11 +106,20 @@ th { background: #edf3f7; }
 .coverage th:nth-child(2) { width: 32%; }
 .coverage th:nth-child(3) { width: 24%; }
 .coverage th:last-child { width: 34%; }
+.passage-coverage { width: 100%; table-layout: fixed; }
+.passage-coverage th:first-child { width: 42%; }
+.passage-coverage th:nth-child(2) { width: 18%; }
+.passage-coverage th:last-child { width: 40%; }
 @media screen and (max-width: 36rem) {
   .contents ol { columns: 1; }
   .overview { grid-template-columns: repeat(2, 1fr); }
 }
 @media screen and (max-width: 48rem) {
+  .passage-coverage, .passage-coverage tbody { display: block; }
+  .passage-coverage thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .passage-coverage tr { display: block; padding: .9rem 0; border-bottom: 1px solid #dbe4ea; }
+  .passage-coverage td { display: block; border: 0; padding: .2rem 0; }
+  .passage-coverage td:nth-child(2)::before { content: "Analysed / eligible: "; font-weight: 650; }
   .coverage, .coverage tbody { display: block; }
   .coverage thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .coverage tbody tr { display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: .35rem .75rem; padding: .9rem 0; border-bottom: 1px solid #dbe4ea; }
@@ -212,7 +221,7 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
         title = drafts[0].title if len(drafts) == 1 else "Related findings"
         dates = dict.fromkeys((draft.key_date_kind, draft.key_date) for draft in drafts if draft.key_date)
         date_html = "".join(_date_html(kind, day) for kind, day in dates)
-        links = " · ".join(_link(p.source_url, f"{p.source_name} — {p.title}") for p in documents.values())
+        links = " · ".join(_link(passage_source_url(p.source_url,p.page_number), f"{p.source_name} — {p.title}") for p in documents.values())
         evidence = f'<p class="evidence"><strong>Sources</strong> {links}{marks}</p>' if links or marks else ""
         heading = "h4" if grouped else "h3"
         anchor = ""
@@ -380,6 +389,25 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
                     else:
                         parts.append(f'<p{paragraph_anchor(reference)}>{paragraph_link(reference)}'
                                      f'{sentence_html(sentence.text, sentence.finding_ids)}</p>')
+        if key == "coverage_limitations" and snapshot.analysis_coverage is not None:
+            summary = snapshot.analysis_coverage
+            parts.append('<h3 id="passage-coverage">Passage analysis coverage</h3>')
+            parts.append(f'<p>{summary.analysed_passages} of {summary.candidate_passages} eligible saved passages analysed; '
+                         f'{summary.failed_passages} failed, {summary.deferred_passages} deferred, '
+                         f'{summary.pending_passages} pending. Analysed means a validated response was saved; '
+                         'it does not guarantee that every fact was extracted.</p>')
+            parts.append('<div class="table-scroll" tabindex="0" role="region" aria-label="Passage analysis coverage">'
+                         '<table class="passage-coverage"><thead><tr><th scope="col">Document</th><th scope="col">Analysed / eligible</th>'
+                         '<th scope="col">Remaining</th></tr></thead><tbody>')
+            for doc in summary.documents:
+                remaining = f'{doc.failed_passages} failed; {doc.deferred_passages} deferred; {doc.pending_passages} pending'
+                if doc.reason_counts:
+                    remaining += '; ' + ', '.join(f'{reason.replace("_"," ")}: {n}' for reason,n in sorted(doc.reason_counts.items()))
+                if doc.disposition != 'eligible':
+                    remaining = (doc.reason or doc.disposition).replace('_',' ')
+                parts.append(f'<tr><td>{_link(doc.source_url, doc.source_name + " — " + doc.title)}</td>'
+                             f'<td>{doc.analysed_passages} / {doc.candidate_passages}</td><td>{escape(remaining)}</td></tr>')
+            parts.append('</tbody></table></div>')
         if key == "coverage_limitations" and snapshot.coverage:
             parts.append(f'<h3 id="source-coverage">Source coverage checklist</h3><p>{CHECKLIST_DESCRIPTION}</p>'
                          '<table class="coverage" role="table"><thead><tr><th scope="col">Market</th>'
@@ -429,7 +457,8 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
         published = passage.published_at.isoformat() if passage.published_at else "date unknown"
         parts.append(
             f'<li id="e{number}" value="{number}">{escape(passage.source_name)}, '
-            f"<em>{escape(passage.title)}</em> ({published}). {_link(passage.source_url, passage.source_url)}. "
+            f"<em>{escape(passage.title)}</em> ({published}). {_link(passage_source_url(passage.source_url,passage.page_number), passage.source_url)}. "
+            f"{'Page ' + str(passage.page_number) + '. ' if passage.page_number else ''}"
             f"Passage {passage.passage_number}, document version {passage.document_version_id}."
             f"{' Imported by hand from a downloaded copy.' if passage.imported else ''}{provenance_html(asdict(passage))}</li>"
         )

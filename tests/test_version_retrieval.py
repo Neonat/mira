@@ -17,9 +17,9 @@ def setup_run():
     with connect(DSN) as conn, conn.transaction(force_rollback=True):
         workspace = conn.execute("insert into public.workspaces (slug,name) values (%s,'version test') returning id", (str(uuid4()),)).fetchone()['id']
         source = conn.execute("insert into public.sources (workspace_id,source_key,name,source_type,permitted_operations) values (%s,%s,'test','website',array['metadata','fetch','store_text']) returning id", (workspace,str(uuid4()))).fetchone()['id']
-        brief = SimpleNamespace(topic='AML', period_start=date(2025,1,1), period_end=date(2026,12,31), as_of_date=date(2026,12,31))
+        brief = SimpleNamespace(jurisdictions=['HK'], topic='AML', period_start=date(2025,1,1), period_end=date(2026,12,31), as_of_date=date(2026,12,31))
         ctx = SimpleNamespace(workspace_id=workspace, user_id=uuid4(), analysis_run_id=uuid4(), brief=brief)
-        task = SimpleNamespace(source_ids=(source,), question='money laundering', max_documents=1)
+        task = SimpleNamespace(jurisdiction_code=None, source_ids=(source,), question='money laundering', max_documents=1)
         run = _ScoutRun(WebScout('', None, None), conn, ctx, uuid4(), task)
         def document():
             return conn.execute("insert into public.documents (workspace_id,source_id,title,canonical_url) values (%s,%s,'test',%s) returning id", (workspace,source,'https://example.org/'+str(uuid4()))).fetchone()['id']

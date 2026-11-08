@@ -12,6 +12,7 @@ Mira turns public regulatory and industry developments into cited research repor
 |---|---|
 | Define the research | Topic, jurisdictions, period, as-of date and run allowances, with optional plan approval |
 | Gather relevant developments | Regulatory and industry scouts search approved saved evidence, publication indexes and scoped Exa discovery; permitted dynamic pages can use browser acquisition |
+| Preserve article detail | Complete permitted text stays separate from findings; bounded batches analyse whole saved passages and report analysed, failed and deferred work |
 | Check the source support | Exact passage quotations, numeric checks and a separate-context semantic verifier; facts and inferences remain distinct |
 | Inspect independent support | Saved-first corroboration compares the material proposition and source origins, with visible independent, primary-source-only, conflicting, not-checked or inconclusive outcomes |
 | Read and follow the evidence | Structured HTML report, dated developments, navigable sections, readable tables, source links and a corroboration section |
@@ -25,6 +26,8 @@ The auditor decides what the developments mean for the bank and what action to t
 The report brings together regulatory developments, deadlines, supervisory themes, industry developments, contextual insights and an evidence appendix. Each finding carries its saved wording, fact/inference label, supported date and source references. Coverage and unresolved items are part of the report, so the reviewer can decide where further work is needed.
 
 Source links are written for readers. Verified English SFC circular/news API endpoints open the corresponding public publication page; the original acquisition URL stays in the evidence record. Corroboration displays the status, reasons, quotations and origin evidence separately from primary-source verification and the auditor's decision.
+
+Known PDF passages link directly to their page. Where separately approved, original files are retained privately with integrity checks and authenticated workspace access. Optional hybrid retrieval combines keyword and semantic ranking within explicit source and usage limits.
 
 Reports are saved HTML artifacts. Open the latest generated file for the current layout and links; previously exported files keep their original content.
 
@@ -43,7 +46,9 @@ Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External 
 
 ## Validation
 
-The latest integrated implementation passed **560 tests plus 8 subtests, none skipped**, including local PostgreSQL, actual Chromium fixtures, frozen reviewed evidence and report-source link regressions. The four SFC publications linked by the latest report were also checked in a browser. See the [validation handoff](docs/agent-handoffs/auditor-source-links.md).
+The evidence-completeness update passed **691 tests plus 8 subtests, none skipped**, including local PostgreSQL and actual Chromium. Coverage includes passage batching and frozen dispositions, private-original access and optional hybrid retrieval. See the [implementation handoff](docs/agent-handoffs/evidence-completeness.md). Live research-quality measurements keep their original dated scope.
+
+The preceding merged implementation passed **560 tests plus 8 subtests, none skipped**, including local PostgreSQL, actual Chromium fixtures, frozen reviewed evidence and report-source link regressions. The four SFC publications linked by the latest report were also checked in a browser. See the [validation handoff](docs/agent-handoffs/auditor-source-links.md).
 
 Engineering tests establish the exercised implementation behavior. Research coverage, citation precision and auditor usefulness are measured separately in the [evaluation record](docs/mira_PRD_v3_draft.md#7-evaluation-and-release-evidence). The presentation and recording retain their dated evidence; [feature status](docs/presentation/feature-status-2026-11-08.md) identifies the current implementation.
 
@@ -131,3 +136,9 @@ The three-arm evaluation tools are in [`eval/`](eval/): plain search, single age
 | Evaluation and historical evidence | [`eval/`](eval/), [`eval/evidence/`](eval/evidence/) |
 
 The product owner and team maintain pilot acceptance and operating decisions in [PRD v3 §9](docs/mira_PRD_v3_draft.md#9-settled-decisions-and-remaining-policy-work). This documentation update does not change runtime configuration, source permissions, models or deployed services.
+
+### Evidence completeness — worker configuration
+
+Normal workers analyse up to 12 whole passages and 18,000 content characters per batch, with eight batches maximum and shared run limits taking precedence. Unprocessed work remains stored and appears in the frozen coverage summary; a valid response does not certify exhaustive fact extraction. The comparison arm retains its existing policy. See `.env.example` for limits and verification/report reserves.
+
+Original retention and hybrid retrieval are off by default. Retention additionally requires a source `connector_config.original_retention` approval and reference, private storage shared by worker and authenticated app, and a backup policy for deployment. Hybrid retrieval requires an explicit embedding model/revision, compatible 384-dimensional vectors and the source `embed` permission. Its bounded candidate pool falls back to keyword retrieval when limits or acquisition errors prevent semantic ranking. MAS automated acquisition remains disabled; no new source grants are supplied by this update. Apply the new migrations locally before running the updated worker.

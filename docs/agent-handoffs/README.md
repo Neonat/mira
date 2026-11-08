@@ -2,6 +2,10 @@
 
 This directory coordinates parallel engineering work. It is not a change to Mira's runtime agent architecture. Use a fresh task/fork without chat history; include only the task, ownership boundary, and this checkpoint. Do not ask workers to reread historic chat.
 
+## Evidence-completeness extension under review
+
+The user approved passage coverage/bounded batch analysis first, then permitted originals/page navigation and opt-in hybrid retrieval. Integration and local validation are recorded in [evidence-completeness](evidence-completeness.md). The normal worker records frozen passage dispositions; optional storage/retrieval remain off by default and need existing source approvals. MAS automation, paid runs, role models and remote deployment were not enabled. This extension is based on PR10; older run results below keep their original scope.
+
 ## Current documentation and merged delivery
 
 PR7 and PR9 are merged; current main checkpoint is `95bd1f8`. The root README introduces the implemented prototype to competition judges, DBS stakeholders and pilot auditors, with developer setup below. PRD v3 is the current implementation/pilot reference for the product owner, engineering team and technical reviewers; v2 remains the unchanged requirements baseline until v3 adoption, and v1/proposal text remain historical with dated reader notes. Product users are internal-audit analysts and senior reviewers, supported by curators and administrators. Presentation feature-status notes follow the same evidence cut. The documentation refresh is [PR10](https://github.com/Neonat/mira/pull/10). It changes no runtime, permissions, models, database or slide/video binaries; the previous 560 + 8 test result remains linked to its tested code, rather than represented as a fresh run.

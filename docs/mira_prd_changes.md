@@ -1,5 +1,8 @@
 # Mira PRD: what should change
 
+> **Evidence-completeness addendum, 8 November 2026:** the user-approved passage coverage/batch analysis, permitted originals/page navigation and opt-in hybrid retrieval are documented in current PRD v3. This historical baseline keeps its original requirements and measurements. Intended product users remain internal-audit analysts and senior reviewers.
+
+
 > **Historical proposal — annotated 8 November 2026.** This 21 October review explains the move from v1's platform-first design to the agentic researcher. It is not the current build checklist: many proposals were incorporated into v2 and the merged implementation recorded in [PRD v3](mira_PRD_v3_draft.md).
 >
 > **Audience:** the product owner and engineering team reviewing design rationale. The product serves internal-audit analysts and senior reviewers; competition judges and DBS stakeholders should use the [README](../README.md). Current output provides contextual risks/trends, with DBS actions and business decisions retained by the auditor. The dated proposal text below is preserved.

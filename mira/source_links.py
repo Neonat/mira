@@ -30,3 +30,16 @@ def reader_source_url(url: str) -> str:
     if not re.fullmatch(r"[0-9]{2}" + prefix + r"[0-9]+", reference):
         return url
     return urlunsplit(("https", "apps.sfc.hk", path, urlencode({"refNo": reference}), parts.fragment))
+
+
+def passage_source_url(url: str, page_number: int | None, media_type: str | None = None) -> str:
+    """Project a known PDF passage to its page; stored acquisition URLs stay intact."""
+    reader = reader_source_url(url)
+    try:
+        parts = urlsplit(reader)
+        if (parts.scheme in ('http','https') and type(page_number) is int and page_number > 0
+                and (parts.path.casefold().endswith('.pdf') or media_type == 'application/pdf')):
+            return urlunsplit(parts._replace(fragment=f'page={page_number}'))
+    except ValueError:
+        pass
+    return reader

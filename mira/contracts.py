@@ -445,6 +445,66 @@ class FrozenEvidenceBundle(EvidenceInput):
     reviewed_at: datetime
 
 
+ANALYSIS_REPORT_CONTRACT_VERSION = "1.6"
+
+
+class AnalysisCoverageDocument(Contract):
+    document_version_id: UUID
+    source_id: UUID
+    source_name: str
+    title: str
+    source_url: str
+    disposition: Literal["eligible", "no_text", "ineligible"]
+    reason: str | None = None
+    reason_counts: dict[str, int] = Field(default_factory=dict)
+    candidate_passages: int = Field(ge=0)
+    attempted_passages: int = Field(ge=0)
+    analysed_passages: int = Field(ge=0)
+    failed_passages: int = Field(ge=0)
+    deferred_passages: int = Field(ge=0)
+    pending_passages: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def balanced(self):
+        if self.candidate_passages != sum(getattr(self, f"{s}_passages") for s in ("analysed", "failed", "deferred", "pending")):
+            raise ValueError("passage dispositions do not balance")
+        if not self.analysed_passages + self.failed_passages <= self.attempted_passages <= self.candidate_passages:
+            raise ValueError("invalid attempted passage count")
+        if any(not k or type(v) is not int or v < 1 for k,v in self.reason_counts.items()):
+            raise ValueError("invalid disposition reason counts")
+        if sum(self.reason_counts.values()) != self.failed_passages + self.deferred_passages:
+            raise ValueError("disposition reasons do not balance")
+        if self.disposition != "eligible" and self.candidate_passages:
+            raise ValueError("ineligible document has candidate passages")
+        return self
+
+
+class AnalysisCoverageSnapshot(Contract):
+    policy_version: Literal[1] = 1
+    workspace_id: UUID
+    analysis_run_id: UUID
+    analysis_revision_id: UUID
+    event_sequence: int = Field(ge=0)
+    candidate_passages: int = Field(ge=0)
+    attempted_passages: int = Field(ge=0)
+    analysed_passages: int = Field(ge=0)
+    failed_passages: int = Field(ge=0)
+    deferred_passages: int = Field(ge=0)
+    pending_passages: int = Field(ge=0)
+    documents: list[AnalysisCoverageDocument]
+
+    @model_validator(mode="after")
+    def balanced(self):
+        ids = [d.document_version_id for d in self.documents]
+        if ids != sorted(set(ids), key=str):
+            raise ValueError("coverage documents must have unique sorted identities")
+        for kind in ("candidate", "attempted", "analysed", "failed", "deferred", "pending"):
+            name = f"{kind}_passages"
+            if getattr(self, name) != sum(getattr(d, name) for d in self.documents):
+                raise ValueError(f"coverage total differs from documents: {kind}")
+        return self
+
+
 class ReportSnapshot(Contract):
     """Shape of reports.evidence_snapshot: the sentence-to-claim mapping (AG10)."""
 
@@ -456,6 +516,14 @@ class ReportSnapshot(Contract):
     unresolved_finding_ids: list[UUID]
     review_outcomes: dict[UUID, ReviewOutcome] = Field(default_factory=dict)
     evidence_bundle: FrozenEvidenceBundle | None = None
+    analysis_coverage: AnalysisCoverageSnapshot | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_analysis_coverage(self, handler):
+        payload = handler(self)
+        if self.analysis_coverage is None:
+            payload.pop("analysis_coverage", None)
+        return payload
 
 
 # --- Run trace (code) ----------------------------------------------------------

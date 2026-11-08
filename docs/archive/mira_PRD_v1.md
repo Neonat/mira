@@ -31,6 +31,9 @@ Mira will help auditors at a Singapore based bank turn external news and histori
 
 # 1 Product goal and scope
 
+> **Evidence-completeness addendum, 8 November 2026:** the user-approved passage coverage/batch analysis, permitted originals/page navigation and opt-in hybrid retrieval are documented in current PRD v3. This historical baseline keeps its original requirements and measurements. Intended product users remain internal-audit analysts and senior reviewers.
+
+
 ## Problem and intended users
 
 Auditors currently assemble external developments from news, regulator publications and previous cases. The work is difficult to repeat consistently across a long historical period or several markets. Mira should reduce the time spent finding and checking evidence while preserving the auditor's judgement about relevance and risk.
