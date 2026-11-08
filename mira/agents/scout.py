@@ -143,11 +143,12 @@ def seed_plan(config: dict[str, object], categories: list[str], years: range) ->
 
 
 def distinct_links(links: list[Link]) -> list[Link]:
-    """Prefer the original PDF when its known landing-page alias is also available."""
+    """Retain dated metadata for known aliases, preferring PDFs when equally dated."""
     selected: dict[str, Link] = {}
     for link in links:
         key = document_key(link.url)
-        if key not in selected or (_is_pdf(link.url) and not _is_pdf(selected[key].url)):
+        if key not in selected or (link.published is not None, _is_pdf(link.url)) > (
+                selected[key].published is not None, _is_pdf(selected[key].url)):
             selected[key] = link
     return list(selected.values())
 
@@ -430,7 +431,7 @@ class _ScoutRun:
                 self.candidates.append(link)
         return extracted
 
-    def _fetch_document(self, url: str, link: Link | None = None) -> None:
+    def _fetch_document(self, url: str, link: Link | None = None, *, reserved: int = 0) -> None:
         """Fetch a chosen page and, if it is a landing page for a PDF, the PDF it links to."""
         key = document_key(url)
         if key.startswith("hkma:"):
@@ -441,11 +442,13 @@ class _ScoutRun:
                     pdf = self._fetch(pdf_url, link)
                     if pdf is not None and pdf.status in ("complete", "partial") and pdf.text:
                         return
+                    if self.allowance <= reserved:
+                        return
         extracted = self._fetch(url, link)
         if extracted is None:
             return
         pdf = next((link for link in extracted.links if _is_pdf(link.url) and self.scout.fetcher.allow.allows(link.url)), None)
-        if pdf is not None:
+        if pdf is not None and self.allowance > reserved:
             # A parent's publication date applies only to a recognised alias of that document.
             dated = (Link(pdf.url, pdf.text, pdf.context, extracted.published, extracted.published_basis)
                      if document_key(pdf.url) == document_key(url) else pdf)
@@ -681,12 +684,12 @@ class _ScoutRun:
         self.candidates.extend(deferred)
         for item in diagnostic["presented"]:
             item["selected"] = item["label"] in result.output.link_labels
-        for label in result.output.link_labels:
+        for index, label in enumerate(result.output.link_labels):
             link = label_to_link[label]
             item = next(item for item in diagnostic["presented"] if item["label"] == label)
             start = len(self.log)
             allowance_before = self.allowance
-            self._fetch_document(link.url, link)
+            self._fetch_document(link.url, link, reserved=len(result.output.link_labels) - index - 1)
             item.setdefault("fetch_attempts", []).extend(
                 {"url": _safe_url(a.url), "outcome": a.outcome,
                  "document_version_id": str(a.document_version_id) if a.document_version_id else None}

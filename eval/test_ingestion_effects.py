@@ -86,7 +86,7 @@ def test_candidate_retention_equal_document_allowance_effect(monkeypatch):
         run = _ScoutRun(WebScout('unused', None, SimpleNamespace(), links_per_round=cap), None, ctx, uuid4(), task)
         run.candidates = list(links)
         attempted = []
-        def acquire(url, link):
+        def acquire(url, link, *, reserved=0):
             assert run.allowance > 0
             attempted.append(url)
             run.seen.add(url)

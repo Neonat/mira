@@ -222,7 +222,7 @@ def test_selection_diagnostics_distinguish_filtered_and_presented(monkeypatch):
     run.candidates = [Link("https://example.org/future", "", "", date(2030, 1, 1), "date"),
                       Link("https://example.org/a", "", ""), Link("https://example.org/b", "", "")]
     monkeypatch.setattr(module, "call_checked", lambda *args, **kwargs: SimpleNamespace(output=LinkSelection(link_labels=["L1"], notes=None), model="scripted", tokens_in=0, tokens_out=0))
-    monkeypatch.setattr(run, "_fetch_document", lambda *args: None)
+    monkeypatch.setattr(run, "_fetch_document", lambda *args, **kwargs: None)
     run._select_and_fetch()
     diagnostic = run.selection_diagnostics[0]
     assert [(item["url"], item["reason"]) for item in diagnostic["filtered"]] == [("https://example.org/future", "out_of_as_of")]
@@ -281,7 +281,7 @@ def test_selection_records_allowance_and_fetch_references(monkeypatch):
     version = uuid4()
     monkeypatch.setattr(module, "call_checked", lambda *a, **kw: SimpleNamespace(output=LinkSelection(link_labels=["L1", "L2"], notes=None), model="s", tokens_in=0, tokens_out=0))
 
-    def fetch(url, link):
+    def fetch(url, link, *, reserved=0):
         if run.allowance:
             run.allowance = 0
             run.log.append(FetchAttempt(url=url, outcome="saved", document_version_id=version, error=None, attempted_at=datetime.now(UTC)))
@@ -371,7 +371,7 @@ def test_prompt_cap_candidates_remain_available_in_later_round(monkeypatch):
     run.candidates = [Link(f"https://example.org/{i}", "", "") for i in range(3)]
     monkeypatch.setattr(module, "MAX_LINKS_SHOWN", 2)
     monkeypatch.setattr(module, "call_checked", lambda *a, **kw: SimpleNamespace(output=LinkSelection(link_labels=["L1"], notes=None), model="s", tokens_in=0, tokens_out=0))
-    monkeypatch.setattr(run, "_fetch_document", lambda url, link: run.seen.add(url))
+    monkeypatch.setattr(run, "_fetch_document", lambda url, link, *, reserved=0: run.seen.add(url))
 
     run._select_and_fetch()
     run._select_and_fetch()
