@@ -13,9 +13,10 @@ import threading
 import time
 from datetime import datetime
 from uuid import UUID
+from urllib.parse import urlsplit
 
 from mira.extract import Extracted, Link, extract
-from mira.fetch import AllowList, Fetcher, FetchedPage
+from mira.fetch import AllowList, Fetcher, FetchedPage, FetchRefused, SiteBlocked
 from mira.store import SourceRecord
 from mira.evidence import EvidenceWriter
 from mira.pg_store import PostgresStore
@@ -25,7 +26,12 @@ _MAX_RESPONSE = 24_000_000
 
 
 class AcquisitionRefused(RuntimeError):
-    """Per-document failure; the broker remains usable."""
+    """Per-document failure with typed fallback and accounting metadata."""
+    def __init__(self,message,*,status_code=None,request_sent=True):
+        super().__init__(message)
+        self.kind=message
+        self.status_code=status_code
+        self.request_sent=request_sent
 
 
 class BoundedFetcher:
@@ -38,6 +44,7 @@ class BoundedFetcher:
         self._init = json.dumps([dataclasses.asdict(s) for s in sources], default=str).encode() + b"\n"
         self._lock = threading.Lock()
         self._buffer = bytearray()
+        self._browser_activity = {}
         os.set_blocking(self.process.stdin.fileno(), False)
         os.set_blocking(self.process.stdout.fileno(), False)
 
@@ -59,7 +66,9 @@ class BoundedFetcher:
         try:
             if self.process.poll() is not None:
                 raise RuntimeError("acquisition broker unavailable")
-            request = self._init + json.dumps({"url": url, "source_ids": [str(x) for x in source_ids]}).encode() + b"\n"
+            activity=self._browser_activity
+            self._browser_activity={}
+            request = self._init + json.dumps({"url":url,"source_ids":[str(x) for x in source_ids],"browser_activity":activity}).encode() + b"\n"
             self._init = b""
             selector = selectors.DefaultSelector()
             try:
@@ -99,9 +108,14 @@ class BoundedFetcher:
         finally:
             self._lock.release()
 
+    def note_browser_activity(self,states):
+        with self._lock:
+            for host,state in states.items():
+                self._browser_activity[host]={"at":state.last_request,"delay":state.min_browser_delay,"policy_unknown":state.browser_policy_unknown}
+
     def _decode(self, response: dict) -> tuple[FetchedPage, Extracted]:
         if "error" in response:
-            raise AcquisitionRefused(response["error"])
+            raise AcquisitionRefused(response["error"],status_code=response.get("status_code"),request_sent=response.get("request_sent",True))
         p, e = response["page"], response["extracted"]
         page = FetchedPage(p["url"], p["requested_url"], self.sources[p["source_id"]], p["kind"],
                            p["content_type"], base64.b64decode(p["body"], validate=True), datetime.fromisoformat(p["fetched_at"]))
@@ -117,9 +131,10 @@ class BoundedFetcher:
 
 class CorroborationDiscovery:
     """Discover URLs and return only permitted, current, saved evidence."""
-    def __init__(self, conn, sources: list[SourceRecord], discovery, *, broker=None, browser=None) -> None:
+    def __init__(self, conn, sources: list[SourceRecord], discovery, *, broker=None, browser=None, live_browser=None) -> None:
         self.conn, self.sources, self.discovery, self.browser = conn, list(sources), discovery, browser
         self.allow = AllowList(self.sources)
+        self.live_browser=live_browser
         self.broker = broker or BoundedFetcher(self.sources)
 
     def close(self) -> None:
@@ -145,6 +160,41 @@ class CorroborationDiscovery:
         except Exception as exc:
             errors.append(f"discovery: {type(exc).__name__}")
             return result()
+        def live(url,reason):
+            nonlocal attempts
+            if self.live_browser is None or attempts>=max_documents or remaining()<=0:
+                return None
+            from mira.live_browser import permitted
+            with self.conn.transaction():
+                millis=max(1,int(remaining()*1000))
+                self.conn.execute(f"SET LOCAL statement_timeout = {millis}",())
+                fresh=PostgresStore(self.conn).list_sources(ctx.workspace_id)
+            if not permitted(url,sources=fresh,source_ids=allowed_ids,reason=reason):
+                return None
+            attempts+=1
+            policy=getattr(self.live_browser,"fetcher",None)
+            if policy is not None:
+                host=urlsplit(url).hostname
+                state=policy._state(host)
+                state.last_request=max(state.last_request or 0,time.monotonic())
+            try:
+                acquired=self.live_browser.acquire(url,sources=fresh,source_ids=allowed_ids,
+                    timeout_seconds=remaining(),reason=reason)
+                extracted=extract(acquired.page)
+                if acquired.provenance.get("denied_requests"):
+                    extracted.status="partial"
+                    extracted.error="Browser subresources refused by source policy; rendered capture may be incomplete"
+                return acquired.page,extracted,{**acquired.provenance,"acquisition_reason":reason}
+            except Exception as exc:
+                if getattr(exc,"request_sent",True) is False:
+                    attempts-=1
+                diagnostic=getattr(exc,"diagnostics",[])
+                if diagnostic:
+                    errors.append("browser stage trace "+_safe_url(url)+": "+json.dumps(diagnostic[-8:])[:4000])
+                raise
+            finally:
+                if policy is not None and hasattr(self.broker,"note_browser_activity"):
+                    self.broker.note_browser_activity(policy._hosts)
         seen = set()
         for link in links:
             if attempts >= max_documents or len(candidates) >= max_passages:
@@ -161,7 +211,19 @@ class CorroborationDiscovery:
             seen.add(link.url)
             attempts += 1
             try:
-                page, extracted = self.broker.fetch(link.url, allowed_ids, timeout_seconds=remaining())
+                provenance={}
+                try:
+                    page,extracted=self.broker.fetch(link.url,allowed_ids,timeout_seconds=remaining())
+                except AcquisitionRefused as exc:
+                    if not exc.request_sent:
+                        attempts-=1
+                    if exc.kind not in {"FetchFailed","SiteBlocked"} or exc.status_code==429:
+                        raise
+                    errors.append(f"HTTP acquisition {_safe_url(link.url)}: {exc.kind}")
+                    acquired=live(link.url,"http_blocked")
+                    if acquired is None:
+                        raise
+                    page,extracted,provenance=acquired
                 if page.source.id not in allowed_ids:
                     raise ValueError("source outside scope")
                 with self.conn.transaction():
@@ -174,8 +236,23 @@ class CorroborationDiscovery:
                     errors.append(f"acquisition {_safe_url(link.url)}: source permission revoked")
                     continue
                 page = dataclasses.replace(page, source=fresh)
-                provenance = {}
-                if (self.browser is not None and page.kind == "html" and not extracted.text
+                if not extracted.text and self.live_browser is not None and attempts<max_documents:
+                    # Retain the unusable HTTP extraction before a separately charged browser visit.
+                    with self.conn.transaction():
+                        millis=max(1,int(remaining()*1000))
+                        self.conn.execute(f"SET LOCAL statement_timeout = {millis}",())
+                        self.conn.execute(f"SET LOCAL lock_timeout = {millis}",())
+                        self.conn.execute("select id from public.sources where workspace_id=%s and id=%s for share",(ctx.workspace_id,page.source.id))
+                        current={s.id:s for s in PostgresStore(self.conn).list_sources(ctx.workspace_id)}.get(page.source.id)
+                        if current is None or not {"fetch","store_text"}<=set(current.permitted_operations):
+                            raise FetchRefused("source permission changed before browser fallback")
+                        original=EvidenceWriter(self.conn,ctx.workspace_id,ctx.user_id).save(
+                            dataclasses.replace(page,source=current),extracted,provenance,deadline=deadline)
+                        errors.append(f"HTTP extraction {_safe_url(link.url)}: {extracted.status}; version {original.document_version_id}")
+                    acquired=live(link.url,"js")
+                    if acquired is not None:
+                        page,extracted,provenance=acquired
+                if (not provenance.get("acquisition_method") and self.browser is not None and page.kind == "html" and not extracted.text
                         and remaining() > 0):
                     import hashlib
                     captured = self.browser.with_timeout(remaining()).capture(page)
@@ -211,6 +288,11 @@ class CorroborationDiscovery:
                         errors.append(f"acquisition {_safe_url(link.url)}: source permission revoked")
                         continue
                     page = dataclasses.replace(page, source=fresh)
+                    if provenance.get("acquisition_method")=="live_browser":
+                        from mira.live_browser import permitted
+                        catalog=PostgresStore(self.conn).list_sources(ctx.workspace_id)
+                        if not permitted(page.url,sources=catalog,source_ids=allowed_ids,reason=provenance.get("acquisition_reason","js")):
+                            raise FetchRefused("live browser source permission changed before storage")
                     limit_sql()
                     saved = EvidenceWriter(self.conn, ctx.workspace_id, ctx.user_id).save(page, extracted, provenance, deadline=deadline)
                     limit_sql()
@@ -254,6 +336,15 @@ def _broker() -> None:
     for line in sys.stdin.buffer:
         try:
             request = json.loads(line)
+            for host,activity in request.get("browser_activity",{}).items():
+                try:
+                    fetcher.allow.source_for("https://"+host+"/")
+                except (FetchRefused,ValueError):
+                    continue
+                state=fetcher._state(host)
+                state.last_request=max(state.last_request or 0,float(activity.get("at") or 0))
+                state.min_browser_delay=max(state.min_browser_delay,float(activity.get("delay") or 0))
+                state.browser_policy_unknown=state.browser_policy_unknown or bool(activity.get("policy_unknown"))
             page = fetcher.fetch(request["url"], source_ids={UUID(x) for x in request["source_ids"]})
             extracted = extract(page)
             payload = {"page": {"url": page.url, "requested_url": page.requested_url,
@@ -262,7 +353,8 @@ def _broker() -> None:
                                 "fetched_at": page.fetched_at.isoformat()},
                        "extracted": dataclasses.asdict(extracted)}
         except Exception as exc:
-            payload = {"error": type(exc).__name__}
+            payload={"error":type(exc).__name__,"status_code":getattr(exc,"status_code",None),
+                     "request_sent":not isinstance(exc,FetchRefused) and not (isinstance(exc,SiteBlocked) and exc.repeated)}
         sys.stdout.write(json.dumps(payload, default=str) + "\n")
         sys.stdout.flush()
 

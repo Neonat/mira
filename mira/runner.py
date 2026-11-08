@@ -49,6 +49,13 @@ def browser_from_env():
     return OfflineBrowserCapture()
 
 
+def live_browser_from_env(fetcher):
+    if os.environ.get("MIRA_ENABLE_LIVE_BROWSER") != "1":
+        return None
+    from mira.live_browser import LiveBrowserAcquirer
+    return LiveBrowserAcquirer(fetcher)
+
+
 Arm = Literal["multi_agent", "single_agent"]
 
 
@@ -76,9 +83,10 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
     fetcher = Fetcher(AllowList(store.list_sources(workspace)))
     discovery = discovery_from_env(store.list_sources(workspace))
     browser = browser_from_env()
-    scout = WebScout(dsn, client, fetcher, discovery=discovery, browser=browser)
+    live_browser = live_browser_from_env(fetcher)
+    scout = WebScout(dsn, client, fetcher, discovery=discovery, browser=browser, live_browser=live_browser)
     return Orchestrator(store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client),
-                        corroborator=ClaimCorroborator(conn,client,discovery=discovery,browser=browser))
+                        corroborator=ClaimCorroborator(conn,client,discovery=discovery,browser=browser,live_browser=live_browser))
 
 
 def build_single_agent_orchestrator(

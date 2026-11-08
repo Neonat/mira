@@ -154,7 +154,7 @@ def distinct_links(links: list[Link]) -> list[Link]:
 
 class WebScout:
     def __init__(self, dsn: str, client: LLMClient, fetcher: Fetcher, *, max_rounds: int = 2,
-                 links_per_round: int = 8, discovery=None, browser=None) -> None:
+                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None) -> None:
         self.dsn = dsn
         self.client = client
         self.fetcher = fetcher
@@ -162,6 +162,7 @@ class WebScout:
         self.links_per_round = links_per_round
         self.discovery_adapter = discovery
         self.browser_adapter = browser
+        self.live_browser_adapter = live_browser
         self._fetch_lock = threading.Lock()
         # Futures let concurrent tasks share one fetch/save, scoped to workspace and run.
         self._pages: dict[tuple[UUID, UUID, str], Future] = {}
@@ -321,11 +322,20 @@ class _ScoutRun:
         except FetchFailed as exc:
             if not (isinstance(exc, SiteBlocked) and exc.repeated):  # no request was sent
                 self.allowance -= 1
-            self.log.append(FetchAttempt(url=url, outcome="failed", document_version_id=None, error=str(exc), attempted_at=now))
+            self.log.append(FetchAttempt(url=url, outcome="failed", document_version_id=None, error=str(exc), attempted_at=now,
+                acquisition_method="http_fetch", request_sent=not (isinstance(exc,SiteBlocked) and exc.repeated)))
+            if getattr(exc,"status_code",None) != 429:
+                return self._acquire_live(url, "http_blocked", link)
             return None
         self.allowance -= 1
         extracted = extract(page)
         provenance = {"request_method": "POST", "request_json": payload} if payload is not None else {}
+        if self.scout.live_browser_adapter is not None and page.kind == "html" and not extracted.text and self.allowance>0:
+            from mira.live_browser import permitted
+            remaining=self._remaining_seconds()
+            if (remaining is None or remaining>0) and permitted(url,sources=self.store.list_sources(self.ctx.workspace_id),source_ids=set(self.task.source_ids),reason="js"):
+                self._save_page(page,extracted,provenance,link)
+                return self._acquire_live(url,"js",link) or extracted
         if self.scout.browser_adapter is not None and page.kind == "html" and not extracted.text:
             try:
                 remaining = self._remaining_seconds()
@@ -343,17 +353,78 @@ class _ScoutRun:
                         page, extracted = captured, rendered
             except Exception as exc:
                 extracted.error = f"offline browser failed: {type(exc).__name__}"
+        return self._save_page(page,extracted,provenance,link)
+
+    def _acquire_live(self, url, reason, link=None):
+        adapter=self.scout.live_browser_adapter
+        remaining=self._remaining_seconds()
+        if adapter is None or self.allowance<=0 or (remaining is not None and remaining<=0):
+            return None
+        from mira.live_browser import permitted
+        sources=self.store.list_sources(self.ctx.workspace_id)
+        scope=set(self.task.source_ids)
+        if not permitted(url,sources=sources,source_ids=scope,reason=reason):
+            return None
+        timeout=min(30.,remaining) if remaining is not None else 30.
+        deadline=time.monotonic()+timeout
+        self.allowance-=1
+        navigated=False
+        try:
+            result=adapter.acquire(url,sources=sources,source_ids=scope,timeout_seconds=timeout,reason=reason)
+            navigated=True
+            def save():
+                fresh=self.store.list_sources(self.ctx.workspace_id)
+                if not permitted(url,sources=fresh,source_ids=scope,reason=reason):
+                    raise FetchRefused("live-browser source permission changed")
+                final=self.scout.fetcher.allow.source_for(result.page.url)
+                current=next((s for s in fresh if s.id==final.id),None)
+                if current is None or not permitted(result.page.url,sources=fresh,source_ids=scope,reason="js"):
+                    raise FetchRefused("live-browser final source is no longer permitted")
+                from dataclasses import replace
+                page=replace(result.page,source=current)
+                extracted=extract(page)
+                if result.provenance.get("denied_requests"):
+                    extracted.status="partial"
+                    extracted.error="Browser subresources refused by source policy; rendered capture may be incomplete"
+                return self._save_page(page,extracted,result.provenance,link,deadline=deadline)
+            if self.conn is None:
+                return save()
+            with self.conn.transaction():
+                left=deadline-time.monotonic()
+                if left<=0:
+                    raise TimeoutError("live-browser deadline reached")
+                self.conn.execute("select set_config('statement_timeout',%s,true),set_config('lock_timeout',%s,true)",
+                                  (str(max(1,int(left*1000))),str(max(1,int(left*1000)))))
+                self.conn.execute("select id from public.sources where workspace_id=%s and id=any(%s) order by id for share",
+                                  (self.ctx.workspace_id,list(scope)))
+                return save()
+        except FetchRefused as exc:
+            sent=navigated or getattr(exc,"request_sent",True)
+            if not sent:
+                self.allowance+=1
+            self.log.append(FetchAttempt(url=url,outcome="failed" if sent else "refused",document_version_id=None,error=str(exc),
+                attempted_at=datetime.now(UTC),acquisition_method="live_browser",request_sent=sent,
+                diagnostics=getattr(exc,"diagnostics",[])[:200]))
+        except Exception as exc:
+            self.log.append(FetchAttempt(url=url,outcome="failed",document_version_id=None,
+                error=f"live browser failed: {type(exc).__name__}",attempted_at=datetime.now(UTC),acquisition_method="live_browser",
+                diagnostics=getattr(exc,"diagnostics",[])[:200]))
+        return None
+
+    def _save_page(self,page,extracted,provenance,link=None,*,deadline=None):
         if extracted.published is None and link is not None and link.published and link.date_source:
             extracted.published = link.published
             extracted.published_basis = link.date_source
-        saved = self.writer.save(page, extracted, provenance)
+        saved = (self.writer.save(page,extracted,provenance,deadline=deadline) if deadline is not None
+                 else self.writer.save(page,extracted,provenance))
         self.log.append(FetchAttempt(
             url=page.url, outcome="unchanged" if saved.unchanged else "saved",
-            document_version_id=saved.document_version_id, error=extracted.error, attempted_at=now,
+            document_version_id=saved.document_version_id, error=extracted.error, attempted_at=datetime.now(UTC),
+            acquisition_method=provenance.get("acquisition_method","http_fetch"),
         ))
         self.seen.add(page.url)
         self.visits.append(_Visit(page.url, saved.document_version_id, saved.passage_ids))
-        self._record_discovery(extracted.links, url, saved.document_version_id)
+        self._record_discovery(extracted.links, page.requested_url, saved.document_version_id)
         for link in extracted.links:
             if link.url not in self.seen and self.scout.fetcher.allow.allows(link.url):
                 self.candidates.append(link)

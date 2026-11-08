@@ -11,9 +11,10 @@ class CorroborationPersistenceFailure(RuntimeError):
 
 
 class ClaimCorroborator:
-    def __init__(self, conn, client, *, discovery=None, browser=None):
+    def __init__(self, conn, client, *, discovery=None, browser=None, live_browser=None):
         self.conn, self.client = conn, client
         self.discovery, self.browser = discovery,browser
+        self.live_browser=live_browser
         self.ledger = CorroborationStore(conn)
         self.acquisition = None
 
@@ -23,7 +24,7 @@ class ClaimCorroborator:
         candidates = self.ledger.candidates(ctx,claim)
         if self.discovery is not None and self.acquisition is None:
             from mira.corroboration_acquisition import CorroborationDiscovery
-            self.acquisition = CorroborationDiscovery(self.conn,sources,self.discovery,browser=self.browser)
+            self.acquisition = CorroborationDiscovery(self.conn,sources,self.discovery,browser=self.browser,live_browser=self.live_browser)
         service = CorroborationService(LlmAssessor(self.client),self.acquisition)
         source_map={s.id:s for s in sources}
         primary=list(base_input['passages'].values())

@@ -34,9 +34,12 @@ def provenance_html(passage):
            "Original capture SHA-256":provenance.get("original_capture_sha256"),
            "Extraction SHA-256":provenance.get("extraction_sha256"),
            "Original retained":provenance.get("original_retained")}
+    browser=provenance.get('browser_context')
+    import json
+    context=('<dt>Browser context</dt><dd><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+escape(json.dumps(browser,ensure_ascii=False,indent=2))+'</pre></dd>') if browser else ''
     return '<details><summary>Capture and extraction provenance</summary><dl>'+''.join(
         f'<dt>{escape(key)}</dt><dd>{escape(str(value) if value is not None else "unknown")}</dd>'
-        for key,value in items.items())+'</dl></details>'
+        for key,value in items.items())+context+'</dl></details>'
 
 
 def assessment_html(envelope, *, title=None):

@@ -166,6 +166,9 @@ class FetchAttempt(Contract):
     document_version_id: UUID | None
     error: str | None
     attempted_at: datetime
+    acquisition_method: Literal["http_fetch", "offline_browser", "live_browser"] | None = None
+    request_sent: bool = True
+    diagnostics: list[dict] = Field(default_factory=list,max_length=200)
 
 
 class ScoutResult(Contract):

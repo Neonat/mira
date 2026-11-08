@@ -59,7 +59,13 @@ class EvidenceWriter:
         source = page.source
         store_text = "store_text" in source.permitted_operations and extracted.status in ("complete", "partial")
         method = ("manual_import" if (provenance or {}).get("import") == "manual" else
+                  "live_browser" if (provenance or {}).get("acquisition_method") == "live_browser" else
                   "offline_browser" if (provenance or {}).get("acquisition_method") == "offline_browser" else "http_fetch")
+        if method == "live_browser":
+            details=dict(provenance or {})
+            details["capture_kind"]="rendered_dom"
+            provenance={**details,"browser_context":{k:v for k,v in details.items()
+                        if k not in {"acquisition_method","requested_url"}}}
         identity = evidence_identity(page, extracted, method)
         digest = identity["version_sha256"]
         def execute(query, params):

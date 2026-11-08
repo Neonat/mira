@@ -408,7 +408,7 @@ class _Run:
         )
 
     def _record_scout_fetches(self, step: _Step, fetch_log: list[FetchAttempt], diagnostics: dict) -> None:
-        self.budget.charge_documents(sum(1 for attempt in fetch_log if attempt.outcome not in ("refused", "reused")))
+        self.budget.charge_documents(sum(1 for attempt in fetch_log if attempt.outcome not in ("refused", "reused") and attempt.request_sent))
         step.output_refs.update(
             fetch_attempts=len(fetch_log),
             fetch_refused=sum(1 for attempt in fetch_log if attempt.outcome == "refused"),

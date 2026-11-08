@@ -243,7 +243,7 @@ class PostgresStore:
                       coalesce(v.metadata->>'import', '') = 'manual' as imported,
                       v.content_sha256, coalesce(p.extraction_version, v.extraction_version) as extraction_version,
                       p.page_number, p.char_start, p.char_end,
-                      jsonb_build_object('acquisition_method', v.metadata->'acquisition_method', 'requested_url', v.metadata->'requested_url', 'original_capture_sha256', v.metadata->'original_capture_sha256', 'capture_sha256', v.metadata->'capture_sha256', 'extraction_sha256', v.metadata->'extraction_sha256', 'original_retained', v.metadata->'original_retained', 'acquired_at', v.retrieved_at) as acquisition_provenance
+                      jsonb_build_object('acquisition_method', v.metadata->'acquisition_method', 'requested_url', v.metadata->'requested_url', 'original_capture_sha256', v.metadata->'original_capture_sha256', 'capture_sha256', v.metadata->'capture_sha256', 'extraction_sha256', v.metadata->'extraction_sha256', 'original_retained', v.metadata->'original_retained', 'acquired_at', v.retrieved_at, 'browser_context', v.metadata->'browser_context') as acquisition_provenance
                from public.document_passages p
                join public.document_versions v on v.id = p.document_version_id
                join public.documents d on d.id = v.document_id
