@@ -21,4 +21,4 @@ Current grant revocation must block direct bucket reads, not just UI actions. Up
 - [x] Consistent database dump, safe local recovery command and a restore drill preserving A/B/C passages, original bytes, report HTML and frozen review identities.
 - [x] Offline quality preflight/blinded precision/comparison, no provider calls; identify the concrete bounded run for later approval.
 - [x] Independent focused reviews resolved; complete local PostgreSQL/Chromium suite939passed+8subtests,no skips,64.05s. Hosted deployment/live checks remain separately scoped.
-- [ ] Commit/push and open a reviewable PR; leave it unmerged.
+- [x] Implementation240aef8 pushed; PR13 opened on PR12, mergeable and unmerged. Documentation-only status follows the tested implementation.

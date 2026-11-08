@@ -38,4 +38,4 @@ Native archives execute SQL: checksums establish integrity, not authorship. Trus
 
 Live quality gains remain unmeasured. The next candidate is one uninterrupted Hong Kong run with the actual historical scope2025-11-04..2026-11-04/asofNov4, unchanged role models, MAS inactive, and caps30documents/600000tokens/25minutes/6Exasearches. Current configuration/source checks and fresh bounded user authorization are required before any paid/model/Exa/browser acquisition; prior run allowances remain consumed. Blinded human precision labels are still separate from automated verdicts.
 
-Status: implementation/review and final suite complete; commit/PR publication pending. No merge/deploy/live-run permission is implied.
+Status: implementation/review and final suite complete. Tested implementation `240aef8`; [PR13](https://github.com/Neonat/mira/pull/13) is open and mergeable, stacked on PR12. Subsequent changes record documentation status only. It is not merged or deployed. No merge/deploy/live-run permission is implied.
