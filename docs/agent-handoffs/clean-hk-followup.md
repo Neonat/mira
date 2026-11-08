@@ -37,3 +37,10 @@ Owned files for this measurement-only update: coordinator evidence metadata/summ
 Exact next step: retain this failed acceptance evidence; investigate generic selection/citation exclusions, 4,096-token corroboration exhaustion and verifier/rewrite time before any further separately scoped implementation. Any further paid validation needs new authorization; this additional allowance is used. Do not claim full coverage recovery, reliable end-to-end completion, semantic precision or live browser exercise from this run. PR7 remains open, not merged/deployed.
 
 Status: authorized validation/comparison/PR update complete; product coverage and end-to-end reliability acceptance incomplete. No continuation/replacement or additional paid run authorized.
+
+
+## PR7 reconciliation with merged PR8
+
+User explicitly requested merging the latest open PR and resolving conflicts before the report-link follow-up. Merged upstream `ff3a70f` into the PR7 branch after preserving the requested table fix in `42f08a4`. Conflicts were documentation-only: handoff README, checkpoint JSON and PRD. Preserve implemented ingestion/corroboration and latest partial acceptance alongside PR8's historical one-labeller precision, provenance caveats and original slide binaries. PR6 runtime guards remain intact. No source/model settings or remote migrations changed.
+
+Integrated verification: `PYTHONPATH=/private/tmp/mira-browser-deps:. MIRA_BROWSER_EXECUTABLE=<existing Chromium> MIRA_TEST_DATABASE_URL=<local PostgreSQL> PYTHONDONTWRITEBYTECODE=1 /Users/natsim/Documents/dbsearch/.venv/bin/python -m pytest tests eval -q -p no:cacheprovider --basetemp=/private/tmp/mira-pr7-main-merge-20261108 --tb=short` → **538 passed + 8 subtests, none skipped, 53.81 seconds**. JSON, conflict-marker, whitespace and original-slide-blob checks passed. This is local integration validation, not another paid research run or full product acceptance. Exact next step at this checkpoint: push reconciliation, merge PR7 at its verified head, then separately fix auditor-facing SFC API links. Consult GitHub for current merge status.
