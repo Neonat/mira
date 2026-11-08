@@ -266,5 +266,58 @@
       "merged": false,
       "deployed": false
     }
+  },
+  "live_browser_integration": {
+    "recorded_date": "2026-11-08",
+    "status": "complete",
+    "implementation_sha": "0f9526dc705c565bce16c3a5f7a48ccfec9844af",
+    "pr": "https://github.com/Neonat/mira/pull/7",
+    "base_sha": "9fc110b91374128a960431f9a55550caae717b44",
+    "migration": "20261108100000_mira_live_browser_provenance.sql",
+    "migration_scope": "local PostgreSQL only",
+    "adapter": "Actual Chromium navigation, JavaScript and up to3 configured read-only click/wait actions; no model-driven computer-use API",
+    "enablement": "MIRA_ENABLE_LIVE_BROWSER=1 plus fetch/store_text, allow_live_browser and approval reference; HTTP-block fallback additionally requires explicit permission",
+    "mas": "Disabled per explicit user instruction; no MAS acquisition or seed/source permission changes",
+    "tests_passed": 487,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "suite_seconds": 50.63,
+    "suite": "Complete tests/eval with real Chromium fixtures and local PostgreSQL; Ewen PR6 regressions included",
+    "review": "No blockers after focused fixes and independent re-review",
+    "live_public_validation": {
+      "source": "HKMA, Hong Kong",
+      "status": "success",
+      "seconds": 24.91,
+      "extracted_characters": 20084,
+      "links": 128,
+      "requests": 22,
+      "denied_optional_resources": 2,
+      "omitted_nontext_resources": 42,
+      "integration_capture_status": "partial",
+      "attempts": 2,
+      "earlier_attempt": "60.04s timeout; stage unknown; not evidence of a source block",
+      "artifact": "hkma-live-browser-validation.json",
+      "scope": "Acquisition and extraction only, not a live verified research report or recall/precision measurement"
+    },
+    "paid_or_model_calls": 0,
+    "source_grants_persisted": false,
+    "model_configuration_changed": false,
+    "pr6_preserved": true,
+    "safeguards": [
+      "Pinned public DNS and TLS/Host-preserving robots transport",
+      "Per-request source/robots/method/rate policy; blocked optional resources recorded",
+      "Challenge/login checks before/after actions; no CAPTCHA solving, stealth or imported auth",
+      "Fresh isolated contexts; process-group timeout and self-deadline",
+      "HTTP/browser separately counted; failures and bounded sanitized stage diagnostics retained",
+      "Known crawl delays survive failures; unknown interrupted policy blocks target only for current run",
+      "Approval revocation checked under source lock; browser context enters actual verification/review/frozen snapshots"
+    ],
+    "limits": [
+      "Observed network bytes may overshoot a transport chunk; not a strict pre-receipt cap",
+      "Final response identity remains explicitly unknown; initial response identity labelled separately",
+      "Single HKMA capture does not establish complete publications, broader access, recall or semantic accuracy",
+      "Original binary retention and durable artifacts still unfinished"
+    ],
+    "handoff": "live-browser-integration.md"
   }
 }

@@ -2,6 +2,10 @@
 
 This directory coordinates parallel engineering work. It is not a change to Mira's runtime agent architecture. Use a fresh task/fork without chat history; include only the task, ownership boundary, and this checkpoint. Do not ask workers to reread historic chat.
 
+## Latest PR7 follow-up: actual live browser
+
+`0f9526d` adds real Chromium navigation/JavaScript and permitted read-only actions, with explicit global/source approvals and frozen browser context. **487tests +8subtests passed, none skipped**, including real Chromium fixtures, local PostgreSQL and PR6 regressions. One HKMA public-page capture succeeded in24.91s (20,084characters,128links); two denied optional resources mean partial capture. Earlier60s timeout is preserved with unknown-stage caveat. MAS remains disabled by explicit user instruction; no source grants were persisted, model settings changed or paid/model calls made. Read [live-browser integration](live-browser-integration.md) and [portable HKMA evidence](hkma-live-browser-validation.json). PR7 is updated, not merged/deployed.
+
 ## Current ingestion/corroboration implementation
 
 The active branch is `codex/ingestion-corroboration`. Phase 1 exited at `83c84c1` with independent review and **378 tests plus 8 subtests, none skipped**, including local PostgreSQL. Phase 2 implements saved-first corroboration, bounded optional targeted acquisition, exact proposition/origin decisions and immutable reviewed results. Read [ingestion expansion](ingestion-expansion.md), [measurement](ingestion-measurement.md), [corroboration](corroboration.md) and [bounded acquisition](corroboration-acquisition.md) for current scoped ownership and evidence. The coordinator's final integration handoff/checkpoint supersedes the historical work order below.
