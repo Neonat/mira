@@ -162,5 +162,30 @@
     "pushed_source_sha": "27c28fac8631c9afdb8cdef60ab6b48b526ef5a7",
     "publication": "Follow-up PR4; PR3 is merged"
   },
-  "active_pr": "https://github.com/Neonat/mira/pull/4"
+  "active_pr": "https://github.com/Neonat/mira/pull/5",
+  "current_work_direction": {
+    "recorded_date": "2026-11-07",
+    "basis": "User requested a separate-agent handoff for ingestion expansion followed by corroboration, then requested the PRD update.",
+    "status": "Approved planned work; neither phase implemented by this documentation update",
+    "phase_1": "Ingestion expansion and evidenced coverage fixes, including justified Exa-assisted discovery and controlled browser extraction",
+    "phase_1_exit": "PRD v3 section 5.3.2: targeted end-to-end paths, regressions, independent review, integrated local PostgreSQL validation, checkpoint and disclosed gaps/measurement limits",
+    "phase_2": "Independent-source corroboration after the Phase 1 gate; feature approval need not be repeated",
+    "preserve": [
+      "Frozen checked/reviewed evidence",
+      "Incomplete reviewed-render blocking",
+      "Latest eligible saved version retrieval",
+      "Source permissions and workspace isolation"
+    ],
+    "not_authorized_by_this_update": [
+      "New paid/live calls without explicit bounded authorization",
+      "Source-permission expansion",
+      "Historical evidence backfills",
+      "Remote migrations/deployment"
+    ],
+    "policy_open": "D7 claim eligibility, independence criteria, search allowance and sign-off effects; material choices still require resolution",
+    "historical_scope_note": "Earlier deferred fields describe their recorded integration/demo checkpoints, not the current work direction.",
+    "requirements": "docs/mira_PRD_v3_draft.md sections 5.3, 6, 8 and 10",
+    "documentation_branch": "codex/prd-ingestion-corroboration",
+    "prd_update_pr": "https://github.com/Neonat/mira/pull/5"
+  }
 }
