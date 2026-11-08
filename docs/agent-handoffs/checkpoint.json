@@ -230,13 +230,13 @@
     "fixes": [
       "Verifier: every number in a quote must appear in the matched passage",
       "Orchestrator: code-only completeness check runs after the token budget is spent",
-      "Scout: estimate each call first; skip a selection round that would starve the report; size report passages to remaining tokens",
-      "Scout: open each assigned checklist category's index page within half the page allowance"
+      "Scout: estimate each link-selection call; skip a round that would leave too little for the scout's own summary call",
+      "Scout: open each assigned checklist category's index page in turn, within half the page allowance"
     ],
     "new_regression_tests": 10,
     "offline_suite_at_commit": "297 passed; database tests not run (local DB lacked 20261107180000)",
-    "offline_suite_on_main_2026_11_08": "283 passed, 67 skipped (database tests skipped without MIRA_TEST_DATABASE_URL), 8 subtests",
     "new_paid_research_runs": 0,
-    "post_fix_live_recall": "Not measured"
+    "post_fix_live_recall": "Not measured",
+    "offline_suite_on_main_2026_11_08": "Same code as 9e4c3c8: pytest tests eval -> 297 passed, 67 skipped (database tests need migration 20261107180000 applied locally), 8 subtests"
   }
 }
