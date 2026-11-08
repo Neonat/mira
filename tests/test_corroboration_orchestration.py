@@ -39,3 +39,52 @@ def test_failed_assessment_persistence_keeps_known_usage_in_failed_step():
         orchestrator.run(context())
     step=next(s for s in store.steps.values() if s.input_refs.get('purpose')=='corroboration')
     assert step.status=='failed' and step.tokens_in==11 and step.tokens_out==5
+
+
+def test_nonverbatim_primary_quote_is_left_to_verifier_without_crashing():
+    from test_orchestrator import analyst_output,claim
+    from mira.agents.verifier import LlmVerifier
+    orchestrator,store,client,_=make(responses={'analyst':[analyst_output(
+        claim('C1','external_fact','P3','penalty of S$7 million'))]})
+    orchestrator.verifier=LlmVerifier(client)
+    def must_not_assess(*a,**kw):raise ValueError('primary quote absent from base evidence')
+    orchestrator.corroborator=must_not_assess
+    result=orchestrator.run(context())
+    assert result.status=='draft'
+    assert len(result.snapshot.unresolved_finding_ids)==1
+    assert not any(c.role=='verifier' for c in client.calls)
+    step=next(s for s in store.steps.values() if s.input_refs.get('purpose')=='corroboration')
+    assert step.output_refs['corroboration_status']=='not_checked'
+    assert 'exact' in step.output_refs['reason']
+
+
+def test_extraction_whitespace_quote_can_verify_without_claiming_corroboration():
+    from test_orchestrator import analyst_output,claim
+    from mira.agents.verifier import LlmVerifier
+    orchestrator,store,client,_=make(responses={'analyst':[analyst_output(
+        claim('C1','obligation_summary','P1','Banks must\nscreen customers',change_type='amended'))],
+        'verifier':[{'verdict':'supported','reason':'Saved text supports the claim.'}]})
+    orchestrator.verifier=LlmVerifier(client)
+    def must_not_assess(*a,**kw):raise ValueError('primary quote absent from base evidence')
+    orchestrator.corroborator=must_not_assess
+    result=orchestrator.run(context())
+    assert result.status=='draft' and not result.snapshot.unresolved_finding_ids
+    assert not any('corroboration' in v for v in store.check_inputs)
+    assert any(c.role=='verifier' for c in client.calls)
+
+
+def test_skipped_rewritten_quote_removes_prior_claim_assessment_from_context():
+    from dataclasses import replace
+    from mira.orchestrator import _Run
+    from test_evidence_snapshot import inputs
+    ctx,claim,_,passage=inputs()
+    orchestrator,_,_,_=make()
+    orchestrator.corroborator=lambda *a: (_ for _ in ()).throw(AssertionError('should skip'))
+    state=_Run(orchestrator,ctx)
+    state.passages={passage.id:passage}
+    changed=replace(claim,evidence=(replace(claim.evidence[0],supporting_quote='not verbatim'),))
+    state.claims=[changed]
+    state.corroboration[claim.finding_id]={'assessment_id':'old','assessment':{'status':'independently_corroborated'}}
+    state._corroborate(changed)
+    assert claim.finding_id not in state.corroboration
+    assert state._corroboration_kwargs(changed)=={}

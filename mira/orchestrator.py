@@ -566,6 +566,15 @@ class _Run:
             return
         with self._step("verifier", check_budget=False,
                         input_refs={"finding_id":str(claim.finding_id),"purpose":"corroboration"}) as step:
+            # Corroboration freezes exact primary quotations. The primary verifier
+            # separately handles extraction noise and rejects fabricated numbers;
+            # an unverified quotation must not abort the rest of the run.
+            if any(not item.supporting_quote or item.supporting_quote not in
+                   self.passages[item.passage_id].content for item in claim.evidence):
+                self.corroboration.pop(claim.finding_id, None)
+                step.output_refs.update(corroboration_status="not_checked",
+                                        reason="primary quote is not exact; left to primary verification")
+                return
             base = build_verification_input(self.ctx,claim,
                 {c.finding_id:c for c in self.claims},self.passages).model_dump(mode="json")
             # The service consumes this shared budget during bounded follow-up calls.
