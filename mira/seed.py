@@ -5,9 +5,10 @@ list changes. Start URLs are hub, listing and feed pages only; individual
 documents are found by the scouts.
 
 ``permitted_operations`` follows the approved-sources terms review: MAS (decided
-26 Oct 2026), HKMA and SFC may store text; other sites are ``metadata`` and
-``fetch`` until their terms are reviewed; sources that refuse automated access
-are ``manual`` with ``metadata`` only.
+26 Oct 2026), Singapore Statutes Online and HK e-Legislation (decided 6 Nov 2026),
+HKMA and SFC may store text; other sites are ``metadata`` and ``fetch`` until
+their terms are reviewed; other sources that refuse automated access are
+``manual`` with ``metadata`` only.
 """
 
 from __future__ import annotations
@@ -71,8 +72,9 @@ SOURCES: tuple[SourceSeed, ...] = (
         notes=("robots.txt crawl delay 2 s. From 26 Oct 2026 the site serves a block page to automated "
                "requests (pages, sitemap and PDFs); import MAS documents by hand until access is agreed"),
     ),
-    SourceSeed("sso", "Singapore Statutes Online", "Attorney-General's Chambers", "manual", "https://sso.agc.gov.sg", "SG", MANUAL,
-               notes="Refuses automated requests; import Acts by hand"),
+    SourceSeed("sso", "Singapore Statutes Online", "Attorney-General's Chambers", "manual", "https://sso.agc.gov.sg", "SG", ALL_OPERATIONS,
+               notes=("Refuses automated requests; import Acts by hand. From 6 Nov 2026 the text of imported "
+                      "Acts is stored and quoted")),
     SourceSeed("abs", "Association of Banks in Singapore", "ABS", "website", "https://abs.org.sg", "SG", FETCH_ONLY,
                start_urls=("https://abs.org.sg/industry-guidelines",)),
     SourceSeed(
@@ -107,8 +109,9 @@ SOURCES: tuple[SourceSeed, ...] = (
             "consultation": ("https://apps.sfc.hk/edistributionWeb/api/consultation/search?category=all&year={year}&pageSize=100",),
         },
     ),
-    SourceSeed("hk-elegislation", "HK e-Legislation", "Department of Justice", "manual", "https://www.elegislation.gov.hk", "HK", MANUAL,
-               notes="robots.txt disallows all; import Cap. 615 by hand"),
+    SourceSeed("hk-elegislation", "HK e-Legislation", "Department of Justice", "manual", "https://www.elegislation.gov.hk", "HK", ALL_OPERATIONS,
+               notes=("robots.txt disallows all; import Cap. 615 by hand. From 6 Nov 2026 the text of imported "
+                      "ordinances is stored and quoted")),
     SourceSeed("jfiu", "JFIU", "Joint Financial Intelligence Unit", "regulator", "https://www.jfiu.gov.hk", "HK", FETCH_ONLY,
                start_urls=("https://www.jfiu.gov.hk/en/",)),
     SourceSeed("fstb", "FSTB", "Financial Services and the Treasury Bureau", "regulator", "https://www.fstb.gov.hk", "HK", FETCH_ONLY,

@@ -8,7 +8,7 @@ This is a separate update to [PRD v2](mira_PRD_v2.md); neither v2 nor [archived 
 
 ## 1. Basis and limits of this reconciliation
 
-The original reconciliation compared v2 with HEAD `1d38e8916120d45d063d5157abcac6fc2db1af6f` and active working changes. This revision incorporates the subsequent correctness fixes, local PostgreSQL validation and live Hong Kong coverage results confirmed on 7 November 2026. Inputs include the user's pasted development handoff, [DBS problem statement](dbs_project_statement.md), [rubric](project_grading_rubrics.md), [approved sources](mira_approved_sources.md), [benchmark](mira_m0_ground_truth.md), [single-agent design](single_agent_arm_design.md), README, application code, migrations and tests.
+The original reconciliation compared v2 with HEAD `1d38e8916120d45d063d5157abcac6fc2db1af6f` and active working changes. This revision incorporates the subsequent correctness fixes, local PostgreSQL validation and live Hong Kong coverage results confirmed on 7 November 2026. It also records the user's next-work direction: ingestion expansion first, then independent-source corroboration after the Phase 1 exit criteria. This lifts the previous deferral for those phases without claiming either is implemented. Inputs include the user's pasted development handoff, [DBS problem statement](dbs_project_statement.md), [rubric](project_grading_rubrics.md), [approved sources](mira_approved_sources.md), [benchmark](mira_m0_ground_truth.md), [single-agent design](single_agent_arm_design.md), README, application code, migrations and tests.
 
 The working tree was changing during inspection. This is a dated snapshot, not certification of the agent's eventual final branch. Read executable behavior and tests ahead of stale comments: for example, the orchestrator module header still lists plan approval and re-run diff as unbuilt even though their execution paths exist.
 
@@ -38,7 +38,7 @@ Users remain auditor/analyst, reviewer, source curator and administrator. Analys
 
 ### Deferred unless separately approved
 
-Third jurisdiction, region expansion in the brief UI, scheduled monitoring, news-triggered investigations, 20–30-year archive/backfill, OpenSearch, theme discovery, internal bank uploads, control mapping, production deployment, PDF/DOCX export and email delivery. Open-web fallback is described in v2 but no enabled runtime workflow was established here; it remains deferred rather than assumed available.
+Third jurisdiction, region expansion in the brief UI, scheduled monitoring, news-triggered investigations, 20–30-year archive/backfill, OpenSearch, theme discovery, internal bank uploads, control mapping, production deployment, PDF/DOCX export and email delivery. Unrestricted open-web fallback remains deferred. Bounded Exa-assisted discovery and controlled browser extraction are approved Phase 1 extensions where justified by observed gaps, within existing source permissions; they are not established runtime capabilities yet.
 
 **D6 settled by the user:** Mira may explain sourced contextual risks and trends, but must not generate DBS audit actions or business decisions. The auditor decides and acts. This approved boundary updates v2's suggested-audit-actions requirement.
 
@@ -50,6 +50,7 @@ Third jurisdiction, region expansion in the brief UI, scheduled monitoring, news
 | Orchestration | Planner, parallel scouts, analyst, verifier, completeness, writer | Code controls parallel scouting, budgets, cancellation, step records and typed outputs | Present; live HK breadth measured below, wider coverage remains incomplete |
 | Sequence | Diagram places verification before completeness-driven follow-up | Execution checks coverage and fills source gaps before analysis and verification | Document the actual sequence; do not imply post-verification claim repair |
 | Discovery and evidence | Approved HTML/PDF sources, stored versions and passages | Feeds, hubs, selected links, PDF follow-through, source scoping, reuse and manual import exist | Present; a retrieved page is not proof of adequate research |
+| Ingestion expansion | Additional discovery/acquisition routes to improve publication coverage | Exa-assisted discovery and controlled browser extraction are approved next work where justified; no new adapter implementation or validation is claimed | Approved Phase 1; acceptance in §5.3 |
 | Retrieval | Full text plus local embeddings/semantic search | Current scout retrieval uses full text; vector schema support is not an active embedding pipeline | Gap against v2; defer embeddings pending measured retrieval failures |
 | Fact verification | Quote match, fresh-context semantic check, one partial rewrite | Implemented; unsupported claims excluded, inference dependencies checked | Present; accuracy rate unproven |
 | Metadata verification | Dates, market and status must be supported | Inference verification now receives displayed metadata and supporting claim metadata | Present; regression validated; human precision remains unlabelled |
@@ -59,7 +60,7 @@ Third jurisdiction, region expansion in the brief UI, scheduled monitoring, news
 | Audit impact | Risks, opportunities and suggested audit actions | Contextual risks/trends allowed; DBS actions and business decisions remain with the auditor | D6 settled by user |
 | Human review | Decisions then reviewed report | New sign-offs freeze exact checked/reviewed evidence and outcomes; amendments/rejections and dependent review gates remain; incomplete reviewed renders fail closed | Present; PostgreSQL regressions passed; earlier authenticated rehearsal predates the full frozen bundle; real-auditor validation remains outstanding |
 | Re-run | Saved brief, previous run link, findings diff | UI/CLI paths and verified-finding diff exist | Present; compare same scope; do not imply automatic scheduling |
-| Corroboration | No explicit independent-second-source requirement | Approved as a future feature after coverage; no runtime implementation | Detailed D7 policy remains design work |
+| Corroboration | No explicit independent-second-source requirement | Approved Phase 2 after ingestion/coverage acceptance; no runtime implementation | Phase 1 gate in §5.3; detailed D7 policy remains design work |
 | Evaluation | Coverage, precision, time, cost; three arms | Scorer supports market/date scope, explicit official URL aliases and CLI flags; HK live recall measured | Human benchmark acceptance and precision labels outstanding |
 | M0 gate | Single-agent recall ≥50% before full build | Full build already exists; no accepted gate result established; scorer uses fetchable recall | Decision D9; record unmet historical gate honestly |
 
@@ -113,6 +114,24 @@ Candidate-selection telemetry is implemented in `agent_steps.output_refs.selecti
 
 Publication-level completeness remains distinct from finding a category page. SFC enforcement and other publications, MAS access and industry storage permission remain gaps. Dated live HK results are in §7.3; the larger-capacity run remains partial and is not an equal-budget comparison.
 
+#### 5.3.1 Approved Phase 1: ingestion expansion
+
+Use retained telemetry to trace discovery, filtering, candidate presentation/selection, fetching, extraction, permitted storage, analyst input and report citation. Diagnose selection/capacity failures as well as missing acquisition routes. Do not infer discovery failure where the historical failed scout retained no diagnostics, or inject benchmark targets into runtime search.
+
+Choose the smallest useful extensions, including Exa-assisted discovery and controlled browser extraction where they address an observed gap. Singapore/Hong Kong remain the primary scope. Required behavior:
+
+1. Preserve approved-source scoping, workspace isolation, public-data boundaries, budgets, canonical publication identity/deduplication and the existing version/as-of policy. Discovery permission does not imply fetch or text-storage permission; browser access must not bypass source restrictions.
+2. Keep original capture, extraction, citation and reviewed snapshot identities distinct. Identify Exa responses/extracts and browser captures by their actual acquisition method/context and time; do not describe an extract as a complete archived publisher original. Retain capture/extraction hashes and extraction versions where available, with unknowns explicit. Do not relabel an extraction hash as the original-download hash.
+3. Persist permitted evidence through the existing version/passage and verification paths. Show per-document acquisition, extraction, storage and run-limit failures clearly; empty content is not successful ingestion.
+4. Preserve contract-1.4 guarantees: bind actual verification/review inputs, freeze all required evidence at sign-off, refuse incomplete reviewed renders and leave historical reviewed files/snapshots unchanged. New adapter data must not silently enter an existing signed report.
+5. Record why each extension is needed and which stages it changes. More connectors or saved documents do not establish improved report-citation recall. Original-download retention and durable artifact storage/restore remain separate unfinished work; new capture persistence must be described accurately rather than claiming those broader gaps are solved.
+
+#### 5.3.2 Phase 1 exit and transition to corroboration
+
+Before Phase 2 implementation, demonstrate the targeted ingestion paths end to end through saved evidence, verification and reviewed rendering; pass relevant fixture-based coverage and evidence-integrity regressions; obtain independent diff review; and checkpoint the implementation after integrated tests/eval with local PostgreSQL. Record before/after evidence, remaining access/storage gaps and measurement limits. Separate acquisition, checklist coverage and report-citation recall.
+
+Perfect coverage is not required. Unresolved access limitations must remain visible; a genuine prerequisite blocking safe corroboration must be resolved or explicitly scoped before that dependent work begins. Once this gate is met, proceed to Phase 2 without seeking feature approval again. Offline fixtures establish tested behavior, not live recall: further paid/live validation still requires explicit bounded authorization, and prior HK figures remain historical/pre-fix.
+
 ### 5.4 Report output
 
 Retain v2's topic/market/period/as-of header, executive summary, regulatory developments, deadlines, jurisdiction comparison, supervisory trends, industry developments, impact assessment, re-run changes, coverage/limitations and evidence appendix. Empty sections explicitly state that no verified items were established.
@@ -138,19 +157,21 @@ Current implementation stores review outcomes and renders amendments without cal
 
 Legacy reviewed snapshots without the complete bundle refuse regeneration and never fall back to current live evidence. Their existing rendered files remain available. Historical checks and review events are not backfilled with guessed input bindings: new sign-off requires fresh checking/review where those bindings are absent. A complete frozen snapshot can still render if the live evidence becomes unavailable. Original-download retention and durable artifact storage remain separate unfinished work.
 
-## 6. Approved future corroboration feature — after coverage
+## 6. Approved Phase 2: independent-source corroboration
 
 Source verification asks whether a cited source supports a claim. Corroboration asks whether another independent source supports the same material proposition. Two URLs, a landing page and its PDF, a mirror, or a publisher repeating an original announcement are not automatically independent evidence.
 
-The user approved adding corroboration after coverage. It has no runtime implementation. The following requirements guide further design under D7:
+The user approved ingestion expansion followed by corroboration. The previous blanket deferral is lifted; corroboration implementation remains gated by §5.3.2 and has no runtime implementation yet. The following requirements guide design under D7:
 
 1. Search eligible saved evidence first, then perform a bounded targeted search of approved sources only.
-2. Save supporting documents/passages and the relationship to the claim before making a corroboration judgement.
+2. Save supporting/conflicting documents and passages, exact quotations, document versions and the relationship to the claim before making a corroboration judgement. Check the same material proposition, including entity, jurisdiction, dates, quantities and instrument status.
 3. Record source identity, provenance/independence rationale, agreements or contradictions, checked time, search attempts and stop reason.
-4. Display distinct outcomes such as independently corroborated, primary-source only, conflicting evidence, not checked and inconclusive. Failure to find a second source is not proof a primary-source statement is false.
+4. Display distinct outcomes such as independently corroborated, primary-source only, conflicting evidence, not checked and inconclusive, with source links, dates and understandable reasons. Failure to find a second source is not proof a primary-source statement is false or unverified.
 5. Keep contradictions visible for review; do not inflate confidence solely from source count. Official obligations remain anchored to the authoritative issuer.
+6. Freeze corroboration decisions, independence rationale and their supporting/conflicting evidence into each new reviewed snapshot. Later searches must not alter a signed version. Changed verification/review inputs require the existing fresh-verification/review guards; use compatible new contracts/migrations rather than rewriting applied migrations or inventing historical backfills.
+7. Test independent support, copied/syndicated reporting, mismatched propositions, contradictions, authoritative single-source evidence, exhausted search budgets, stale evidence, workspace isolation and frozen reviewed output. A different URL or model context alone is not independent-source corroboration.
 
-Recommended starting policy: apply corroboration selectively to material non-authoritative assertions and disputed claims; permit authoritative regulatory statements as clearly labelled primary-source-only evidence. Feature approval does not settle this detailed policy or add runtime permissions/schema. Claim eligibility, independence criteria, search allowance and sign-off effects remain design work; do not seek feature approval again. Slides must describe corroboration as approved future work until implemented and demonstrated.
+Recommended starting policy: apply corroboration selectively to material non-authoritative assertions and disputed claims; permit authoritative regulatory statements as clearly labelled primary-source-only evidence. This is a recommendation, not an adopted universal sign-off rule. Feature approval does not settle detailed policy or expand source permissions. Make claim eligibility, independence criteria, search allowance and sign-off effects explicit in the design; raise material unresolved product choices without reopening feature approval. Slides must describe corroboration as approved planned work until implemented and demonstrated.
 
 ## 7. Evaluation and release evidence
 
@@ -211,7 +232,7 @@ Authenticated sign-in, evidence inspection, amendment/rejection, dependent re-re
 
 Retain v2's public-data boundary, workspace access controls, server-side credentials, initiating-user audit trail, source allow-list, redirect/private-address checks, robots/rate limits, bounded size/type handling, untrusted-source instructions and versioned provenance. Fixtures demonstrate particular guardrails, not universal resistance to injection or hallucination.
 
-The scout still retains extracted text/passages rather than durable original HTML/PDF captures, and rendered report files still use the local filesystem. Frozen snapshots solve reviewed evidence identity, not original-capture retention, artifact durability or restore. Ingestion expansion and corroboration remain deferred under the current instruction.
+The scout still retains extracted text/passages rather than durable original HTML/PDF captures, and rendered report files still use the local filesystem. Frozen snapshots solve reviewed evidence identity, not original-capture retention, artifact durability or restore. Ingestion expansion is now approved Phase 1 and corroboration is approved Phase 2 subject to §5.3.2; neither is implemented by this documentation update. Source-permission changes, additional paid/live calls and remote deployment are not implied by that authorization.
 
 The repository records MAS automated access as blocked and written storage permission as outstanding, despite prototype seeding allowing text storage. This is an existing unresolved project decision, not confirmation of permission. Other named industry sources have fetch/metadata permission without stored passages, constraining citable coverage. Manual acquisition does not itself settle storage permission. D4 must identify permitted demo evidence, remaining source reviews, and the owner/refresh schedule for imported documents. No source permissions were changed in this reconciliation and no current external terms were independently rechecked.
 
@@ -227,7 +248,7 @@ The document may be reviewed without resolving every item. Changes implementing 
 | D4 (carried) | Which sources may supply stored demo evidence, who completes permission reviews, and who imports/refreshes blocked material? | Use explicitly permitted evidence and disclose unresolved SG/industry gaps; do not infer permission from fetchability | Product owner + curator; source expansion/import policy |
 | D5 (carried) | Who is the sign-off reviewer, and is self-review acceptable in the prototype? | Name a senior auditor proxy and record whether maker/checker separation is required | Product owner; review access and demo claims |
 | D6 — settled | User approved contextual risks/trends without generated DBS audit actions or business decisions | Preserve this boundary; auditor decides actions | Settled scope; prompts, verifier and report |
-| D7 — feature approved; policy open | Corroboration follows coverage; define eligible claims, independence, search allowance and sign-off consequences | Start selectively, label primary-source-only evidence and expose conflicts; design detail remains unadopted | Product owner + reviewer; future corroboration design/schema/report |
+| D7 — Phase 2 approved; policy open | Corroboration follows the Phase 1 gate in §5.3.2; define eligible claims, independence, search allowance and sign-off consequences | Start selectively, label primary-source-only evidence and expose conflicts; design detail remains unadopted; no repeated feature approval | Product owner + reviewer; corroboration design/schema/report |
 | D8 (new) | Can material reviewer amendments be signed off on human attestation alone, or must they pass evidence verification again? | Require explicit evidence review and dependent-inference re-review; decide whether automated recheck is mandatory | Reviewer + product owner; amendment workflow and verification |
 | D9 (new) | What is the accepted benchmark scope, recall denominator, multi-agent improvement threshold and replacement for the unmet pre-build M0 gate? | Human-review eligible items, show all/fetchable subsets, retain caveats and use a forward demo evidence gate | Product owner + evaluator; scorer and presentation conclusions |
 | D10 (new) | Is the final demo SG+HK or an explicitly narrower HK pilot; are all four industry categories required before demo? | Retain SG+HK intent; if evidence remains inadequate, obtain explicit scope reduction and reflect it in slides | Product owner; final brief, acceptance and release scope |
@@ -236,11 +257,11 @@ The document may be reviewed without resolving every item. Changes implementing 
 
 ## 10. Delivery order and specialist work
 
-1. **Checkpoint the approved evidence-integrity fixes:** full frozen evidence, incomplete-render blocking and version-aware retrieval are implemented and locally validated. Preserve v1/v2 and historical artifacts; no input-binding backfill or remote migration.
-2. **Keep ingestion expansion and corroboration deferred:** further coverage work must respect this boundary. The one fresh telemetry validation and URL/failure-accounting fixes are complete. Use retained diagnostics for any newly assigned selection/capacity work. Post-fix live recall remains unmeasured; do not repeat paid runs without new authorization or retroactively reconstruct missing diagnostics. MAS and industry-source gaps remain disclosed.
-3. **Prepare truthful slides and a demo script in parallel:** use the measured HK runs, budget differences and outstanding human/browser checks; no accepted precision, M0 win or remote-deployment claim.
-4. **Design and implement the approved corroboration feature after coverage:** settle D7 details, then demonstrate independence, bounded attempts, conflicts and agreed report/sign-off behavior. It remains future work until delivered.
-5. **Complete evaluation:** adopt D9 measurement policy, human-review benchmark and precision, and run the agreed comparison. The storytelling deck and approved 180-second product/workflow film are packaged; retain their synthetic/historical and edited-time disclosures during presentation.
+1. **Preserve the completed evidence-integrity checkpoint:** full frozen evidence, incomplete-render blocking and version-aware retrieval are implemented and locally validated. Preserve v1/v2 and historical artifacts; no input-binding backfill or remote migration.
+2. **Implement Phase 1 ingestion expansion and coverage fixes:** inspect existing designs/code and retained telemetry; choose justified Exa/browser extensions and address evidenced selection/capacity gaps under §5.3.1. Complete and document §5.3.2 before dependent corroboration implementation. Post-fix live recall remains unmeasured; no repeated paid runs without new bounded authorization or reconstruction of missing historical diagnostics. MAS and industry-source permission gaps remain disclosed.
+3. **Proceed to Phase 2 corroboration after that checkpoint:** settle material D7 choices, implement bounded independent-source checks and visible outcomes, and freeze the resulting evidence/decisions under §6. Feature authorization is already given; report tested behavior and remaining limits before marking it delivered.
+4. **Complete evaluation:** adopt D9 measurement policy, human-review benchmark and precision, and run the agreed comparison only within authorized budgets. Run narrow regressions during development and one complete tests/eval suite with local PostgreSQL per integration milestone; repeat only for changed code or failures. Record the exact tested scope and separate offline evidence from live quality claims.
+5. **Keep delivered slides/video aligned with demonstrated behavior:** the storytelling deck and approved 180-second product/workflow film are packaged. New ingestion/corroboration behavior needs observed evidence before inclusion as working functionality; retain synthetic/historical and edited-time disclosures. No accepted precision, M0 win or production-deployment claim is established.
 
 This order records the user's current direction. Specialist work should use bounded, reviewable tasks; it does not adopt remaining open policies or permit new source storage.
 
@@ -269,6 +290,6 @@ V2 Appendix B remains the reference for inherited v1 requirements. In particular
 
 ## Appendix B. Adoption and preservation
 
-This documentation refresh edits only this v3 draft and preserves v1/v2. It records completed local validation and live-run evidence from the development work; it does not itself run models, change the database or permissions, deploy remotely, or adopt proposed targets.
+This documentation refresh preserves v1/v2 and aligns the companion coordinator handoff/checkpoint with the approved two-phase work order. It records completed local validation and live-run evidence from the development work; it does not itself implement ingestion/corroboration, run models, change the database or permissions, deploy remotely, or adopt proposed targets.
 
 Before adoption: resolve or explicitly defer the remaining policy register, reconcile subsequent implementation changes with this snapshot, and have the product owner adopt v3. Any later pointer update making v3 the primary PRD should be a separate explicit documentation change; keep v2 and v1 available as historical baselines.
