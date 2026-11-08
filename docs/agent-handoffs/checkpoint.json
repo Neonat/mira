@@ -1,6 +1,6 @@
 {
-  "recorded_date": "2026-11-07",
-  "branch": "codex/nat-ingestion",
+  "recorded_date": "2026-11-08",
+  "branch": "main",
   "source_base_sha": "1d38e8916120d45d063d5157abcac6fc2db1af6f",
   "runtime_checkpoint_sha": "1c970c825565430ae7a36e736f6880da9371edcd",
   "telemetry_integration": {
@@ -33,7 +33,7 @@
     "skipped": 0,
     "database": "Local PostgreSQL at localhost:55432, including evidence migration 20261107180000",
     "integration_providers": "Scripted; separate real-model HK runs recorded below",
-    "human_precision": "Unlabelled",
+    "human_precision": "Labelled for run 29a153bb only (one labeller, 21 claims); see runs and eval/evidence/2026-11-07-hk-run-29a153bb.md",
     "browser_rehearsal": "Prior local synthetic authenticated rehearsal predates contract 1.4; no new browser recording. Current frozen review projection has automated tests.",
     "remote_deployment": false,
     "full_suite_scope": "Isolated evidence-integrity integration; separate layout integration 26 focused checks"
@@ -105,6 +105,35 @@
       "estimated_recorded_cost_usd": 1.829,
       "status": "partial",
       "stop_reason": "Regulatory scout InvalidURL; partial diagnostics and usage were not retained before the fix"
+    },
+    {
+      "id": "29a153bb-ffa2-40a1-a702-3abc828bed4c",
+      "purpose": "Local HK run with human-labelled precision; Haiku models; code 83e3b32 (pre-PR #4 and #6)",
+      "document_limit": 40,
+      "token_limit": 650000,
+      "minute_limit": 15,
+      "documents_used": 34,
+      "tokens_used": 646671,
+      "minutes": 9.6,
+      "gap_rounds": 2,
+      "benchmark_publications_cited": 11,
+      "benchmark_total": 18,
+      "regulatory_benchmark_cited": 11,
+      "regulatory_benchmark_total": 14,
+      "reachable_benchmark_items": 13,
+      "distinct_cited_source_urls": 19,
+      "facts": 19,
+      "inferences": 2,
+      "unresolved": 4,
+      "estimated_cost_usd": 0.128,
+      "precision_claims_labelled": 21,
+      "precision_strict_supported": 7,
+      "precision_with_recorded_dates_supported": 17,
+      "unsupported_or_contradicted": 0,
+      "precision_target_met": false,
+      "status": "Reviewed and signed off (self-review, development account)",
+      "known_issue": "Stored model_settings lists Opus/Sonnet; every step recorded claude-haiku-5-5",
+      "evidence": "eval/evidence/2026-11-07-hk-run-29a153bb.md"
     }
   ],
   "caveats": [
@@ -113,7 +142,8 @@
     "Publication acquisition, report citation recall and checklist category coverage are separate measures.",
     "Benchmark acceptance, human-labelled accuracy, time savings and a multi-agent win are not established.",
     "MAS automated access is blocked; some industry sources lack text-storage permission.",
-    "Generated report artifacts remain local and ignored; this summary carries no secrets or private evidence."
+    "Generated report artifacts remain local and ignored; this summary carries no secrets or private evidence.",
+    "Run 29a153bb precision is one run, one labeller, 21 claims, Haiku models and pre-PR #4/#6 code; not a controlled comparison with earlier runs."
   ],
   "storytelling_delivery": {
     "source_checkpoint": "b8ed04f",
@@ -162,7 +192,7 @@
     "pushed_source_sha": "27c28fac8631c9afdb8cdef60ab6b48b526ef5a7",
     "publication": "Follow-up PR4; PR3 is merged"
   },
-  "active_pr": "https://github.com/Neonat/mira/pull/5",
+  "active_pr": null,
   "current_work_direction": {
     "recorded_date": "2026-11-07",
     "basis": "User requested a separate-agent handoff for ingestion expansion followed by corroboration, then requested the PRD update.",
@@ -187,5 +217,26 @@
     "requirements": "docs/mira_PRD_v3_draft.md sections 5.3, 6, 8 and 10",
     "documentation_branch": "codex/prd-ingestion-corroboration",
     "prd_update_pr": "https://github.com/Neonat/mira/pull/5"
+  },
+  "main_sha": "16effde",
+  "merged_prs": [
+    "https://github.com/Neonat/mira/pull/4",
+    "https://github.com/Neonat/mira/pull/5",
+    "https://github.com/Neonat/mira/pull/6"
+  ],
+  "guardrail_budget_seeding": {
+    "commit": "9e4c3c8",
+    "merged_via": "https://github.com/Neonat/mira/pull/6",
+    "fixes": [
+      "Verifier: every number in a quote must appear in the matched passage",
+      "Orchestrator: code-only completeness check runs after the token budget is spent",
+      "Scout: estimate each call first; skip a selection round that would starve the report; size report passages to remaining tokens",
+      "Scout: open each assigned checklist category's index page within half the page allowance"
+    ],
+    "new_regression_tests": 10,
+    "offline_suite_at_commit": "297 passed; database tests not run (local DB lacked 20261107180000)",
+    "offline_suite_on_main_2026_11_08": "283 passed, 67 skipped (database tests skipped without MIRA_TEST_DATABASE_URL), 8 subtests",
+    "new_paid_research_runs": 0,
+    "post_fix_live_recall": "Not measured"
   }
 }
