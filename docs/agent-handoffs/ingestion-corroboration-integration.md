@@ -19,6 +19,8 @@ Sources/commands and results:
 
 Open risks: live discovery/recall and semantic/origin accuracy are unmeasured; human auditor effort and enterprise policy adoption remain unproven. Browser capture disables scripts/network and cannot resolve external dynamic content. Ordinary HTTP scouts retain their pre-existing per-request timeout. Original binary retention and durable artifact storage/restore remain unfinished; existing source access/storage gaps remain. Upstream team-recorded HK worksheet is separate pre-feature evidence awaiting review, with self-review/model-provenance caveats; it does not establish post-feature precision.
 
-Exact next step: review the new PR to main. Deploy neither code nor migrations until separately authorized. Further live quality evaluation needs a bounded authorized run and accepted measurement policy. Current deck/video keep their historical evidence cut; docs/presentation/feature-status-2026-11-08.md supplies current claims for subsequent edits.
+Publication: [PR7](https://github.com/Neonat/mira/pull/7) is open against main; branch pushed. No merge or deployment.
+
+Exact next step: review PR7. Deploy neither code nor migrations until separately authorized. Further live quality evaluation needs a bounded authorized run and accepted measurement policy. Current deck/video keep their historical evidence cut; docs/presentation/feature-status-2026-11-08.md supplies current claims for subsequent edits.
 
 Status: complete (implementation, independent review, offline/local PostgreSQL validation); publication recorded in checkpoint.json.

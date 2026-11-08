@@ -162,7 +162,7 @@
     "pushed_source_sha": "27c28fac8631c9afdb8cdef60ab6b48b526ef5a7",
     "publication": "Follow-up PR4; PR3 is merged"
   },
-  "active_pr": null,
+  "active_pr": "https://github.com/Neonat/mira/pull/7",
   "current_work_direction": {
     "recorded_date": "2026-11-07",
     "basis": "User requested a separate-agent handoff for ingestion expansion followed by corroboration, then requested the PRD update.",
@@ -208,12 +208,6 @@
       "ingestion-measurement.md"
     ],
     "implementation_sha": "83c84c19f38fea9fe8ad8ba31fcd13d31d14675d"
-  },
-  "publication_pending": {
-    "branch": "codex/ingestion-corroboration",
-    "target": "main",
-    "prior_pr4": "merged",
-    "integrated_upstream": "16effde5ad5cf6f348c1826321e77d150e1971c1"
   },
   "corroboration_integration": {
     "recorded_date": "2026-11-08",
@@ -263,6 +257,14 @@
       "Permission/access gaps incl MAS and industry sources",
       "Enterprise adoption of prototype D7 defaults"
     ],
-    "handoff": "ingestion-corroboration-integration.md"
+    "handoff": "ingestion-corroboration-integration.md",
+    "publication": {
+      "url": "https://github.com/Neonat/mira/pull/7",
+      "base": "main",
+      "branch": "codex/ingestion-corroboration",
+      "state": "open",
+      "merged": false,
+      "deployed": false
+    }
   }
 }
