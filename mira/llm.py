@@ -66,14 +66,25 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 class LLMError(RuntimeError):
     """A model call failed. Carries the tokens spent so budgets stay accurate."""
 
-    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0) -> None:
+    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0, *, code: str = "unknown") -> None:
         super().__init__(message)
         self.tokens_in = tokens_in
         self.tokens_out = tokens_out
+        self.code = code
 
 
 class LLMOutputError(LLMError):
     """The model answered, but not with a valid instance of the requested contract."""
+
+    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0, *, code: str = "output_validation") -> None:
+        super().__init__(message, tokens_in, tokens_out, code="output_validation")
+
+
+# Only categories, never provider bodies, cross the isolated-process boundary.
+SAFE_ERROR_CODES = frozenset({"unknown", "output_validation", "output_limit", "incomplete_response",
+    "provider_response_failed", "stream_interrupted", "stream_error", "request_timeout",
+    "provider_request", "insufficient_quota", "rate_limit_exceeded", "model_not_found",
+    "invalid_api_key", "unsupported_parameter", "refusal"})
 
 
 @dataclass(frozen=True)
@@ -199,7 +210,15 @@ class OpenAIClient:
                                   "schema": output_type.model_json_schema(), "strict": True}},
                 store=False,
             ) as stream:
-                response = stream.get_final_response()
+                # The SDK's get_final_response only returns response.completed;
+                # incomplete/failed events otherwise raise and lose their usage.
+                response = None
+                for event in stream:
+                    if event.type in ("response.completed", "response.incomplete", "response.failed"):
+                        response = event.response
+                        break
+                if response is None:
+                    raise LLMError(f"{role} stream ended without a terminal response", code="stream_interrupted")
         except APIError as exc:
             # Never put provider error bodies (which can contain request data) in run logs.
             status = getattr(exc, "status_code", None)
@@ -207,15 +226,22 @@ class OpenAIClient:
             safe_code = code if code in ("insufficient_quota", "rate_limit_exceeded", "model_not_found",
                                          "invalid_api_key", "unsupported_parameter") else None
             raise LLMError(f"{role} OpenAI request failed: {type(exc).__name__} "
-                           f"(HTTP {status}, code {safe_code})") from None
+                           f"(HTTP {status}, code {safe_code})", code=safe_code or "provider_request") from None
+        except (RuntimeError, ValueError) as exc:
+            if isinstance(exc, LLMError):
+                raise
+            raise LLMError(f"{role} OpenAI stream failed", code="stream_error") from None
         usage = response.usage
         tokens_in = usage.input_tokens if usage else 0
         tokens_out = usage.output_tokens if usage else 0
         if response.status != "completed":
-            raise LLMError(f"{role} OpenAI response {response.status}", tokens_in, tokens_out)
+            reason = getattr(getattr(response, "incomplete_details", None), "reason", None)
+            code = "output_limit" if reason == "max_output_tokens" else (
+                "incomplete_response" if response.status == "incomplete" else "provider_response_failed")
+            raise LLMError(f"{role} OpenAI response {response.status} ({code})", tokens_in, tokens_out, code=code)
         if any(part.type == "refusal" for item in response.output if item.type == "message"
                for part in item.content):
-            raise LLMError(f"{role} call refused", tokens_in, tokens_out)
+            raise LLMError(f"{role} call refused", tokens_in, tokens_out, code="refusal")
         try:
             output = output_type.model_validate_json(response.output_text)
         except ValidationError as exc:
@@ -274,7 +300,11 @@ class ProviderClient:
         except Exception:
             raise LLMError("bounded request failed; provider usage may be unavailable") from None
         if "error" in data:
-            raise LLMError("bounded request failed", data.get("tokens_in", 0), data.get("tokens_out", 0))
+            code = data.get("error_code", "unknown")
+            code = code if code in SAFE_ERROR_CODES else "unknown"
+            error = LLMOutputError if code == "output_validation" else LLMError
+            raise error(f"bounded request failed ({code})", data.get("tokens_in", 0),
+                        data.get("tokens_out", 0), code=code)
         return LLMResult(output_type.model_validate(data["output"]), data["model"], prompt_version,
                          data["tokens_in"], data["tokens_out"])
 
@@ -308,7 +338,7 @@ def call_checked(
             tokens_in, tokens_out = tokens_in + exc.tokens_in, tokens_out + exc.tokens_out
             error = exc
         except LLMError as exc:
-            raise LLMError(str(exc), tokens_in + exc.tokens_in, tokens_out + exc.tokens_out) from exc
+            raise LLMError(str(exc), tokens_in + exc.tokens_in, tokens_out + exc.tokens_out, code=exc.code) from exc
         else:
             tokens_in, tokens_out = tokens_in + result.tokens_in, tokens_out + result.tokens_out
             try:
@@ -389,7 +419,8 @@ def _bounded_child():
         data = dict(output=result.output.model_dump(mode="json"), model=result.model,
                     tokens_in=result.tokens_in, tokens_out=result.tokens_out)
     except LLMError as exc:
-        data = dict(error=True, tokens_in=exc.tokens_in, tokens_out=exc.tokens_out)
+        code = exc.code if exc.code in SAFE_ERROR_CODES else "unknown"
+        data = dict(error=True, error_code=code, tokens_in=exc.tokens_in, tokens_out=exc.tokens_out)
     except Exception:
-        data = dict(error=True, tokens_in=0, tokens_out=0)
+        data = dict(error=True, error_code="unknown", tokens_in=0, tokens_out=0)
     sys.stdout.write(json.dumps(data))
