@@ -1,27 +1,29 @@
 <!-- Current implementation update: 8 November 2026. Historical measured-run sections remain dated. -->
-# Mira Product Requirements v3 — reconciliation draft
+# Mira Product Requirements v3 — implementation and pilot requirements
 
 Agentic external-driver research for internal audit
 
-**Date:** 7 November 2026 (Asia/Singapore); evidence updated 8 November 2026. **Status:** revised draft; remaining open policies await adoption. **Audience:** Nathaniel, Ewen, Saai, the product owner, and the coding agent.
+**Updated:** 8 November 2026 (Asia/Singapore), through merged PR9 (`95bd1f8`). **Status:** current implementation reference and pilot requirements draft; proposed policies remain labelled.
+
+**Document audience:** the product owner, Nathaniel, Ewen, Saai, implementation agents and technical reviewers making scope, design and acceptance decisions. **Product audience:** bank internal-audit analysts and senior reviewers; source curators and administrators support that workflow. The [README](../README.md) is the introduction for competition judges and DBS stakeholders.
 
 This is a separate update to [PRD v2](mira_PRD_v2.md); neither v2 nor [archived v1](archive/mira_PRD_v1.md) is replaced or deleted. V2 remains the approved baseline until the team adopts this draft. This document records current behavior, gaps and proposed requirements separately; an implementation choice is not evidence of product approval.
 
-## 1. Basis and limits of this reconciliation
+## 1. Current implementation and evidence basis
 
-The original reconciliation compared v2 with HEAD `1d38e8916120d45d063d5157abcac6fc2db1af6f` and active working changes. This revision incorporates the subsequent correctness fixes, local PostgreSQL validation and live Hong Kong coverage results confirmed on 7 November 2026. It also records the user's next-work direction: ingestion expansion first, then independent-source corroboration after the Phase 1 exit criteria. This lifts the previous deferral for those phases without claiming either is implemented. Inputs include the user's pasted development handoff, [DBS problem statement](dbs_project_statement.md), [rubric](project_grading_rubrics.md), [approved sources](mira_approved_sources.md), [benchmark](mira_m0_ground_truth.md), [single-agent design](single_agent_arm_design.md), README, application code, migrations and tests.
+This revision describes the merged prototype at `95bd1f8` on 8 November 2026. [PR6](https://github.com/Neonat/mira/pull/6) provides quote/budget/source-seeding guards; [PR7](https://github.com/Neonat/mira/pull/7) adds permitted ingestion expansion, actual browser acquisition and frozen claim-level corroboration; [PR8](https://github.com/Neonat/mira/pull/8) preserves presentation and historical evaluation evidence; [PR9](https://github.com/Neonat/mira/pull/9) makes verified SFC citation destinations readable to auditors. The report template also includes the requested table-spacing improvements.
 
-The working tree was changing during inspection. This is a dated snapshot, not certification of the agent's eventual final branch. Read executable behavior and tests ahead of stale comments: for example, the orchestrator module header still lists plan approval and re-run diff as unbuilt even though their execution paths exist.
+The latest engineering validation passed **560 tests plus 8 subtests, none skipped**, including local PostgreSQL, actual Chromium fixtures, review/evidence integrity and readable source-link regressions. Four existing SFC publication destinations were separately checked in a browser. These checks establish the exercised workflow; research-quality measurements remain separate in §7 and the dated engineering record in Appendix C.
 
-Original reconciliation validation returned **222 passed, 40 skipped, 8 subtests passed**. Current validation supersedes that limitation: local review migrations through `20261107180000_mira_frozen_reviewed_evidence.sql` are applied. The evidence-integrity integration suite returned **350 passed and 8 subtests passed**, with PostgreSQL included and none skipped. It ran in an isolated checkout excluding concurrent report-layout work; 26 focused renderer/layout checks subsequently passed with that separate commit integrated. Integration tests use scripted providers. Separate live Hong Kong research runs, the first human-labelled precision sample and an authenticated local synthetic review rehearsal are recorded in §7.3; they do not establish accepted precision or remote deployment. No remote migration is claimed. The later guardrail/budget/seeding fix (`9e4c3c8`, PR6) passed 297 offline tests at commit; `main` (`16effde`) has the same code and returns the same 297 passed, 67 database tests skipped and 8 subtests (`pytest tests eval`).
+The original reconciliation started at `1d38e8916120d45d063d5157abcac6fc2db1af6f`. Historical test/run checkpoints remain in the [handoffs](agent-handoffs/README.md) and linked evidence artifacts. Inputs include the [DBS statement](dbs_project_statement.md), [rubric](project_grading_rubrics.md), [approved-source catalog](mira_approved_sources.md), [benchmark](mira_m0_ground_truth.md), application code, migrations and tests. This documentation refresh makes no runtime, model, permission or deployment change.
 
 Status labels below:
 
-- **Present:** executable path exists; passing offline fixtures do not prove live quality.
-- **WIP:** work in progress that still requires its stated implementation or validation.
-- **Gap:** required or proposed behavior is absent or materially incomplete.
-- **Unproven:** tooling exists, but supporting live or human evidence was not established here.
-- **Decision:** product input is needed before implementing or accepting a scope change.
+- **Present:** implemented behavior, with its evidence and acceptance scope stated.
+- **WIP:** work in progress against a stated requirement.
+- **Gap:** an implementation or acceptance item for the team to resolve.
+- **Unproven:** a measurable outcome that has not been established by the recorded evidence.
+- **Decision:** product input needed to adopt a policy or target.
 
 ## 2. Product purpose, users and boundaries
 
@@ -39,7 +41,7 @@ Users remain auditor/analyst, reviewer, source curator and administrator. Analys
 
 ### Deferred unless separately approved
 
-Third jurisdiction, region expansion in the brief UI, scheduled monitoring, news-triggered investigations, 20–30-year archive/backfill, OpenSearch, theme discovery, internal bank uploads, control mapping, production deployment, PDF/DOCX export and email delivery. Unrestricted open-web fallback remains deferred. Bounded Exa-assisted discovery and controlled browser extraction are approved Phase 1 extensions where justified by observed gaps, within existing source permissions; they are implemented locally with explicit opt-in and source-policy checks; live coverage effects remain unmeasured.
+Third jurisdiction, region expansion in the brief UI, scheduled monitoring, news-triggered investigations, 20–30-year archive/backfill, OpenSearch, theme discovery, internal bank uploads, control mapping, production deployment, PDF/DOCX export and email delivery. Unrestricted open-web fallback remains deferred. Bounded Exa-assisted discovery and controlled browser extraction are approved Phase 1 extensions where justified by observed gaps, within existing source permissions; they are merged with explicit opt-in and source-policy checks. Dated acquisition and research observations are recorded in §7 and Appendix C.
 
 **D6 settled by the user:** Mira may explain sourced contextual risks and trends, but must not generate DBS audit actions or business decisions. The auditor decides and acts. This approved boundary updates v2's suggested-audit-actions requirement.
 
@@ -73,8 +75,8 @@ Evidence anchors: [orchestrator](../mira/orchestrator.py), [scout](../mira/agent
 2. Planner produces a visible plan. If approval is required, work pauses before fetching; approval resumes the saved plan.
 3. Regulatory and industry scouts search eligible saved evidence and discover approved publications within their task scope. Newly fetched content is versioned before analysis.
 4. Code checks the expected-source checklist. Missing items can trigger targeted re-planning and re-scouting within the remaining document, token, time and gap-round budgets.
-5. Analyst drafts facts and contextual inferences. Verifier checks quote authenticity and factual support; partially supported facts receive at most one narrowing rewrite. Inferences depend on verified supporting claims.
-6. Writer selects and orders verified findings; deterministic grounding renders their saved content. Coverage, limitations and unresolved items remain visible.
+5. Analyst drafts facts and contextual inferences. Factual claims receive bounded saved-first corroboration and primary quote/support checks. Partially supported facts receive at most one narrowing rewrite; inferences depend on verified supporting claims. Corroboration status remains distinct from primary support.
+6. Writer selects and orders verified findings; deterministic grounding renders their saved content, readable source destinations and corroboration details. The report includes coverage and unresolved items. If writing cannot finish within the run allowance, the existing fallback preserves verified claims in a labelled partial report.
 7. Reviewer inspects evidence and records accept, amend, reject or needs-evidence outcomes. Sign-off creates a separate reviewed snapshot and artifact reflecting those outcomes.
 8. Auditor can re-run a finished brief and inspect new, amended and no-longer-supported findings. The original brief's date scope is retained; this is not automatically a rolling monitoring window.
 
@@ -83,6 +85,10 @@ The orchestrator is deterministic Python. Agent judgement is constrained by type
 ## 5. Evidence, correctness and report requirements
 
 ### 5.1 Evidence and temporal integrity
+
+Where `store_text` is permitted, retain the complete extracted text in `document_versions.extracted_text` and its ordered searchable segments in `document_passages` before deriving findings. An extracted fact is an additional record linked to evidence; it never replaces the article with a summary. Therefore, retaining fact A leaves the saved text containing B and C available for later retrieval. This is extracted-text retention, not a claim that original HTML/PDF binaries are archived.
+
+Run-specific passage selection and claim extraction are separate from storage. A saved article is not automatically fully analysed, and analysing a passage does not prove every material fact was extracted. The next pilot coverage work should record analysed/deferred passages and test multi-fact articles; this is a proposed acceptance extension, not existing exhaustive-extraction behavior.
 
 Every factual finding must identify saved supporting passages, source URLs, document versions and quotations. A normalized or bounded fuzzy quote match is a necessary authenticity check, not sufficient proof that a claim follows from a passage. The semantic verifier must check entity, market, date, numbers and instrument status.
 
@@ -139,6 +145,12 @@ Retain v2's topic/market/period/as-of header, executive summary, regulatory deve
 
 Findings show stable report references, full saved wording, fact/inference status, market, supported date and date kind, source links, and priority separate from evidence confidence. Priority is research relevance, not proof of a breach. Under settled D6, impact assessment explains sourced or verified contextual risks and trends without prescribing DBS actions or business decisions.
 
+**Reader:** the internal auditor and senior reviewer. The report body uses publication titles, readable dates, finding references and plain-language status/reasons. API payloads, database identities, hashes and capture diagnostics belong in supporting provenance, rather than being required reading for the primary workflow. Evidence links should open a verified human-readable publisher page or readable document when that destination is known. PR9 maps unambiguous English SFC circular/news content endpoints to their corresponding public pages; original acquisition URLs remain saved and frozen. Other endpoints are not guessed or silently retargeted.
+
+The template provides contents/paragraph navigation, explicit table column widths and spacing, a narrow-screen coverage layout and a scrollable timeline. Corroboration has its own contents entry and shows dates, outcomes, quotations, source links and origin rationale. Source verification, source independence and human acceptance remain separate decisions.
+
+Reports are static saved artifacts. Updated templates apply to new renders; previously exported files retain their prior layout and destinations. Use the latest artifact for demonstrations, and preserve historical reviewed files. A reader-friendly source link does not rewrite a saved quotation or verification input.
+
 The current implementation renders saved claim text rather than allowing writer paraphrases. Preserve this as the proposed grounding rule; report length and executive-summary readability still require human review. HTML and structured JSON snapshots are the current output basis; no new export UI is implied.
 
 ### 5.5 Review and sign-off
@@ -146,7 +158,7 @@ The current implementation renders saved claim text rather than allowing writer 
 For new reviewed versions, acceptance requires:
 
 - The authoritative latest decisions are frozen into the reviewed snapshot with reviewer identity and time, using deterministic ordering for tied timestamps.
-- The complete retained finding/dependency closure, passage text and quotations, document versions, citation/provenance metadata, semantic-check provenance, brief and checklist labels are frozen in a typed contract-1.4 bundle. Sign-off binds worker-recorded actual verification inputs and server-captured reviewer inputs to that exact evidence; changed or unbound inputs require fresh verification/review.
+- The complete retained finding/dependency closure, passage text and quotations, document versions, citation/provenance metadata, semantic-check provenance, brief and checklist labels are frozen in a typed evidence bundle (contract 1.4, or 1.5 with corroboration). Sign-off binds worker-recorded actual verification inputs and server-captured reviewer inputs to that exact evidence; changed or unbound inputs require fresh verification/review.
 - Accepted findings retain approved text. Amended findings display the amendment; rejected findings and dependent inferences do not survive in the report body or summary.
 - Outstanding evidence requests on retained findings prevent sign-off. Undecided findings cannot be made reviewed merely by rendering a file.
 - An inference is reviewed again after an amendment to a supporting fact; rejection propagates through dependencies.
@@ -176,7 +188,7 @@ Phase 1 exited after independent review and local PostgreSQL integration (378 te
 
 - Every factual claim in the normal multi-agent path is eligible; inferences retain separate verification and expose supporting facts' corroboration. The comparison arm retains its existing behavior. Eligible saved evidence is selected by workspace, permitted source, jurisdiction and latest publication/as-of-eligible document version before retrieval limits. Bounded salient-term OR retrieval admits paraphrases and potentially conflicting quantities; semantic assessment determines relevance.
 - Search saved evidence first. Optional targeted discovery uses the Phase 1 Exa opt-in, then policy-controlled acquisition and permitted storage. Default per-claim limits are two queries, five candidate documents/acquisition attempts, twenty passages and sixty seconds, capped by the shared run's remaining document/token/deadline budget. Failed acquisition attempts and reported model usage are charged. Unknown usage on a cancelled model request consumes a separately labelled conservative reservation; it is not presented as reported billing.
-- To make the bounded semantic workload practical, the normal worker retrieves at most one eligible saved candidate passage before assessment and records that narrower limit. The assessor shows at most two primary passages and one candidate passage as exact contiguous excerpts (up to 1,800 characters each), with a 4,096-output-token ceiling inside a sixty-second claim deadline capped by the shared run deadline. Full originals remain frozen. Truncated or omitted context cannot establish support or a validated conflict: those decisions remain uncertain, with potential-conflict evidence retained. These are prototype workload bounds, not evidence of live latency or precision. The separately authorized sixty-second/single-candidate validation below completed 8/12 calls with zero corroboration timeouts and four output-limit failures; full acceptance remains incomplete.
+- To make the bounded semantic workload practical, the normal worker retrieves at most one eligible saved candidate passage before assessment and records that narrower limit. The assessor shows at most two primary passages and one candidate passage as exact contiguous excerpts (up to 1,800 characters each), with a 4,096-output-token ceiling inside a sixty-second claim deadline capped by the shared run deadline. Full saved passages remain frozen. Truncated or omitted context cannot establish support or a validated conflict: those decisions remain uncertain, with potential-conflict evidence retained. These are prototype workload bounds, not evidence of live latency or precision. The separately authorized sixty-second/single-candidate validation below completed 8/12 calls with zero corroboration timeouts and four output-limit failures; full acceptance remains incomplete.
 - Exact quotations and matching entity, jurisdiction, predicate/scope, dates, quantities and regulatory status are required for support. A conflict requires an explicit incompatible value within the same proposition scope; a missing value is not a contradiction. Source organization/origin configuration takes precedence over supplied candidate defaults. Same publications, known aliases, same organizations, copied captures/text and shared origins are dependent; a different URL is insufficient. Independent origin requires retained exact evidence of original work on both sides. Unknown origins remain inconclusive.
 - Validated conflicts take precedence. Missing, rejected or uncertain candidate assessments are explicit incomplete checks and prevent a clean positive outcome. An authoritative primary-source fact remains valid evidence without a second source; `primary_source_only` applies when there is no unresolved candidate, while incomplete candidate checks are `inconclusive`. Absence of a check is `not_checked`.
 - Auditors see statuses, dates, exact passages, origin decisions/reasons, source links, limits and acquisition provenance separately from fact verification and human decisions. Existing review decisions acknowledge the captured assessment; no universal two-source sign-off rule or automatic DBS action recommendation is introduced. Maker/checker and material-amendment policies remain D5/D8.
@@ -185,6 +197,10 @@ Phase 1 exited after independent review and local PostgreSQL integration (378 te
 The local fixture evidence includes a saved independent investigation flowing through the normal fact-verification path into a signed report, rejection of stale candidates for a new sign-off, stable historical rendering after later changes, copied/shared origins, missing decisions, contradictions, budget exhaustion and workspace isolation. Live precision of the corroboration assessor remains unmeasured. Existing delivered slides/video retain their historical evidence cut; use the current feature-status handoff before making new presentation claims.
 
 ## 7. Evaluation and release evidence
+
+**Audience:** product owner, evaluator and technical reviewers. This section keeps software verification, publication coverage and human judgement distinct; the competition overview links here for the supporting record.
+
+Current engineering checkpoint: **560 tests + 8 subtests, none skipped (54.55 seconds)** at the PR9 implementation; independent focused review found no blockers. The subsequent merged tree has the same tested code. Tests use controlled providers and local PostgreSQL/Chromium fixtures. The [source-link handoff](agent-handoffs/auditor-source-links.md) records commands and four browser-verified publication destinations.
 
 ### 7.1 Measurement contract and remaining acceptance
 
@@ -222,7 +238,7 @@ Subsequent candidate-selection telemetry integration passed **285 tests and 8 su
 
 The integrated URL-fetch, failed-scout accounting/diagnostic persistence and configurable UI-workspace fixes passed **293 tests and 8 subtests**, including PostgreSQL with no skips (`pytest tests eval`, 8.76 seconds). The local synthetic rehearsal exercised actual Supabase Auth/RLS and browser actions: amendment, stale-inference and needs-evidence sign-off guards, fresh dependent review, rejection, sign-off and explicit reviewed-artifact rendering. Ten artifact checks passed, including unchanged original SHA-256, amendment in body and summary, and exclusion of the rejected fact and dependent inference. The 3:24 captioned video discloses synthetic evidence and uses no paid research or historical-report mutations. This demonstrates local review mechanics, not factual accuracy, reviewer independence or production deployment. See [authenticated-review-handoff.md](demo/authenticated-review-handoff.md).
 
-Live HK runs on **7 November 2026** produced:
+Recorded Hong Kong research runs produced the dated results below:
 
 | Run | Document allowance | Findings: facts / inferences / unresolved | HK publication recall | Elapsed / estimated cost |
 |---|---|---|---|---|
@@ -230,6 +246,7 @@ Live HK runs on **7 November 2026** produced:
 | Initial coverage fix `ebac84e8…` | 15 | 10 / 1 / 3 | 2/18 overall | 13.22 min / $1.1883 |
 | Final capacity run `2f98eaa5-e13c-4cd9-9a6e-66afaf115dd0` | 30 | 17 / 1 / 1 | 7/18 overall; 7/14 regulatory | 15.29 min / $1.4395 |
 | Fresh telemetry diagnosis `e2fda30f-36f9-4aa3-83c3-d78b81671b83` (pre-fix) | 30 requested; 32 saved versions | 19 / 0 / 5 | 9/18 overall and fetchable; 9/14 regulatory | 21.68 min / $1.8290 from recorded steps |
+| Latest authorised `7be59cdf` (8 November; partial fallback) | 30 | 19 / 0 / 3 | 5/18 cited; 6/18 acquired | 25.00 min / $2.2638 recorded model estimate |
 | Labelled-precision run `29a153bb-ffa2-40a1-a702-3abc828bed4c` (Haiku; code `83e3b32`) | 40; 34 used | 19 / 2 / 4 | 11/18 overall; 11/14 regulatory; 11 of 13 reachable | 9.6 min / $0.128 |
 
 Run `29a153bb` is the first with human-labelled precision ([evidence](../eval/evidence/2026-11-07-hk-run-29a153bb.md)). All 21 draft-report claims were labelled by one team member who had not seen the verifier verdicts: **0 unsupported or contradicted**, **7/21 fully supported** on passage text, and **17/21** when each document's recorded publication date is accepted as date evidence. Neither meets the proposed ≥95%. The four remaining partials overstate the source's hedges, scope, addressee or attribution, and all passed the semantic check; tightening Gate 2 on these is the evidenced next accuracy step. Caveats: one run, one labeller, Haiku models on code that predates PR4 and PR6, self-review sign-off, and a provenance defect: the stored `model_settings` lists Opus/Sonnet while every step recorded `claude-haiku-5-5`. It is not a controlled comparison with the earlier runs.
@@ -248,13 +265,13 @@ Retain v2's public-data boundary, workspace access controls, server-side credent
 
 The scout still retains extracted text/passages rather than durable original HTML/PDF captures, and rendered report files still use the local filesystem. Frozen snapshots solve reviewed evidence identity, not original-capture retention, artifact durability or restore. Ingestion expansion and corroboration are implemented locally under the Phase 1/2 gates, including frozen acquisition provenance and new reviewed corroboration snapshots. Original binaries and report artifacts still lack durable storage/restore. Source-permission changes, additional paid/live calls and remote deployment are not implied by that authorization.
 
-The repository records MAS automated access as blocked and written storage permission as outstanding, despite prototype seeding allowing text storage. This is an existing unresolved project decision, not confirmation of permission. Other named industry sources have fetch/metadata permission without stored passages, constraining citable coverage. Manual acquisition does not itself settle storage permission. D4 must identify permitted demo evidence, remaining source reviews, and the owner/refresh schedule for imported documents. No source permissions were changed in this reconciliation and no current external terms were independently rechecked.
+The repository records MAS automated access as blocked and written storage permission as outstanding, despite prototype seeding allowing text storage. This is an existing unresolved project decision, not confirmation of permission. Other named industry sources have fetch/metadata permission without stored passages, constraining citable coverage. Manual acquisition does not itself settle storage permission. D4 must identify permitted demo evidence, remaining source reviews, and the owner/refresh schedule for imported documents. MAS remains inactive in the current validation/demo configuration. Explicit source grants are still required; a seeded operation is not permission to bypass that configuration.
 
-Budgets are runtime configuration, not product promises. Code defaults currently include 60 fetched documents, 2,000,000 tokens, 15 minutes and two gap rounds; the README describes a 300,000-token development setting and historical 15-document runs. Record actual run settings instead of treating one of these as an agreed cost cap. Providers and per-role models are configurable; actual configuration and costs require D3 agreement.
+Budgets are runtime configuration, not product promises. Code defaults currently include 60 fetched documents, 2,000,000 tokens, 15 minutes and two gap rounds; `.env.example` supplies a 300,000-token development setting; CLI examples can choose a smaller document allowance. Record actual run settings instead of treating one of these as an agreed cost cap. Providers and per-role models are configurable; actual configuration and costs require D3 agreement.
 
 ## 9. Settled decisions and remaining policy work
 
-The document may be reviewed without resolving every item. Changes implementing the affected policies should wait for the relevant decision. Routine correctness work that restores an existing requirement is distinguished from adopting new scope; this draft does not instruct or control the other agent's active run.
+This register is for the product owner and delivery team. Settled decisions guide implementation; open items define pilot/enterprise acceptance work. Routine correctness fixes preserve the existing approved behavior. Recorded targets and proposed operating policies do not become approved solely because the implementation exists.
 
 | ID | Decision needed | Recommendation, not approval | Owner / affected work |
 |---|---|---|---|
@@ -272,8 +289,8 @@ The document may be reviewed without resolving every item. Changes implementing 
 ## 10. Delivery order and specialist work
 
 1. **Preserve the completed evidence-integrity checkpoint:** full frozen evidence, incomplete-render blocking and version-aware retrieval are implemented and locally validated. Preserve v1/v2 and historical artifacts; no input-binding backfill or remote migration.
-2. **Phase 1 complete locally:** inspect existing designs/code and retained telemetry; choose justified Exa/browser extensions and address evidenced selection/capacity gaps under §5.3.1. Complete and document §5.3.2 before dependent corroboration implementation. Scoped live observations below do not establish full coverage recovery; no repeated paid runs without new bounded authorization or reconstruction of missing historical diagnostics. MAS and industry-source permission gaps remain disclosed.
-3. **Phase 2 complete locally:** saved-first corroboration, bounded optional acquisition and frozen evidence/decisions implement §6. Prototype defaults are explicit; enterprise adoption remains D7. Independent reviews and the complete integrated suite passed. Live semantic/origin precision remains unmeasured.
+2. **Phase 1 merged:** inspect existing designs/code and retained telemetry; choose justified Exa/browser extensions and address evidenced selection/capacity gaps under §5.3.1. Complete and document §5.3.2 before dependent corroboration implementation. Scoped live observations below do not establish full coverage recovery; no repeated paid runs without new bounded authorization or reconstruction of missing historical diagnostics. MAS and industry-source permission gaps remain disclosed.
+3. **Phase 2 merged:** saved-first corroboration, bounded optional acquisition and frozen evidence/decisions implement §6. Prototype defaults are explicit; enterprise adoption remains D7. Independent reviews and the complete integrated suite passed. Live semantic/origin precision remains unmeasured.
 4. **Complete evaluation:** adopt D9 measurement policy, human-review the benchmark, show recorded publication dates in the precision worksheet, add a second labeller, fix the `model_settings` provenance mismatch, tighten Gate 2 on hedges/scope/attribution, and run the agreed comparison only within authorized budgets. Run narrow regressions during development and one complete tests/eval suite with local PostgreSQL per integration milestone; repeat only for changed code or failures. Record the exact tested scope and separate offline evidence from live quality claims.
 
 5. **Keep delivered slides/video aligned with demonstrated behavior:** the storytelling deck and approved 180-second product/workflow film are packaged. New ingestion/corroboration behavior needs observed evidence before inclusion as working functionality; retain synthetic/historical and edited-time disclosures. No accepted precision, M0 win or production-deployment claim is established.
@@ -309,7 +326,11 @@ This documentation refresh preserves v1/v2 and aligns the companion coordinator 
 
 Before adoption: resolve or explicitly defer the remaining policy register, reconcile subsequent implementation changes with this snapshot, and have the product owner adopt v3. Any later pointer update making v3 the primary PRD should be a separate explicit documentation change; keep v2 and v1 available as historical baselines.
 
-## 8 November 2026 implementation evidence update
+## Appendix C. Dated engineering record — team reference
+
+The entries below preserve what was implemented and measured at each checkpoint. Earlier statements such as “not merged” or an older suite count describe that entry's date/source. The current merged checkpoint is §1; these entries do not replace it.
+
+### 8 November 2026 initial implementation evidence
 
 The ingestion-first gate exited at `83c84c1`: 378 tests plus 8 subtests, none skipped, including local PostgreSQL. Generic candidate-retention ablation reaches 123 rather than 120 selection-frontier attempts with equal document allowance and an extra selection call; it does not establish saved-publication or report-citation recall improvement. URL discovery is metadata only; reports require separately permitted saved passages. Offline Chromium capture was exercised with synthetic HTML, scripts disabled and all resource routes aborted; pages needing external scripts/data remain unsupported. Capture/extraction identities and non-retention status enter verification and frozen review inputs. The normal HTTP scout retains its existing per-request timeout; new bounded corroboration uses a persistent, killable acquisition broker and shrinking database statement deadlines.
 
@@ -317,7 +338,7 @@ Upstream PRs 4–6 were merged during this implementation and are preserved, inc
 
 Final integrated validation at implementation `42efc32`: **459 tests plus 8 subtests, none skipped, 13.83 seconds**, including local PostgreSQL and offline evaluation. New migrations are local only. Independent review found no remaining important issues. See [integration handoff](agent-handoffs/ingestion-corroboration-integration.md) for exact commands, remaining limits and publication state.
 
-## 8 November 2026 PR7 follow-up: actual computer/browser acquisition
+### 8 November 2026 PR7 follow-up: actual computer/browser acquisition
 
 The offline renderer remains available, and a separate actual Chromium adapter now navigates public URLs, executes JavaScript and performs at most three curator-configured read-only click/wait actions. This is deterministic browser automation, not a new paid vision/model computer-use agent or a model-configuration change. It is globally disabled by default (`MIRA_ENABLE_LIVE_BROWSER=0`) and additionally requires existing fetch/store_text plus explicit source browser approval/reference. Retrying an HTTP block requires its own approval flag. The user explicitly chose to keep MAS disabled; no MAS acquisition or seeded permission change was made.
 
@@ -340,3 +361,10 @@ At measured source `43a7b1c`, one uninterrupted bounded HK run `7e877c4e` produc
 The user explicitly authorized one further uninterrupted bounded run. At source `c1cf682` (runtime `78c6771`), run `7be59cdf` kept 30 documents, 600,000 tokens, 25 minutes, two gap rounds and at most six Exa searches, with unchanged role models/effort and MAS inactive. Actual Exa HTTP API-key transport completed 5/5 requests. Thirty complete HTTP acquisitions yielded **6/18 benchmark publications versus previous 5/18; citation recall stayed 5/18**, below earlier local 9/18. Browser was enabled but never triggered; MAS had zero fetches/versions and temporary browser grants were removed.
 
 The compact one-candidate/4,096-output-token/sixty-second assessor completed **8/12 calls in 22.96–38.78 seconds**, with **zero corroboration timeouts and four output-limit failures**. Twelve persisted assessments are five primary-source-only and seven inconclusive; no independent corroboration success is established. The writer had 16.35 seconds remaining and timed out at the overall cap; the existing fallback produced a partial report with 19 verified facts, zero included inferences and three unresolved claims. Reported 478,544 tokens plus 90,685 unknown-usage reservation stayed within 600,000; reservations are not measured usage. The unchanged runtime's final suite remains 538 tests + 8 subtests, none skipped; post-run accounting/evidence checks passed. Full coverage recovery and reliable end-to-end completion remain unachieved. This is one historical observation, not causal, precision or efficiency proof. [Measured result and limitations](../eval/evidence/2026-11-08-hk-authorized-followup-7be59cdf.md). The additional paid-run allowance is used; existing slides/historical reports remain unchanged, and no merge or remote deployment occurred.
+
+
+### 8 November merged delivery and auditor readability
+
+PR7 merged at `33b6be6` after the current branch incorporated PR8's documentation/slides and retained PR6 guardrails; the integrated tree passed 538 tests + 8 subtests, none skipped. PR9 merged at `95bd1f8`; its source-link implementation passed **560 tests + 8 subtests, none skipped (54.55 seconds)**. No model, source-permission or remote-migration change accompanied those merges.
+
+Report template `report/6` combines the table-spacing changes with reader-facing source links. Browser checks confirmed readable SFC pages for 26EC69, 26EC2, 26EC39 and 26PR19. The explicitly updated current draft has 24 corrected anchors across those four publications; other report content and saved evidence remain unchanged. Older exports remain historical files. See [auditor-source handoff](agent-handoffs/auditor-source-links.md).
