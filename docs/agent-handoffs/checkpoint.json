@@ -331,5 +331,29 @@
     "mas_enabled": false,
     "paid_research_runs": 1,
     "evidence": "../../eval/evidence/2026-11-08-hk-bounded-run-a88dd20e.md"
+  },
+  "actual_exa_hk_validation_20261108": {
+    "run_id": "fe65444d-589c-4a76-b3db-c216d76757ae",
+    "source_segments": [
+      "b8b8134",
+      "35103a9",
+      "0172344"
+    ],
+    "status": "resumed partial report; not a clean uninterrupted acceptance run",
+    "acquired_publications": "5/18 vs previous7/18 and earlier local9/18",
+    "report_citation_recall": "5/18",
+    "actual_exa_requests": 6,
+    "exa_successful": 6,
+    "corroboration_assessments": 4,
+    "corroboration_status": "all inconclusive",
+    "browser_attempts": 0,
+    "mas_enabled": false,
+    "paid_research_runs": 1,
+    "continuations_of_same_id": 2,
+    "tests_passed": 499,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "local_migration": "20261108110000",
+    "evidence": "../../eval/evidence/2026-11-08-hk-exa-run-fe65444d.md"
   }
 }

@@ -2,6 +2,10 @@
 
 This directory coordinates parallel engineering work. It is not a change to Mira's runtime agent architecture. Use a fresh task/fork without chat history; include only the task, ownership boundary, and this checkpoint. Do not ask workers to reread historic chat.
 
+## Latest actual Exa API validation and analyst fixes
+
+One new authorized HK run `fe65444d` produced a **resumed partial report** within 24.46 minutes: **5/18 acquired and cited**, versus 7/18 acquired in the previous failed run and 9/18 acquired/cited in the earlier local run. The analyst and all six actual Exa API searches succeeded. Four corroboration assessments were persisted, all inconclusive after call limits; browser fallback was enabled but never triggered. MAS stayed inactive with zero fetches or versions. The same run continued twice after quote-precondition and Python/SQL citation-order defects were fixed, with no repeated initial analysis/acquisition or second run. Final suite: **499 tests + 8 subtests, none skipped**. Migration `20261108110000` is local only; no historical rewrite, model change, remote deployment or coverage-improvement claim. Read [results and limits](../../eval/evidence/2026-11-08-hk-exa-run-fe65444d.md) and the [fix handover](analyst-terminal-errors.md).
+
 ## Latest bounded Hong Kong research validation
 
 One user-authorized run at `ef58c47` finished **failed at analysis** after 8.41 minutes: 30 complete HTTP acquisitions, acquired benchmark coverage **7/18 versus earlier local 9/18**; no report, browser attempts or corroboration assessments. Exa plugin relay enabled, but only one of six requested searches returned in time (three actual connector calls). MAS stayed inactive with zero fetches/versions, and the temporary HKMA browser grant was removed. Unknown failed-call usage is reserved, not measured. This does not validate all-three end-to-end behavior or a coverage improvement. Read [result and limits](../../eval/evidence/2026-11-08-hk-bounded-run-a88dd20e.md). No runtime code, PR6 behavior, models, slides or historical reports changed; no replacement paid run.
