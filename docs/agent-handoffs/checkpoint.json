@@ -1,6 +1,6 @@
 {
   "recorded_date": "2026-11-08",
-  "branch": "codex/ingestion-corroboration",
+  "branch": "codex/auditor-source-links",
   "source_base_sha": "1d38e8916120d45d063d5157abcac6fc2db1af6f",
   "runtime_checkpoint_sha": "1c970c825565430ae7a36e736f6880da9371edcd",
   "telemetry_integration": {
@@ -192,7 +192,7 @@
     "pushed_source_sha": "27c28fac8631c9afdb8cdef60ab6b48b526ef5a7",
     "publication": "Follow-up PR4; PR3 is merged"
   },
-  "active_pr": "https://github.com/Neonat/mira/pull/7",
+  "active_pr": null,
   "current_work_direction": {
     "recorded_date": "2026-11-07",
     "basis": "User requested a separate-agent handoff for ingestion expansion followed by corroboration, then requested the PRD update.",
@@ -292,9 +292,10 @@
       "url": "https://github.com/Neonat/mira/pull/7",
       "base": "main",
       "branch": "codex/ingestion-corroboration",
-      "state": "open",
-      "merged": false,
-      "deployed": false
+      "state": "merged",
+      "merged": true,
+      "deployed": false,
+      "merge_commit": "33b6be6c6f39586a957d6982f657d87c1a4c7785"
     }
   },
   "live_browser_integration": {
@@ -451,12 +452,13 @@
     "handoff": "clean-hk-followup.md",
     "evidence": "../../eval/evidence/2026-11-08-hk-authorized-followup-7be59cdf.md"
   },
-  "main_sha": "ff3a70f",
+  "main_sha": "33b6be6c6f39586a957d6982f657d87c1a4c7785",
   "merged_prs": [
     "https://github.com/Neonat/mira/pull/4",
     "https://github.com/Neonat/mira/pull/5",
     "https://github.com/Neonat/mira/pull/6",
-    "https://github.com/Neonat/mira/pull/8"
+    "https://github.com/Neonat/mira/pull/8",
+    "https://github.com/Neonat/mira/pull/7"
   ],
   "guardrail_budget_seeding": {
     "commit": "9e4c3c8",
@@ -491,6 +493,34 @@
       "skipped": 0,
       "seconds": 53.81,
       "scope": "tests and eval; local PostgreSQL and actual Chromium fixtures; no paid/live research calls"
+    },
+    "merged": true,
+    "merge_commit": "33b6be6c6f39586a957d6982f657d87c1a4c7785",
+    "merged_at": "2026-11-08T09:39:22Z"
+  },
+  "auditor_source_links": {
+    "base_sha": "33b6be6c6f39586a957d6982f657d87c1a4c7785",
+    "branch": "codex/auditor-source-links",
+    "scope": "Display-only English SFC circular/news content-to-reader links; saved URLs and snapshots unchanged",
+    "existing_report_anchors_updated": 24,
+    "distinct_publications": 4,
+    "browser_checked_references": [
+      "26EC69",
+      "26EC2",
+      "26EC39",
+      "26PR19"
+    ],
+    "focused_tests_passed": 52,
+    "independent_review": "No blockers",
+    "database_changes": false,
+    "paid_research_runs": 0,
+    "handoff": "auditor-source-links.md",
+    "verification": {
+      "tests_passed": 560,
+      "subtests_passed": 8,
+      "skipped": 0,
+      "seconds": 54.55,
+      "scope": "Complete tests/eval; local PostgreSQL and actual Chromium fixtures; no paid research"
     }
   }
 }

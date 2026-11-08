@@ -16,9 +16,10 @@ from uuid import UUID
 
 from mira.contracts import Brief, ReportSentence, ReportSnapshot, RunStatus
 from mira.coverage_display import CHECKLIST_DESCRIPTION, coverage_label
+from mira.source_links import reader_source_url
 from mira.store import ExpectedSourceRecord, PassageRecord, StoredClaim
 
-TEMPLATE_VERSION = "report/5"
+TEMPLATE_VERSION = "report/6"
 
 MARKET_NAMES = {"SG": "Singapore", "HK": "Hong Kong"}
 DATE_LABELS = {
@@ -147,8 +148,11 @@ class ReportContext:
 
 
 def _link(url: str, label: str) -> str:
-    if urlsplit(url).scheme in ("http", "https"):
-        return f'<a href="{escape(url)}" target="_blank" rel="noopener noreferrer">{escape(label)}</a>'
+    reader_url = reader_source_url(url)
+    if label == url:
+        label = reader_url
+    if urlsplit(reader_url).scheme in ("http", "https"):
+        return f'<a href="{escape(reader_url)}" target="_blank" rel="noopener noreferrer">{escape(label)}</a>'
     return escape(label)
 
 
