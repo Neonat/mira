@@ -1,5 +1,12 @@
 Mira Product Requirements
 
+> **Archive note — updated 8 November 2026.** This is the original 11 October requirements record. Its incident/project-first workflow, archive scale and ownership assignments remain historical context; they do not describe the current competition MVP. See [PRD v2](../mira_PRD_v2.md) for the baseline and [PRD v3](../mira_PRD_v3_draft.md) for current implemented behavior and settled amendments.
+>
+> **Document audience:** the product owner, engineering team and maintainers checking original contracts. **Product audience:** bank internal-audit analysts and reviewers, with curator/administrator support. The [README](../../README.md) introduces the current product to judges and DBS stakeholders.
+>
+> **Current continuity:** keep source text/passages distinct from derived findings; retain exact evidence, versions and human review. The merged prototype adds scoped ingestion, independent-source assessment, frozen reviewed evidence and reader-facing reports. Current output supplies contextual research; the auditor owns DBS actions and business decisions. Original requirements below are retained for traceability rather than rewritten as delivery claims.
+
+
 Banking incident research and regulatory risk analysis
 
 Version 1.0 | 11 October 2026 | Audience: all three developers and the product owner

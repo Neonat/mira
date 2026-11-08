@@ -1,5 +1,14 @@
 # Mira Product Requirements v2
 
+> **Reading note — updated 8 November 2026.** V2 is the approved requirements baseline for unchanged scope. [PRD v3](mira_PRD_v3_draft.md) records the current implementation through merged PR9, settled amendments and pilot acceptance; the text below retains the original v2 requirements and historical targets.
+>
+> **Document audience:** Nathaniel, Ewen, Saai, the product owner and technical reviewers tracing requirements. **Product audience:** bank internal-audit analysts and senior reviewers, supported by curators and administrators. Competition judges and DBS stakeholders should start with the [README](../README.md).
+>
+> **Current delivery:** approved-source ingestion with optional Exa/browser acquisition, claim-level corroboration, frozen reviewed reports, readable source destinations and improved report tables are implemented. Whole permitted extracted text and passages are stored separately from findings. Source support, source independence and auditor sign-off are distinct checks.
+>
+> **Settled amendment D6:** contextual risks and trends are allowed; generated DBS audit actions and business decisions remain with the auditor. This amendment supersedes the original “suggested audit actions” wording below. Current validation/demo uses Hong Kong with MAS inactive. Historical milestone/target text is not a claim that a metric has been achieved or an instruction to enable blocked sources.
+
+
 Agentic external driver research for internal audit
 
 Version 2.0 (passed internal maker-checker review; open decisions in §14) | 21 October 2026 | Audience: Nathaniel, Ewen, Saai and the product owner

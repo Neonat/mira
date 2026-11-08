@@ -1,5 +1,10 @@
 # Mira PRD: what should change
 
+> **Historical proposal — annotated 8 November 2026.** This 21 October review explains the move from v1's platform-first design to the agentic researcher. It is not the current build checklist: many proposals were incorporated into v2 and the merged implementation recorded in [PRD v3](mira_PRD_v3_draft.md).
+>
+> **Audience:** the product owner and engineering team reviewing design rationale. The product serves internal-audit analysts and senior reviewers; competition judges and DBS stakeholders should use the [README](../README.md). Current output provides contextual risks/trends, with DBS actions and business decisions retained by the auditor. The dated proposal text below is preserved.
+
+
 Source documents: `project_description.md` (DBS sponsor brief) and `Mira_Product_Requirements_v1.docx` (PRD v1.0, 11 Oct 2026).
 Written 21 Oct 2026, condensed from the review discussion.
 

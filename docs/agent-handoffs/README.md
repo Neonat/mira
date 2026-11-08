@@ -2,6 +2,10 @@
 
 This directory coordinates parallel engineering work. It is not a change to Mira's runtime agent architecture. Use a fresh task/fork without chat history; include only the task, ownership boundary, and this checkpoint. Do not ask workers to reread historic chat.
 
+## Current documentation and merged delivery
+
+PR7 and PR9 are merged; current main checkpoint is `95bd1f8`. The root README introduces the implemented prototype to competition judges, DBS stakeholders and pilot auditors, with developer setup below. PRD v3 is the current implementation/pilot reference for the product owner, engineering team and technical reviewers; v2 remains the unchanged requirements baseline until v3 adoption, and v1/proposal text remain historical with dated reader notes. Product users are internal-audit analysts and senior reviewers, supported by curators and administrators. Presentation feature-status notes follow the same evidence cut. This prose-only refresh changes no runtime, permissions, models, database or slide/video binaries; the previous 560 + 8 test result remains linked to its tested code, rather than represented as a fresh run.
+
 ## PR7 merged; auditor-facing source links
 
 The user requested merging PR7 before the source-link fix. PR7 merged at `33b6be6` after documentation-only conflicts with PR8 were reconciled and **538 tests + 8 subtests passed, none skipped (53.81s)**. PR6 guards and PR8 slide binaries/historical precision are preserved. The separate [PR9](https://github.com/Neonat/mira/pull/9) (`codex/auditor-source-links`) maps the four existing SFC JSON-content destinations to browser-verified readable publication pages without changing saved evidence URLs. The user's current local draft has 24 updated links across those four publications; all other content remains unchanged. The follow-up passed **560 tests + 8 subtests, none skipped (54.55s)**, with independent review finding no blockers. Read [source-link handoff](auditor-source-links.md) for exact scope and validation. No paid research, model/permission change or remote migration.

@@ -1,6 +1,6 @@
 {
   "recorded_date": "2026-11-08",
-  "branch": "codex/auditor-source-links",
+  "branch": "codex/docs-audience-refresh",
   "source_base_sha": "1d38e8916120d45d063d5157abcac6fc2db1af6f",
   "runtime_checkpoint_sha": "1c970c825565430ae7a36e736f6880da9371edcd",
   "telemetry_integration": {
@@ -192,7 +192,7 @@
     "pushed_source_sha": "27c28fac8631c9afdb8cdef60ab6b48b526ef5a7",
     "publication": "Follow-up PR4; PR3 is merged"
   },
-  "active_pr": "https://github.com/Neonat/mira/pull/9",
+  "active_pr": null,
   "current_work_direction": {
     "recorded_date": "2026-11-07",
     "basis": "User requested a separate-agent handoff for ingestion expansion followed by corroboration, then requested the PRD update.",
@@ -452,13 +452,14 @@
     "handoff": "clean-hk-followup.md",
     "evidence": "../../eval/evidence/2026-11-08-hk-authorized-followup-7be59cdf.md"
   },
-  "main_sha": "33b6be6c6f39586a957d6982f657d87c1a4c7785",
+  "main_sha": "95bd1f840a080481d6a101c571f04cb30e197b78",
   "merged_prs": [
     "https://github.com/Neonat/mira/pull/4",
     "https://github.com/Neonat/mira/pull/5",
     "https://github.com/Neonat/mira/pull/6",
     "https://github.com/Neonat/mira/pull/8",
-    "https://github.com/Neonat/mira/pull/7"
+    "https://github.com/Neonat/mira/pull/7",
+    "https://github.com/Neonat/mira/pull/9"
   ],
   "guardrail_budget_seeding": {
     "commit": "9e4c3c8",
@@ -523,6 +524,32 @@
       "scope": "Complete tests/eval; local PostgreSQL and actual Chromium fixtures; no paid research"
     },
     "pr": "https://github.com/Neonat/mira/pull/9",
-    "implementation_sha": "a4148637eab28aac869f1dd2021221ab6e1e487f"
+    "implementation_sha": "a4148637eab28aac869f1dd2021221ab6e1e487f",
+    "merged": true,
+    "merge_commit": "95bd1f840a080481d6a101c571f04cb30e197b78"
+  },
+  "documentation_audience_refresh": {
+    "recorded_date": "2026-11-08",
+    "base_sha": "95bd1f840a080481d6a101c571f04cb30e197b78",
+    "branch": "codex/docs-audience-refresh",
+    "README_audience": "Competition judges, DBS Internal Audit stakeholders and pilot auditors; setup sections for developers",
+    "PRD_audience": "Product owner, engineering team and technical reviewers; product users are internal audit analysts/reviewers",
+    "historical_bodies_preserved": [
+      "docs/mira_PRD_v2.md",
+      "docs/archive/mira_PRD_v1.md",
+      "docs/mira_prd_changes.md"
+    ],
+    "current_implementation_reference": "docs/mira_PRD_v3_draft.md",
+    "runtime_or_database_changes": false,
+    "paid_research_runs": 0,
+    "verification": "Documentation links/structure/diff checks; independent read-only review. Existing 560 + 8 suite is historical code verification, not rerun for prose.",
+    "documentation_checks": {
+      "added_local_links": 71,
+      "consistent_markdown_tables": 11,
+      "checkpoint_JSON": "valid",
+      "historical_requirement_bodies": "preserved",
+      "independent_review": "No blockers in primary or supporting documents",
+      "fresh_runtime_tests": 0
+    }
   }
 }
