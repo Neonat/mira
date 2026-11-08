@@ -153,3 +153,14 @@ def test_runtime_assesses_saved_second_source_before_check_and_freezes(conn, wor
     assert render_signed_off(snapshot,generated_at=pending['generated_at'])==html
     with pytest.raises(psycopg.errors.CheckViolation,match='candidate changed'):
         sign_off(conn,ctx,draft=conn.execute('select * from public.reports where id=%s',(pending['id'],)).fetchone())
+
+
+def test_multiple_quotes_use_same_ordinal_order_in_python_and_database(conn,workspace,tmp_path):
+    ctx,_=run_hk(conn,workspace,tmp_path,analyst)
+    row=conn.execute('select finding_id,analysis_evidence_id from public.finding_evidence where analysis_run_id=%s limit 1',(ctx.analysis_run_id,)).fetchone()
+    with acting_as(conn,ctx.user_id):
+        conn.execute("insert into public.finding_evidence(workspace_id,analysis_run_id,finding_id,analysis_evidence_id,support_type,supporting_quote) values(%s,%s,%s,%s,'supports','Authorized institutions')",(ctx.workspace_id,ctx.analysis_run_id,row['finding_id'],row['analysis_evidence_id']))
+    ledger,fact,base,saved=saved_assessment(conn,ctx,tmp_path)
+    actual=conn.execute('select private.capture_base_evidence_input(%s,%s,%s,%s) as base',(ctx.workspace_id,ctx.analysis_run_id,ctx.analysis_revision_id,[fact.finding_id])).fetchone()['base']
+    assert base==actual
+    assert ledger.latest(ctx,[fact.finding_id])[fact.finding_id]==saved
