@@ -53,6 +53,19 @@ def _safe_url(url: str) -> str:
 
 MAX_PASSAGES_SHOWN = 40
 MAX_PASSAGE_CHARS = 60_000
+# Token-cap enforcement. A task's max_llm_tokens is checked before each call using a
+# size estimate, so the cap holds approximately rather than only between calls.
+CHARS_PER_TOKEN = 4
+SELECTION_OUTPUT_TOKENS = 500
+REPORT_OUTPUT_TOKENS = 2_000
+# The report call always runs, so pages already fetched are not wasted. Below this
+# many passage characters it would have too little evidence to be useful.
+MIN_PASSAGE_CHARS = 8_000
+
+
+def estimate_tokens(text: str) -> int:
+    """Rough prompt size; deliberately simple, used only to stay within a task's cap."""
+    return len(text) // CHARS_PER_TOKEN + 1
 STOPWORDS = {"the", "and", "for", "with", "that", "this", "from", "were", "what", "which", "into", "between",
              "their", "have", "has", "are", "was", "any", "how", "did", "does", "on", "of", "in", "to", "a", "an"}
 
@@ -100,6 +113,31 @@ def document_key(url: str) -> str:
         if match:
             return f"hkma:{match[1]}:{match[2] or match[3]}"
     return url
+
+
+def seed_plan(config: dict[str, object], categories: list[str], years: range) -> tuple[list[list[str]], list[str]]:
+    """Index pages code opens before the model chooses anything, and the rest as candidates.
+
+    Each assigned checklist category gets its own queue: that category's configured
+    index pages for every requested year. Code opens the queues in turn, so a task
+    covering circulars, guidelines and enforcement starts on all three indexes rather
+    than relying on the model to pick the second and third. Feeds and start pages stay
+    candidates; with no category pages configured, the first of them is the seed.
+    """
+    category_urls = config.get("category_urls", {})
+    queues: list[list[str]] = []
+    seen: set[str] = set()
+    for category in categories:
+        urls = [url.format(year=year) for url in category_urls.get(category, []) for year in years]
+        urls = [url for url in dict.fromkeys(urls) if url not in seen]
+        if urls:
+            queues.append(urls)
+            seen.update(urls)
+    others = [url for url in dict.fromkeys([*config.get("feeds", []), *config.get("start_urls", [])])
+              if url not in seen]
+    if not queues and others:
+        queues.append([others.pop(0)])
+    return queues, others
 
 
 def distinct_links(links: list[Link]) -> list[Link]:
@@ -154,6 +192,7 @@ class _ScoutRun:
         self.candidates: list[Link] = []
         self.allowance = task.max_documents
         self.tokens_in = self.tokens_out = 0
+        self.token_stop = False
         self.model: str | None = None
         self.selection_diagnostics: list[dict] = []
         self.discovery: list[dict] = []
@@ -279,6 +318,21 @@ class _ScoutRun:
         limit = self.task.max_llm_tokens
         return limit is None or self.tokens_in + self.tokens_out < limit
 
+    def _remaining_tokens(self) -> int | None:
+        limit = getattr(self.task, "max_llm_tokens", None)
+        return None if limit is None else limit - self.tokens_in - self.tokens_out
+
+    def _report_reserve(self) -> int:
+        """Tokens kept back so the final report call fits with a minimal set of passages."""
+        return estimate_tokens(REPORT_SYSTEM) + MIN_PASSAGE_CHARS // CHARS_PER_TOKEN + REPORT_OUTPUT_TOKENS
+
+    def _passage_char_budget(self, prompt_without_passages: str) -> int:
+        remaining = self._remaining_tokens()
+        if remaining is None:
+            return MAX_PASSAGE_CHARS
+        spare = remaining - estimate_tokens(REPORT_SYSTEM + prompt_without_passages) - REPORT_OUTPUT_TOKENS
+        return max(MIN_PASSAGE_CHARS, min(MAX_PASSAGE_CHARS, spare * CHARS_PER_TOKEN))
+
     def _used(self, result: LLMResult) -> None:
         self.tokens_in += result.tokens_in
         self.tokens_out += result.tokens_out
@@ -292,19 +346,14 @@ class _ScoutRun:
         categories = list(dict.fromkeys(item.category for item in expected if item.id in self.task.expected_source_ids))
         queues = []
         other_indexes = []
+        years = range(self.ctx.brief.period_end.year, self.ctx.brief.period_start.year - 1, -1)
         for source_id in self.task.source_ids:
             source = sources.get(source_id)
             if source is not None and {"fetch", "store_text"} <= set(source.permitted_operations):
-                config = source.connector_config
-                preferred = [url for category in categories for url in config.get("category_urls", {}).get(category, [])]
-                years = range(self.ctx.brief.period_end.year, self.ctx.brief.period_start.year - 1, -1)
-                urls = [url.format(year=year) for url in preferred for year in years]
-                urls = list(dict.fromkeys([*urls, *config.get("feeds", []), *config.get("start_urls", [])]))
-                if urls:
-                    initial = len(years) if preferred and "{year}" in preferred[0] else 1
-                    queues.append(urls[:initial])
-                    other_indexes.extend(urls[initial:])
-        # Start at one category per source, including its requested year slices.
+                source_queues, source_others = seed_plan(source.connector_config, categories, years)
+                queues.extend(source_queues)
+                other_indexes.extend(source_others)
+        # Open each assigned category's index in turn, most recent year first.
         # Bound seed pages to roughly half the allowance, preserving room for
         # the publications themselves when the task can fetch multiple pages.
         seed_limit = min(max(1, (self.allowance + 1) // 2), sum(map(len, queues)))
@@ -331,6 +380,9 @@ class _ScoutRun:
                 stop_reason = "token_limit"
                 break
             self._select_and_fetch()
+            if self.token_stop:
+                stop_reason = "token_limit"
+                break
         else:
             if self.allowance <= 0:
                 stop_reason = "document_allowance"
@@ -442,6 +494,15 @@ class _ScoutRun:
             f"Pick at most {allowed} links.",
             "Links:\n" + "\n".join(lines),
         ])
+        remaining = self._remaining_tokens()
+        needed = estimate_tokens(LINK_SYSTEM + user) + SELECTION_OUTPUT_TOKENS + self._report_reserve()
+        if remaining is not None and needed > remaining:
+            # Another selection round would leave too little for the report: stop here.
+            self.candidates.extend(fresh)
+            self.token_stop = True
+            diagnostic.update(stop_reason="token_limit", remaining_allowance=self.allowance,
+                              presented=[], not_sent=len(fresh))
+            return
 
         def check(output: LinkSelection) -> None:
             if len(output.link_labels) > allowed:
@@ -473,7 +534,8 @@ class _ScoutRun:
         diagnostic.update(stop_reason="selected" if result.output.link_labels else "no_selection",
                           remaining_allowance=self.allowance)
 
-    def _passages(self) -> list[PassageRecord]:
+    def _passages(self, max_chars: int | None = None) -> list[PassageRecord]:
+        max_chars = MAX_PASSAGE_CHARS if max_chars is None else max_chars
         ids = [passage_id for visit in self.visits for passage_id in visit.passage_ids]
         with self.scout._fetch_lock:
             for key, future in self.scout._pages.items():
@@ -556,7 +618,7 @@ class _ScoutRun:
                 if len(chosen) >= MAX_PASSAGES_SHOWN:
                     break
                 passage = by_document[key].pop(0)
-                if total + len(passage.content) <= MAX_PASSAGE_CHARS:
+                if total + len(passage.content) <= max_chars:
                     chosen.append(passage)
                     total += len(passage.content)
                 if not by_document[key]:
@@ -569,20 +631,21 @@ class _ScoutRun:
         labels = LabelMap()
         expected_labels = {labels.add("E", expected_id): expected[expected_id]
                            for expected_id in self.task.expected_source_ids if expected_id in expected}
-        passages = self._passages()
+        expected_lines = [f"{label}: {row.jurisdiction_code} | {row.category} | {row.document_hint}"
+                          for label, row in expected_labels.items()]
+        header = "\n\n".join([
+            brief_text(self.ctx.brief),
+            f"Research question: {self.task.question}",
+            "Expected sources for this task:\n" + ("\n".join(expected_lines) or "none"),
+        ])
+        # Show as many passages as the task's remaining tokens allow, within the usual cap.
+        passages = self._passages(self._passage_char_budget(header))
         if not passages:
             statuses = [{"expected_source_label": label, "status": "missing", "note": "no readable pages were saved"}
                         for label in expected_labels]
             return ScoutReport(documents=[], expected_source_statuses=statuses, notes="no passages"), labels.as_dict()
         quoted = [quote_passage(labels.add("P", passage.id), passage) for passage in passages]
-        expected_lines = [f"{label}: {row.jurisdiction_code} | {row.category} | {row.document_hint}"
-                          for label, row in expected_labels.items()]
-        user = "\n\n".join([
-            brief_text(self.ctx.brief),
-            f"Research question: {self.task.question}",
-            "Expected sources for this task:\n" + ("\n".join(expected_lines) or "none"),
-            "Passages:\n\n" + "\n\n".join(quoted),
-        ])
+        user = header + "\n\n" + "Passages:\n\n" + "\n\n".join(quoted)
 
         def check(output: ScoutReport) -> None:
             for document in output.documents:

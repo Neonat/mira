@@ -411,7 +411,10 @@ class _Run:
     def _check_coverage(self) -> None:
         if not self.expected:
             return
-        with self._step("completeness_checker", input_refs={"expected_source_ids": [str(e.id) for e in self.expected]}) as step:
+        # Code only, so it costs no tokens: run it even when the budget is spent, so a
+        # partial report still shows which checklist items were covered.
+        with self._step("completeness_checker", check_budget=False,
+                        input_refs={"expected_source_ids": [str(e.id) for e in self.expected]}) as step:
             self.coverage = coverage_rows(self.expected, self.sources, self.tasks, self.scout_results, self.skipped,
                                           passages=self.passages)
             self.store.save_coverage(self.ctx, self.coverage)
