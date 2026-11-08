@@ -355,5 +355,24 @@
     "skipped": 0,
     "local_migration": "20261108110000",
     "evidence": "../../eval/evidence/2026-11-08-hk-exa-run-fe65444d.md"
+  },
+  "clean_hk_validation_and_offline_followup_20261108": {
+    "measured_run_id": "7e877c4e-e10e-4e19-9025-450db0666773",
+    "measured_source_sha": "43a7b1c1c25003ec63cac8dc27a2aa5ce59ffc10",
+    "execution": "uninterrupted draft; no continuation",
+    "acquired_and_cited": "5/18; unchanged",
+    "corroboration_model_calls": 6,
+    "corroboration_completed": 0,
+    "corroboration_timeouts": 6,
+    "mas_enabled": false,
+    "paid_research_runs": 1,
+    "offline_followup_sha": "78c67718327776eae7c98c32c83d094a8f0dd138",
+    "offline_tests_passed": 538,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "offline_live_validated": false,
+    "new_paid_test_authorized": false,
+    "handoff": "clean-hk-followup.md",
+    "evidence": "../../eval/evidence/2026-11-08-hk-clean-run-7e877c4e.md"
   }
 }
