@@ -35,3 +35,6 @@ Acceptance: independent support, copied reporting, mismatch, contradiction, prim
 - Effective claim budgets are capped by the shared run's remaining tokens/documents/deadline. Failed queries/acquisitions consume their attempted allowance; assessor usage enters the same step ledger. Saved-only assessment needs no fetched-document allowance. No automatic live discovery is enabled by supplying a credential alone.
 - Original capture digest remains separate from extraction identity. Extraction method/version/text hash participates in reuse identity so identical bytes with changed extraction cannot silently return prior passages. No historical passages are overwritten.
 - Conflict has precedence over support in the summary. Origin decisions require specific retained evidence; a different domain alone cannot prove independence. Browser authorization defaults false, and unsupported browser mediation is a disclosed gap, never a path around robots/access blocks.
+
+## Publication base update (8 November)
+PR4 was merged by a teammate during implementation; PR5/6 were also merged. Coordinator integrated upstream `16effde` in `78c92d8`, preserving numeric quote checks, scout token/category seeding and documentary evidence. Final publication is a new PR targeting `main`, not the initially proposed stacked PR. No existing PR is rewritten or merged by this task.

@@ -2,6 +2,12 @@
 
 This directory coordinates parallel engineering work. It is not a change to Mira's runtime agent architecture. Use a fresh task/fork without chat history; include only the task, ownership boundary, and this checkpoint. Do not ask workers to reread historic chat.
 
+## Current ingestion/corroboration implementation
+
+The active branch is `codex/ingestion-corroboration`. Phase 1 exited at `83c84c1` with independent review and **378 tests plus 8 subtests, none skipped**, including local PostgreSQL. Phase 2 implements saved-first corroboration, bounded optional targeted acquisition, exact proposition/origin decisions and immutable reviewed results. Read [ingestion expansion](ingestion-expansion.md), [measurement](ingestion-measurement.md), [corroboration](corroboration.md) and [bounded acquisition](corroboration-acquisition.md) for current scoped ownership and evidence. The coordinator's final integration handoff/checkpoint supersedes the historical work order below.
+
+PR4 and subsequent PR5/PR6 are merged; current upstream `16effde` is integrated, preserving their guardrails and documentation. Final integration at `42efc32` passed **459 tests plus 8 subtests, none skipped**, including local PostgreSQL and offline evaluation. See [integration handoff](ingestion-corroboration-integration.md); a new PR targets `main` after PR4/5/6 merged. No paid/live research/model calls or remote migrations are authorized by these changes. D7 defaults are explicit in PRD §6; enterprise policy adoption, original capture retention and durable artifact storage remain open. Existing slides/video keep their historical evidence cut. A separate upstream HK precision worksheet awaits review and is not post-feature evidence.
+
 ## Current checkpoint
 
 - Runtime checkpoint branch: `codex/nat-ingestion`; roadmap documentation branch: `codex/prd-ingestion-corroboration`; origin: `https://github.com/Neonat/mira.git`.
@@ -19,7 +25,7 @@ This directory coordinates parallel engineering work. It is not a change to Mira
 
 Use this bounded prompt in a new Codex session in this repository:
 
-> Read AGENTS.md, this handover, checkpoint.json, evidence-integrity-fix.md, hk-telemetry-diagnosis.md and PRD v3 §§5.3, 6 and 10. Use current `git rev-parse HEAD` as the assignment base. The three integrity fixes and local database validation are complete. New authorized work is Phase 1 ingestion expansion/coverage, including justified Exa/browser paths, followed by Phase 2 independent-source corroboration after §5.3.2. Do not ask for feature approval again, but resolve material policy, permission or spending decisions. Preserve frozen evidence and fail-closed rendering; no historical backfills or new paid/live calls without bounded authorization. Existing slides/video reflect prior synthetic/historical behavior. At most three fresh-context workers with disjoint ownership when explicitly assigned.
+> Read AGENTS.md, this handover, checkpoint.json and ingestion-corroboration-integration.md. Both authorized phases are implemented and independently reviewed. Runtime source checkpoint is 42efc32, with upstream main16effde preserved. Final tests/eval including local PostgreSQL:459passed+8subtests, none skipped. Do not repeat paid/live runs, change model/source permissions, invent historical bindings or deploy remotely. Existing slides/video remain historical; use the current feature-status note before new claims. Resolve remaining enterprise policy/live measurement/storage gaps through a newly scoped assignment.
 
 The project profiles select models explicitly. See `.codex/agents/`; the coordinator keeps the user's existing model. Profiles follow the [official custom-agent format](https://learn.chatgpt.com/docs/agent-configuration/subagents). They apply to fresh sessions; creating these files does not reset this chat's context or change Mira's API model settings.
 
@@ -33,7 +39,7 @@ The project profiles select models explicitly. See `.codex/agents/`; the coordin
 
 The initial preparation assignments used checkpoint `1c970c8`; the first production pass used `aa05d8d`, with telemetry pushed in `2445846`. This latest pass used `f153e71` and made exactly one paid research run. Read completed handovers before assigning more work; workers are not continuing in the background. Generated deck/video artifacts remain ignored local deliverables, while their reproduction and limitations are tracked here.
 
-## Work order and boundaries
+## Historical work order and boundaries (superseded by the completed integration above)
 
 1. The integrity fixes are complete. Next implement Phase 1 ingestion expansion/coverage using retained diagnostics and justified Exa/browser paths under PRD §5.3.1, preserving eligible-version filtering and source permissions. No post-fix live recall is measured; further paid/live validation requires new bounded coordinator authorization. MAS is blocked; some industry sources lack storage permission.
 2. `evidence_architect` remains read-only design/review until Phase 1 exits under PRD §5.3.2. Then activate the approved Phase 2 corroboration implementation without another feature-approval request. Keep its implementation to assigned corroboration module/schema/design files and coordinate shared contracts/orchestration/migrations with the coordinator. Both new phases are currently unimplemented.

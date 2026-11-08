@@ -166,7 +166,7 @@
   "current_work_direction": {
     "recorded_date": "2026-11-07",
     "basis": "User requested a separate-agent handoff for ingestion expansion followed by corroboration, then requested the PRD update.",
-    "status": "Approved planned work; neither phase implemented by this documentation update",
+    "status": "Both phases implemented locally; independently reviewed and offline/local PostgreSQL validated",
     "phase_1": "Ingestion expansion and evidenced coverage fixes, including justified Exa-assisted discovery and controlled browser extraction",
     "phase_1_exit": "PRD v3 section 5.3.2: targeted end-to-end paths, regressions, independent review, integrated local PostgreSQL validation, checkpoint and disclosed gaps/measurement limits",
     "phase_2": "Independent-source corroboration after the Phase 1 gate; feature approval need not be repeated",
@@ -182,7 +182,7 @@
       "Historical evidence backfills",
       "Remote migrations/deployment"
     ],
-    "policy_open": "D7 claim eligibility, independence criteria, search allowance and sign-off effects; material choices still require resolution",
+    "policy_open": "Explicit prototype defaults implemented in PRD6; enterprise D7 adoption, D5/D8/D9 decisions and live quality remain open",
     "historical_scope_note": "Earlier deferred fields describe their recorded integration/demo checkpoints, not the current work direction.",
     "requirements": "docs/mira_PRD_v3_draft.md sections 5.3, 6, 8 and 10",
     "documentation_branch": "codex/prd-ingestion-corroboration",
@@ -206,12 +206,63 @@
     "handoffs": [
       "ingestion-expansion.md",
       "ingestion-measurement.md"
-    ]
+    ],
+    "implementation_sha": "83c84c19f38fea9fe8ad8ba31fcd13d31d14675d"
   },
   "publication_pending": {
     "branch": "codex/ingestion-corroboration",
     "target": "main",
     "prior_pr4": "merged",
     "integrated_upstream": "16effde5ad5cf6f348c1826321e77d150e1971c1"
+  },
+  "corroboration_integration": {
+    "recorded_date": "2026-11-08",
+    "status": "complete",
+    "implementation_sha": "42efc3268675e1e673694d304c3020a2b8dff851",
+    "integrated_upstream": "16effde5ad5cf6f348c1826321e77d150e1971c1",
+    "phase_1_gate": "83c84c1; 378 tests + 8 subtests, none skipped",
+    "contract": "1.5 for reviewed bundles with assessments; complete 1.4 remains readable",
+    "migration": "20261107200000_mira_corroboration.sql",
+    "provenance_migration": "20261107190000_mira_acquisition_provenance.sql",
+    "migration_scope": "local PostgreSQL only; no invented historical assessments/bindings",
+    "tests_passed": 459,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "suite_seconds": 13.83,
+    "suite": "tests and eval, scripted providers/fake web/local PostgreSQL",
+    "independent_review": "No remaining important issues after service, acquisition deadline, merge and final integration reviews",
+    "behaviour": [
+      "Saved-first factual claim corroboration, then optional explicitly enabled bounded discovery/acquisition",
+      "Exact material proposition, quotations and evidenced independent origins; canonical common organization/origin remains dependent",
+      "Conflicts win; missing or uncertain candidate decisions remain incomplete and prevent clean independent status",
+      "Authoritative primary-only stays valid; incomplete/unavailable checks remain explicit",
+      "Immutable assessment sequence and complete actual verification/reviewer bindings",
+      "Frozen reviewed assessment/evidence; stale candidate blocks new sign-off; later searches do not mutate signed output"
+    ],
+    "budget_defaults": {
+      "queries": 2,
+      "documents_and_attempts": 5,
+      "passages": 20,
+      "seconds": 30,
+      "shared_run_budget": true,
+      "unknown_usage": "Conservative reserved_tokens separately labelled from reported usage"
+    },
+    "new_live_calls": 0,
+    "new_paid_runs": 0,
+    "model_configuration_changed": false,
+    "source_permissions_expanded_by_task": false,
+    "visual_check": "Synthetic signed HTML checked offline at1280px/390px; no horizontal overflow. No new authenticated browser rehearsal.",
+    "unmeasured": [
+      "Post-feature live publication/citation recall",
+      "Corroboration semantic/origin precision",
+      "Auditor time savings"
+    ],
+    "remaining": [
+      "Durable original binary retention",
+      "Durable report artifact storage/restore",
+      "Permission/access gaps incl MAS and industry sources",
+      "Enterprise adoption of prototype D7 defaults"
+    ],
+    "handoff": "ingestion-corroboration-integration.md"
   }
 }
