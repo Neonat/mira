@@ -36,3 +36,5 @@ Final command: `PYTHONPATH=/private/tmp/mira-browser-deps:. MIRA_BROWSER_EXECUTA
 Open risks: external publisher availability can change; unverified endpoint/language mappings are intentionally not invented. This does not provide an archived original, change independent-source judgements, recover missed facts or resolve the earlier bounded-run acceptance limits. MAS remains disabled.
 
 Exact next step at this checkpoint: publish this separately reviewed link fix and share its PR and the updated local draft. PR7 is merged; do not automatically merge the new follow-up or deploy remotely. Status: implementation, review and verification complete.
+
+Publication: [PR9](https://github.com/Neonat/mira/pull/9) is open against main; implementation `a414863`. PR7 remains merged. No follow-up merge or deployment performed.

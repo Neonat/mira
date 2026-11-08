@@ -192,7 +192,7 @@
     "pushed_source_sha": "27c28fac8631c9afdb8cdef60ab6b48b526ef5a7",
     "publication": "Follow-up PR4; PR3 is merged"
   },
-  "active_pr": null,
+  "active_pr": "https://github.com/Neonat/mira/pull/9",
   "current_work_direction": {
     "recorded_date": "2026-11-07",
     "basis": "User requested a separate-agent handoff for ingestion expansion followed by corroboration, then requested the PRD update.",
@@ -521,6 +521,8 @@
       "skipped": 0,
       "seconds": 54.55,
       "scope": "Complete tests/eval; local PostgreSQL and actual Chromium fixtures; no paid research"
-    }
+    },
+    "pr": "https://github.com/Neonat/mira/pull/9",
+    "implementation_sha": "a4148637eab28aac869f1dd2021221ab6e1e487f"
   }
 }
