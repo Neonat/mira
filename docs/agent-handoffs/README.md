@@ -2,6 +2,10 @@
 
 This directory coordinates parallel engineering work. It is not a change to Mira's runtime agent architecture. Use a fresh task/fork without chat history; include only the task, ownership boundary, and this checkpoint. Do not ask workers to reread historic chat.
 
+## Latest bounded Hong Kong research validation
+
+One user-authorized run at `ef58c47` finished **failed at analysis** after 8.41 minutes: 30 complete HTTP acquisitions, acquired benchmark coverage **7/18 versus earlier local 9/18**; no report, browser attempts or corroboration assessments. Exa plugin relay enabled, but only one of six requested searches returned in time (three actual connector calls). MAS stayed inactive with zero fetches/versions, and the temporary HKMA browser grant was removed. Unknown failed-call usage is reserved, not measured. This does not validate all-three end-to-end behavior or a coverage improvement. Read [result and limits](../../eval/evidence/2026-11-08-hk-bounded-run-a88dd20e.md). No runtime code, PR6 behavior, models, slides or historical reports changed; no replacement paid run.
+
 ## Latest PR7 follow-up: actual live browser
 
 `0f9526d` adds real Chromium navigation/JavaScript and permitted read-only actions, with explicit global/source approvals and frozen browser context. **487tests +8subtests passed, none skipped**, including real Chromium fixtures, local PostgreSQL and PR6 regressions. One HKMA public-page capture succeeded in24.91s (20,084characters,128links); two denied optional resources mean partial capture. Earlier60s timeout is preserved with unknown-stage caveat. MAS remains disabled by explicit user instruction; no source grants were persisted, model settings changed or paid/model calls made. Read [live-browser integration](live-browser-integration.md) and [portable HKMA evidence](hkma-live-browser-validation.json). PR7 is updated, not merged/deployed.
