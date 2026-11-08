@@ -1,0 +1,249 @@
+{
+  "kind": "live_interrupted_observation",
+  "run_id": "1637f9f8-a3f3-49e0-af06-2d15f6d198f6",
+  "source_sha": "3c0842fe6b55719a82cd6bc82462c4b604fbaaa2",
+  "tested_runtime_sha": "240aef8fc2dd215c4b59fe711d3248a94ef080ba",
+  "authorization": "User: what is a worker only credential? you can run it; one bounded validation, no resume or replacement",
+  "models": {
+    "planner": "openai:gpt-5.4",
+    "regulatory_scout": "openai:gpt-5.4-mini",
+    "industry_scout": "openai:gpt-5.4-mini",
+    "analyst": "openai:gpt-5.4",
+    "verifier": "openai:gpt-5.4",
+    "writer": "openai:gpt-5.4-mini"
+  },
+  "scope": {
+    "topic": "AML/CFT",
+    "jurisdictions": [
+      "HK"
+    ],
+    "period_start": "2025-11-04",
+    "period_end": "2026-11-04",
+    "as_of_date": "2026-11-04"
+  },
+  "budget": {
+    "max_fetched_documents": 30,
+    "max_llm_tokens": 600000,
+    "max_run_minutes": 25.0,
+    "max_gap_rounds": 2,
+    "max_exa_searches": 6
+  },
+  "feature_flags": {
+    "exa": true,
+    "live_browser": true,
+    "corroboration": true,
+    "hybrid": false
+  },
+  "execution": {
+    "status": "failed",
+    "interrupted": true,
+    "resumed": false,
+    "replacement_started": false,
+    "clean_uninterrupted": false,
+    "run_started_events": 1,
+    "run_finished_events": 0,
+    "provider_execution_restarted": false,
+    "strict_quality_export_accepted": false,
+    "strict_export_refusal": "Single uninterrupted execution proof required",
+    "started_at": "2026-11-08 15:24:16.115227+00:00",
+    "last_retained_event_at": "2026-11-08T15:36:07.297607+00:00",
+    "closed_at": "2026-11-08 15:41:31.095949+00:00",
+    "timing_note": "Closure includes interruption/recovery downtime; exact process-stop/provider-completion time unavailable. No normal run_finished event was manufactured."
+  },
+  "acquisition": {
+    "saved_versions": 29,
+    "scout_request_sent_attempts": 29,
+    "fetch_log_entries": 35,
+    "fetch_log_outcomes": {
+      "refused": 4,
+      "saved": 29,
+      "reused": 2
+    },
+    "benchmark": {
+      "distinct_publications": 29,
+      "recall": {
+        "all": {
+          "found": 5,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 5,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 5,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT04",
+        "GT06",
+        "GT11",
+        "GT21",
+        "GT23"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT05",
+        "GT07",
+        "GT08",
+        "GT09",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT20",
+        "GT22",
+        "GT24"
+      ]
+    }
+  },
+  "analysis": {
+    "candidate_passages": 153,
+    "analysed_passages": 60,
+    "timeout_failed_passages": 24,
+    "interruption_failed_passages": 12,
+    "deferred_passages": 57,
+    "pending_passages": 0,
+    "retained_text": {
+      "passages": 153,
+      "characters": 132858
+    },
+    "saved_findings": 3,
+    "verified_findings": 0,
+    "batches": {
+      "started": 8,
+      "succeeded": 5,
+      "timed_out": 2,
+      "interrupted": 1
+    },
+    "unique_batch_ids": [
+      "B1",
+      "B2",
+      "B3",
+      "B4",
+      "B5",
+      "B6",
+      "B7",
+      "B8"
+    ],
+    "defer_reason": "batch_limit",
+    "coverage_note": "Analysed means the batch completed, including empty claim output. All saved passages survive; it does not establish exhaustive extraction or relevant-fact recall."
+  },
+  "report": {
+    "exists": false,
+    "citation_coverage": null,
+    "human_precision": null
+  },
+  "corroboration": {
+    "enabled": true,
+    "reached": false,
+    "requests": 0,
+    "assessments": 0,
+    "timeout_rate": null,
+    "independent_support_validated": false
+  },
+  "browser": {
+    "enabled": true,
+    "approved_sources": [],
+    "actual_attempts": 0,
+    "exercised": false
+  },
+  "mas": {
+    "active": false,
+    "fetches": 0,
+    "versions": 0,
+    "zero": true
+  },
+  "private_artifacts": {
+    "backend": "local",
+    "supabase_upload_exercised": false,
+    "worker_upload_credential_configured": false
+  },
+  "usage": {
+    "actual_known_tokens": 233332,
+    "failed_request_unknown_reservations": 83528,
+    "unfinished_request_unknown_reservations": 44166,
+    "conservative_actual_plus_unknown_tokens": 361026,
+    "unknown_failed_requests": 2,
+    "unresolved_requests": 1,
+    "exa_requested": 5,
+    "exa_completed": 5,
+    "exa_errors": 0,
+    "note": "Unknown reservations are conservative validation envelopes, not measured provider usage or additional disjoint native reservations."
+  },
+  "historical_comparison": {
+    "baseline_run_id": "7be59cdf-8dc7-4c5f-ae22-1c3db4c10b82",
+    "baseline_acquired": {
+      "found": 6,
+      "total": 18
+    },
+    "current_acquired": {
+      "found": 5,
+      "total": 18
+    },
+    "acquired_delta": -1,
+    "baseline_cited": {
+      "found": 5,
+      "total": 18
+    },
+    "current_cited": null,
+    "cited_delta": null,
+    "newly_acquired": [
+      "GT11"
+    ],
+    "not_reacquired": [
+      "GT08",
+      "GT22"
+    ],
+    "comparison": "Interrupted observation only; no clean end-to-end acceptance, corroboration timeout improvement, human precision or causal feature-gain claim."
+  },
+  "validation": {
+    "runtime_changes": false,
+    "existing_full_suite": {
+      "passed": 939,
+      "subtests": 8,
+      "skipped": 0,
+      "seconds": 64.05,
+      "repeated": false
+    },
+    "offline_harness_checks": [
+      "shared six-search cap across concurrent domain clones",
+      "known usage refunds reservation",
+      "unknown usage retains conservative reservation",
+      "expired deadline refuses request",
+      "syntax/SQL placeholders"
+    ],
+    "post_interruption_checks": [
+      "original run/child processes absent before closure",
+      "local database restarted without reset",
+      "153 passages and three saved findings retained",
+      "failed only stranded run/step; appended interrupted passage dispositions",
+      "MAS inactive with zero acquisition",
+      "strict exporter refused missing uninterrupted proof",
+      "terminal read-only observation exported"
+    ]
+  },
+  "private_evidence_directory": "reports/1637f9f8-a3f3-49e0-af06-2d15f6d198f6",
+  "evidence_sha256": {
+    "run.py": "93c48fe13384e4dd3eb89a58e44cba30740f09ac0441dff8270c682098e56c98",
+    "outcome.json": "1743403905008e6fce92d0e1964baad00b167c801ebcb1ee0e3d293b0ca4a8a4",
+    "interruption.json": "87cf1921b9c298a73d397bb33b1d64180e488c17669ea2d6588dd9f489bda545",
+    "postprocess.py": "1027a89b7c25d2ce2bec0f75a9704e339e37dde3f3a4fd673ad8574082417539",
+    "events.jsonl": "e99a8347f2282c60806e6bcd593fe9dcd1c3ca9ae0b5eb65d9fedec7b0672e2a",
+    "telemetry.json": "7a1faa89550d663c1dec7d134a5352dc1fc422a05e79873b54746e5c444b1b96",
+    "manifest.json": "31f1000e2c41e75d64f6c524fc9e54f19f9b7a8a89a9056ae2b15c9489b7e5d0",
+    "strict-export-refusal.json": "4ba116da65c8e82a3c4306208ffa6a52599bd45d6669de21cc955fbd363a8257",
+    "preflight.json": "ea547e5a8c473d60e69224f66f764f2fea90dd546ccd2bef2b171280f5477260",
+    "observed.json": "70bac381e371f51166d624a8cf6b98db405073b1aa78060faf915d6a731e39a5",
+    "native-steps.json": "63b106d41c5534c195415ba038768b4349b39badcfd3087f7ef3518ace8edbfa",
+    "finalize_interruption.py": "fa10f9394c79bd6d24a7dc65395f8c022e7ed2616a46dca32bb668927e15ff75",
+    "status.py": "cbb91a8465c60067901c98af99b044244ee0764edb843005753d7fd01b88771b"
+  },
+  "follow_up": [
+    "Address analyst request deadlines and scheduling of publication text versus low-yield index passages using generic corpus metadata; keep the benchmark outside runtime inputs.",
+    "Uninterrupted verification, corroboration and report acceptance still unmeasured for this candidate.",
+    "Private Supabase uploads require a server-only Storage key and running/deployed Storage service; anon key remains app-only."
+  ]
+}

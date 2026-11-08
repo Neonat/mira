@@ -4,7 +4,7 @@ This directory coordinates parallel engineering work. It is not a change to Mira
 
 ## Durable evidence follow-up
 
-The user approved working on durability/recovery and quality-validation preparation. See the [current handoff](durable-evidence-checkpoint.md) and [operator runbook](../backup-recovery.md). This follow-up preserves PR6 guards, existing source grants, role models and MAS disablement. No paid live run or remote deployment is included.
+The user approved working on durability/recovery and quality-validation preparation. See the [current handoff](durable-evidence-checkpoint.md) and [operator runbook](../backup-recovery.md). This follow-up preserves PR6 guards, existing source grants, role models and MAS disablement. A subsequently authorized single HK run `1637f9f8` was interrupted before downstream verification/corroboration/report generation: 5/18 acquired versus 6/18 previously; citation metrics unavailable. Saved 153 passages and three unverified findings survived database restart. The stranded run was closed failed, without resuming/replacing it; strict quality export refused missing uninterrupted proof. Read [result](../../eval/evidence/2026-11-08-hk-interrupted-1637f9f8.md). The allowance is consumed. No remote deployment or private Storage upload was performed; no further paid run is authorized.
 
 ## Evidence-completeness extension under review
 
