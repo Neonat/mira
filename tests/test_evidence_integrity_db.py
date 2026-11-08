@@ -88,7 +88,7 @@ def add_support_as_analyst(conn, ctx, fact_id):
     return passage_id, analyst_id
 
 
-def reverify_current_inputs(conn, ctx, tmp_path):
+def reverify_current_inputs(conn, ctx, tmp_path, corroboration=None):
     """Use actual Python inputs and worker save_checks, never server-forged attestations."""
     finding_ids = [row["id"] for row in conn.execute(
         "select id from public.analysis_findings where analysis_run_id=%s", (ctx.analysis_run_id,),
@@ -108,11 +108,12 @@ def reverify_current_inputs(conn, ctx, tmp_path):
                      "reason": "still grounded in the checked facts"} if claim.draft.is_inference else
                     {"verdict": "supported", "reason": "both actual supporting passages agree"})
         verifier = LlmVerifier(ScriptedClient({"verifier": [scripted]}))
-        actual_input = build_verification_input(ctx, claim, claims, passages)
+        actual_input = build_verification_input(ctx, claim, claims, passages, corroboration)
+        extra = {"corroboration":actual_input.corroboration} if actual_input.corroboration else {}
         if claim.draft.is_inference:
-            result = verifier.check_inference(claim, [claims[fid] for fid in claim.depends_on], prior["attempt"] + 1)
+            result = verifier.check_inference(claim, [claims[fid] for fid in claim.depends_on], prior["attempt"] + 1, **extra)
         else:
-            result = verifier.check_fact(claim, [passages[e.passage_id] for e in claim.evidence], prior["attempt"] + 1)
+            result = verifier.check_fact(claim, [passages[e.passage_id] for e in claim.evidence], prior["attempt"] + 1, **extra)
         assert result.verdict == "supported"
         store.save_checks(ctx, prior["agent_step_id"], result.checks,
                           input_snapshot=actual_input.model_dump(mode="json"))

@@ -30,7 +30,7 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator, model_serializer
 
 CONTRACT_VERSION = "1.4"
 
@@ -166,6 +166,9 @@ class FetchAttempt(Contract):
     document_version_id: UUID | None
     error: str | None
     attempted_at: datetime
+    acquisition_method: Literal["http_fetch", "offline_browser", "live_browser"] | None = None
+    request_sent: bool = True
+    diagnostics: list[dict] = Field(default_factory=list,max_length=200)
 
 
 class ScoutResult(Contract):
@@ -392,6 +395,7 @@ class FrozenPassage(Contract):
     page_number: int | None = None
     char_start: int | None = None
     char_end: int | None = None
+    acquisition_provenance: dict = Field(default_factory=dict)
 
 
 class EvidenceInput(Contract):
@@ -401,6 +405,14 @@ class EvidenceInput(Contract):
     analysis_revision_id: UUID
     findings: dict[UUID, FrozenFinding]
     passages: dict[UUID, FrozenPassage]
+    corroboration: dict[UUID, dict] | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_corroboration(self, handler):
+        payload = handler(self)
+        if not self.corroboration:
+            payload.pop("corroboration", None)
+        return payload
 
 
 class FrozenExpectedSource(Contract):

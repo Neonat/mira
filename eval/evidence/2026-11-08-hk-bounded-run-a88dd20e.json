@@ -1,0 +1,289 @@
+{
+  "recorded_date": "2026-11-08",
+  "source_sha": "ef58c47e8f94ae126181a03f7220a5a709fc7b7f",
+  "run_id": "a88dd20e-2fe8-41c2-8839-0b6ef85569a3",
+  "status": "failed",
+  "failure_summary": "analyst failed: bounded request failed",
+  "seconds": 504.6552559999982,
+  "brief": {
+    "topic": "AML/CFT",
+    "jurisdictions": [
+      "HK"
+    ],
+    "period_start": "2025-11-04",
+    "period_end": "2026-11-04",
+    "as_of_date": "2026-11-04",
+    "plan_requires_approval": false
+  },
+  "budget": {
+    "max_fetched_documents": 30,
+    "max_llm_tokens": 600000,
+    "max_run_minutes": 25.0,
+    "max_gap_rounds": 2
+  },
+  "models": {
+    "planner": "openai:gpt-5.4",
+    "regulatory_scout": "openai:gpt-5.4-mini",
+    "industry_scout": "openai:gpt-5.4-mini",
+    "analyst": "openai:gpt-5.4",
+    "verifier": "openai:gpt-5.4",
+    "writer": "openai:gpt-5.4-mini"
+  },
+  "transport": {
+    "transport": "connected Exa plugin via URL-only validation relay",
+    "max_queries": 6,
+    "max_results": 10,
+    "timeout_seconds": 10,
+    "production_HTTP_auth_tested": false
+  },
+  "validation_model_caps": {
+    "per_call_timeout_seconds": 180,
+    "per_call_max_output_tokens": 16000,
+    "total_token_accounting": "UTF-8 prompt/schema envelope reservation plus 8192 framing; unused reservation refunded on known usage; unknown retained"
+  },
+  "features": {
+    "exa": {
+      "enabled": true,
+      "requested": 6,
+      "connector_calls": 3,
+      "requested_results_per_call": 10,
+      "results_delivered_in_time": 10,
+      "accepted_requests": 1,
+      "timed_out_requests": 5,
+      "late_results_discarded": true,
+      "production_http_auth_tested": false
+    },
+    "live_browser": {
+      "enabled": true,
+      "approved_source_keys": [
+        "hkma"
+      ],
+      "http_block_fallback": false,
+      "attempts": 0,
+      "captures": 0,
+      "grant_removed_after_run": true
+    },
+    "corroboration": {
+      "enabled": true,
+      "assessments": 0,
+      "reason": "run failed before verification/corroboration"
+    },
+    "mas": {
+      "active": false,
+      "fetches": 0,
+      "versions": 0
+    }
+  },
+  "current": {
+    "saved_versions": 30,
+    "extraction_statuses": {
+      "complete": 30
+    },
+    "fetch_log_entries": 43,
+    "charged_scout_attempts": 30,
+    "fetch_outcomes": {
+      "saved": 30,
+      "refused": 3,
+      "reused": 10
+    },
+    "acquisition_recall": {
+      "all": {
+        "found": 7,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 7,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 7,
+        "total": 14
+      }
+    },
+    "stored_text_recall": {
+      "all": {
+        "found": 7,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 7,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 7,
+        "total": 14
+      }
+    },
+    "acquired_benchmark_ids": [
+      "GT04",
+      "GT05",
+      "GT06",
+      "GT11",
+      "GT16",
+      "GT21",
+      "GT22"
+    ],
+    "report_exists": false,
+    "citation_recall": null,
+    "checklist": [
+      {
+        "status": "fetch_failed",
+        "count": 1
+      },
+      {
+        "status": "found",
+        "count": 4
+      },
+      {
+        "status": "missing",
+        "count": 6
+      },
+      {
+        "status": "no_change",
+        "count": 2
+      }
+    ],
+    "recorded_tokens": 254700,
+    "estimated_cost_usd": 0.6603,
+    "step_statuses": {
+      "succeeded": 18,
+      "failed": 2
+    }
+  },
+  "baseline": {
+    "run_id": "e2fda30f-36f9-4aa3-83c3-d78b81671b83",
+    "saved_versions": 32,
+    "acquisition_recall": {
+      "all": {
+        "found": 9,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 9,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 9,
+        "total": 14
+      }
+    },
+    "acquired_benchmark_ids": [
+      "GT03",
+      "GT04",
+      "GT05",
+      "GT06",
+      "GT11",
+      "GT16",
+      "GT21",
+      "GT22",
+      "GT24"
+    ],
+    "citation_recall": {
+      "all": {
+        "found": 9,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 9,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 9,
+        "total": 14
+      }
+    },
+    "report_exists": true,
+    "report_cited_claims": 19,
+    "checklist": [
+      {
+        "status": "found",
+        "count": 4
+      },
+      {
+        "status": "missing",
+        "count": 6
+      },
+      {
+        "status": "no_change",
+        "count": 3
+      }
+    ],
+    "recorded_tokens": 372220,
+    "estimated_cost_usd": 1.829
+  },
+  "secondary_historical_reference": {
+    "run_id": "29a153bb-ffa2-40a1-a702-3abc828bed4c",
+    "citation_recall": {
+      "found": 11,
+      "total": 18
+    },
+    "regulatory_citation_recall": {
+      "found": 11,
+      "total": 14
+    },
+    "source": "2026-11-07-hk-run-29a153bb.md",
+    "comparable": false,
+    "reason": "different actual model family, dates, caps and source checkpoint; DB unavailable locally"
+  },
+  "usage": {
+    "counts": {
+      "run_started": 1,
+      "model_started": 24,
+      "model_completed": 22,
+      "exa_requested": 6,
+      "exa_timeout": 5,
+      "model_error": 2,
+      "exa_cap_reached": 4,
+      "exa_received": 1,
+      "run_finished": 1
+    },
+    "model_usage_known": 254700,
+    "unknown_model_usage_events": [
+      {
+        "at": "2026-11-08T07:14:19.576806+00:00",
+        "kind": "model_error",
+        "id": "cd0830b267984fa6a089d6f834fd4640",
+        "role": "regulatory_scout",
+        "usage_known": false,
+        "charged_or_reserved": 76682,
+        "error": "bounded request failed"
+      },
+      {
+        "at": "2026-11-08T07:19:45.789939+00:00",
+        "kind": "model_error",
+        "id": "46ee0e33ec4d45b79bdf16a8831f371c",
+        "role": "analyst",
+        "usage_known": false,
+        "charged_or_reserved": 110734,
+        "error": "bounded request failed"
+      }
+    ]
+  },
+  "reserved_unknown_tokens": 187416,
+  "coverage_delta": {
+    "acquisition_publications": -2,
+    "newly_acquired": [],
+    "not_reacquired": [
+      "GT03",
+      "GT24"
+    ],
+    "report_citation_delta": null
+  },
+  "verification": {
+    "recall_scorer_tests": 14,
+    "runtime_changes": false,
+    "paid_research_runs": 1,
+    "no_rerun": true,
+    "no_human_precision_labels": true,
+    "baseline_workspace_has_only_one_run": true
+  },
+  "limitations": [
+    "Not a successful end-to-end validation: analyst failed before claims, corroboration or report.",
+    "Sanitized bounded provider failure does not establish root cause or prove a timeout/output-limit failure.",
+    "Configured models and brief/caps match e2fda30f; validation-only call bounds and plugin relay differ.",
+    "Baseline saved 32 versions despite 30 requested; new run saved and charged 30.",
+    "Missing provider usage retained as reservation, not reported as measured tokens/cost.",
+    "A single run does not establish a causal ingestion or coverage gain.",
+    "Browser was enabled with permission but no fallback was needed; corroboration enabled but not reached."
+  ]
+}

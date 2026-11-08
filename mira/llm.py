@@ -66,14 +66,25 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 class LLMError(RuntimeError):
     """A model call failed. Carries the tokens spent so budgets stay accurate."""
 
-    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0) -> None:
+    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0, *, code: str = "unknown") -> None:
         super().__init__(message)
         self.tokens_in = tokens_in
         self.tokens_out = tokens_out
+        self.code = code
 
 
 class LLMOutputError(LLMError):
     """The model answered, but not with a valid instance of the requested contract."""
+
+    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0, *, code: str = "output_validation") -> None:
+        super().__init__(message, tokens_in, tokens_out, code="output_validation")
+
+
+# Only categories, never provider bodies, cross the isolated-process boundary.
+SAFE_ERROR_CODES = frozenset({"unknown", "output_validation", "output_limit", "incomplete_response",
+    "provider_response_failed", "stream_interrupted", "stream_error", "request_timeout",
+    "provider_request", "insufficient_quota", "rate_limit_exceeded", "model_not_found",
+    "invalid_api_key", "unsupported_parameter", "refusal"})
 
 
 @dataclass(frozen=True)
@@ -199,7 +210,15 @@ class OpenAIClient:
                                   "schema": output_type.model_json_schema(), "strict": True}},
                 store=False,
             ) as stream:
-                response = stream.get_final_response()
+                # The SDK's get_final_response only returns response.completed;
+                # incomplete/failed events otherwise raise and lose their usage.
+                response = None
+                for event in stream:
+                    if event.type in ("response.completed", "response.incomplete", "response.failed"):
+                        response = event.response
+                        break
+                if response is None:
+                    raise LLMError(f"{role} stream ended without a terminal response", code="stream_interrupted")
         except APIError as exc:
             # Never put provider error bodies (which can contain request data) in run logs.
             status = getattr(exc, "status_code", None)
@@ -207,15 +226,22 @@ class OpenAIClient:
             safe_code = code if code in ("insufficient_quota", "rate_limit_exceeded", "model_not_found",
                                          "invalid_api_key", "unsupported_parameter") else None
             raise LLMError(f"{role} OpenAI request failed: {type(exc).__name__} "
-                           f"(HTTP {status}, code {safe_code})") from None
+                           f"(HTTP {status}, code {safe_code})", code=safe_code or "provider_request") from None
+        except (RuntimeError, ValueError) as exc:
+            if isinstance(exc, LLMError):
+                raise
+            raise LLMError(f"{role} OpenAI stream failed", code="stream_error") from None
         usage = response.usage
         tokens_in = usage.input_tokens if usage else 0
         tokens_out = usage.output_tokens if usage else 0
         if response.status != "completed":
-            raise LLMError(f"{role} OpenAI response {response.status}", tokens_in, tokens_out)
+            reason = getattr(getattr(response, "incomplete_details", None), "reason", None)
+            code = "output_limit" if reason == "max_output_tokens" else (
+                "incomplete_response" if response.status == "incomplete" else "provider_response_failed")
+            raise LLMError(f"{role} OpenAI response {response.status} ({code})", tokens_in, tokens_out, code=code)
         if any(part.type == "refusal" for item in response.output if item.type == "message"
                for part in item.content):
-            raise LLMError(f"{role} call refused", tokens_in, tokens_out)
+            raise LLMError(f"{role} call refused", tokens_in, tokens_out, code="refusal")
         try:
             output = output_type.model_validate_json(response.output_text)
         except ValidationError as exc:
@@ -250,6 +276,39 @@ class ProviderClient:
                                  output_type=output_type, prompt_version=prompt_version)
 
 
+    def structured_bounded(self, *, role, system, user, output_type, prompt_version,
+                           timeout_seconds: float, max_output_tokens: int):
+        """One isolated request; kill its process on deadline, never leave a paid thread running.
+
+        Model and effort configuration are unchanged. Prompts travel on stdin.
+        Timeout cannot recover provider usage that was never reported.
+        """
+        import json
+        import subprocess
+        import sys
+        if timeout_seconds <= 0 or max_output_tokens < 1:
+            raise LLMError("bounded request has no remaining allowance")
+        payload = dict(role=role, system=system, user=user, prompt_version=prompt_version,
+                       output_module=output_type.__module__, output_name=output_type.__name__,
+                       timeout_seconds=timeout_seconds, max_output_tokens=max_output_tokens)
+        try:
+            result = subprocess.run([sys.executable, "-c", "from mira.llm import _bounded_child; _bounded_child()"],
+                input=json.dumps(payload).encode(), capture_output=True, timeout=timeout_seconds, check=True)
+            data = json.loads(result.stdout)
+        except subprocess.TimeoutExpired:
+            raise LLMError("bounded request timed out; provider usage may be unavailable") from None
+        except Exception:
+            raise LLMError("bounded request failed; provider usage may be unavailable") from None
+        if "error" in data:
+            code = data.get("error_code", "unknown")
+            code = code if code in SAFE_ERROR_CODES else "unknown"
+            error = LLMOutputError if code == "output_validation" else LLMError
+            raise error(f"bounded request failed ({code})", data.get("tokens_in", 0),
+                        data.get("tokens_out", 0), code=code)
+        return LLMResult(output_type.model_validate(data["output"]), data["model"], prompt_version,
+                         data["tokens_in"], data["tokens_out"])
+
+
 def call_checked(
     client: LLMClient,
     *,
@@ -279,7 +338,7 @@ def call_checked(
             tokens_in, tokens_out = tokens_in + exc.tokens_in, tokens_out + exc.tokens_out
             error = exc
         except LLMError as exc:
-            raise LLMError(str(exc), tokens_in + exc.tokens_in, tokens_out + exc.tokens_out) from exc
+            raise LLMError(str(exc), tokens_in + exc.tokens_in, tokens_out + exc.tokens_out, code=exc.code) from exc
         else:
             tokens_in, tokens_out = tokens_in + result.tokens_in, tokens_out + result.tokens_out
             try:
@@ -314,6 +373,16 @@ class ScriptedClient:
     model: str = "scripted"
     calls: list[ScriptedCall] = field(default_factory=list)
 
+
+    def structured_bounded(self, *, timeout_seconds: float, max_output_tokens: int, **kwargs):
+        if timeout_seconds <= 0 or max_output_tokens < 1:
+            raise LLMError("bounded request has no remaining allowance")
+        result = self.structured(**kwargs)
+        if result.tokens_out > max_output_tokens:
+            raise LLMError("bounded output token limit reached", result.tokens_in, result.tokens_out)
+        return result
+
+
     def structured(
         self, *, role: AgentRole, system: str, user: str, output_type: type[T], prompt_version: str
     ) -> LLMResult[T]:
@@ -331,3 +400,27 @@ class ScriptedClient:
         except ValidationError as exc:
             raise LLMOutputError(str(exc), self.tokens_in, self.tokens_out) from exc
         return LLMResult(output, self.model, prompt_version, self.tokens_in, self.tokens_out)
+
+
+def _bounded_child():
+    """Internal subprocess entrypoint; emit structured output or safe usage only."""
+    import importlib
+    import json
+    import sys
+    value = json.load(sys.stdin)
+    output_type = getattr(importlib.import_module(value["output_module"]), value["output_name"])
+    try:
+        spec = model_for(value["role"])
+        factories = {"anthropic": AnthropicClient, "openai": OpenAIClient}
+        client = factories[spec.provider](max_tokens=value["max_output_tokens"])
+        client._client = client._client.with_options(timeout=value["timeout_seconds"], max_retries=0)
+        result = client.structured(role=value["role"], system=value["system"], user=value["user"],
+            output_type=output_type, prompt_version=value["prompt_version"])
+        data = dict(output=result.output.model_dump(mode="json"), model=result.model,
+                    tokens_in=result.tokens_in, tokens_out=result.tokens_out)
+    except LLMError as exc:
+        code = exc.code if exc.code in SAFE_ERROR_CODES else "unknown"
+        data = dict(error=True, error_code=code, tokens_in=exc.tokens_in, tokens_out=exc.tokens_out)
+    except Exception:
+        data = dict(error=True, error_code="unknown", tokens_in=0, tokens_out=0)
+    sys.stdout.write(json.dumps(data))

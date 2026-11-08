@@ -110,6 +110,16 @@ def test_anthropic_client_raises_on_refusal_and_invalid_output(verifier_model):
         structured(FakeSDK('{"verdict": "maybe", "reason": "x"}'))
 
 
+class FakeResponseStream:
+    def __init__(self, message): self.message = message
+    def __iter__(self):
+        yield SimpleNamespace(type='response.' + self.message.status, response=self.message)
+    def get_final_response(self):
+        if self.message.status != 'completed':
+            raise RuntimeError("Didn't receive a `response.completed` event.")
+        return self.message
+
+
 class FakeOpenAISDK:
     def __init__(self, text=None, status='completed', refusal=False):
         self.requests = []
@@ -120,7 +130,7 @@ class FakeOpenAISDK:
         @contextmanager
         def stream(**kwargs):
             self.requests.append(kwargs)
-            yield SimpleNamespace(get_final_response=lambda: message)
+            yield FakeResponseStream(message)
         self.responses = SimpleNamespace(stream=stream)
 
 
@@ -212,3 +222,78 @@ def test_openai_and_router_liveness():
     assert Measured.from_client('single_agent',router,0.5,1.0,2.0).live
     router._clients['other']=ScriptedClient({})
     assert not Measured.from_client('single_agent',router,0.5,1.0,2.0).live
+
+
+def test_openai_incomplete_terminal_usage_is_not_lost_by_stream_helper(monkeypatch, openai_sdk):
+    from mira.llm import OpenAIClient
+    monkeypatch.setenv('MIRA_MODEL_VERIFIER','openai:gpt-5.4-mini')
+    sdk = FakeOpenAISDK(status='incomplete')
+    with pytest.raises(LLMError) as caught:
+        call(OpenAIClient(sdk))
+    assert (caught.value.tokens_in,caught.value.tokens_out) == (13,9)
+    assert caught.value.code == 'incomplete_response'
+
+
+def test_openai_unterminated_stream_fails_closed_without_error_body(monkeypatch, openai_sdk):
+    from mira.llm import OpenAIClient
+    monkeypatch.setenv('MIRA_MODEL_VERIFIER','openai:gpt-5.4-mini')
+    @contextmanager
+    def stream(**kwargs):
+        yield iter([SimpleNamespace(type='response.in_progress')])
+    sdk = SimpleNamespace(responses=SimpleNamespace(stream=stream))
+    with pytest.raises(LLMError) as caught:
+        call(OpenAIClient(sdk))
+    assert caught.value.code == 'stream_interrupted'
+    assert caught.value.tokens_in == caught.value.tokens_out == 0
+
+
+def test_real_openai_sdk_incomplete_sse_preserves_reported_usage(monkeypatch, openai_sdk):
+    import httpx
+    from openai import OpenAI
+    from mira.llm import OpenAIClient
+    monkeypatch.setenv('MIRA_MODEL_VERIFIER','openai:gpt-5.4-mini')
+    response = dict(id='resp_offline',object='response',created_at=1,model='gpt-5.4-mini',
+        status='incomplete',output=[],incomplete_details={'reason':'max_output_tokens'},
+        usage={'input_tokens':31,'output_tokens':19,'total_tokens':50,
+               'input_tokens_details':{'cached_tokens':0},'output_tokens_details':{'reasoning_tokens':19}})
+    events = [dict(type='response.created',sequence_number=0,response={**response,'status':'in_progress'}),
+              dict(type='response.incomplete',sequence_number=1,response=response)]
+    def serve(request):
+        assert request.url.path == '/v1/responses'
+        body = ''.join('data: '+json.dumps(event)+'\n\n' for event in events)
+        return httpx.Response(200,headers={'content-type':'text/event-stream'},content=body.encode())
+    with httpx.Client(transport=httpx.MockTransport(serve)) as transport:
+        sdk=OpenAI(api_key='offline-fixture-only',http_client=transport,max_retries=0)
+        with pytest.raises(LLMError) as caught:
+            call(OpenAIClient(sdk))
+    assert (caught.value.tokens_in,caught.value.tokens_out)==(31,19)
+    assert caught.value.code=='output_limit'
+
+
+@pytest.mark.parametrize('status',['completed','failed'])
+def test_real_openai_sdk_other_terminal_events(monkeypatch, openai_sdk, status):
+    import httpx
+    from openai import OpenAI
+    from mira.llm import OpenAIClient
+    monkeypatch.setenv('MIRA_MODEL_VERIFIER','openai:gpt-5.4-mini')
+    output=[{'id':'msg_fixture','type':'message','status':'completed','role':'assistant',
+             'content':[{'type':'output_text','text':json.dumps(verdict()),'annotations':[],'logprobs':[]}]}]
+    response=dict(id='resp_offline',object='response',created_at=1,model='gpt-5.4-mini',
+        status=status,output=output if status=='completed' else [],error=None,
+        usage={'input_tokens':31,'output_tokens':19,'total_tokens':50,
+               'input_tokens_details':{'cached_tokens':0},'output_tokens_details':{'reasoning_tokens':0}})
+    events=[dict(type='response.created',sequence_number=0,response={**response,'status':'in_progress','output':[]}),
+            dict(type='response.'+status,sequence_number=1,response=response)]
+    def serve(request):
+        return httpx.Response(200,headers={'content-type':'text/event-stream'},
+            content=''.join('data: '+json.dumps(event)+'\n\n' for event in events).encode())
+    with httpx.Client(transport=httpx.MockTransport(serve)) as transport:
+        client=OpenAIClient(OpenAI(api_key='offline-fixture-only',http_client=transport,max_retries=0))
+        if status=='completed':
+            result=call(client)
+            assert result.output==VerdictDraft(**verdict())
+            assert (result.tokens_in,result.tokens_out)==(31,19)
+        else:
+            with pytest.raises(LLMError) as caught:call(client)
+            assert caught.value.code=='provider_response_failed'
+            assert (caught.value.tokens_in,caught.value.tokens_out)==(31,19)

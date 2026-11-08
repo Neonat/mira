@@ -242,7 +242,8 @@ class PostgresStore:
                       s.jurisdiction_code, v.title, v.source_url, v.published_at, p.passage_number, p.content,
                       coalesce(v.metadata->>'import', '') = 'manual' as imported,
                       v.content_sha256, coalesce(p.extraction_version, v.extraction_version) as extraction_version,
-                      p.page_number, p.char_start, p.char_end
+                      p.page_number, p.char_start, p.char_end,
+                      jsonb_build_object('acquisition_method', v.metadata->'acquisition_method', 'requested_url', v.metadata->'requested_url', 'original_capture_sha256', v.metadata->'original_capture_sha256', 'capture_sha256', v.metadata->'capture_sha256', 'extraction_sha256', v.metadata->'extraction_sha256', 'original_retained', v.metadata->'original_retained', 'acquired_at', v.retrieved_at, 'browser_context', v.metadata->'browser_context') as acquisition_provenance
                from public.document_passages p
                join public.document_versions v on v.id = p.document_version_id
                join public.documents d on d.id = v.document_id
@@ -255,7 +256,7 @@ class PostgresStore:
                           row["source_name"], (row["jurisdiction_code"] or "").strip() or None, row["title"],
                           row["source_url"], _as_date(row["published_at"]), row["passage_number"], row["content"],
                           row["imported"], row["content_sha256"], row["extraction_version"],
-                          row["page_number"], row["char_start"], row["char_end"])
+                          row["page_number"], row["char_start"], row["char_end"], row["acquisition_provenance"])
             for row in rows
         ]
 

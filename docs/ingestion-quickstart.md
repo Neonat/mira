@@ -125,3 +125,34 @@ Synthetic demo items cannot be exported through this handoff. Downloading a pack
 Ingestion requires curator/admin permissions; authenticated search requires workspace membership. Do not use elevated credentials to bypass a missing role. Saai owns migrations and shared persistence, while Nat owns extraction semantics. The local UI neither loads worker credentials nor writes to Supabase. The explicit CLI import performs the database writes.
 
 The research pipeline now provides scouts, an agent workflow, coverage checks and report review. OCR, semantic embeddings, production hosting and measured live evaluation remain separate work. Inspecting or downloading evidence does not mark a report reviewed.
+
+### Optional bounded discovery and offline DOM capture
+
+`MIRA_ENABLE_EXA_DISCOVERY=1` plus an `EXA_API_KEY` enables URL-only Exa discovery for a separately authorized run. A key alone does not activate it. Queries use task-source domains and results still pass local source, fetch and text-storage permission checks. Search titles are discovery metadata; provider extracts never become report evidence. See the [Exa search reference](https://exa.ai/docs/reference/search).
+
+`MIRA_ENABLE_OFFLINE_BROWSER=1` enables an optional fallback for already fetched, unreadable HTML only where the source explicitly has `connector_config.allow_browser=true`. Install `.[browser]` and the matching Playwright Chromium. An optional trusted local `MIRA_BROWSER_EXECUTABLE` selects an installed Chromium executable. The capture uses a new offline, script-disabled browser context with all resource routes aborted; it cannot resolve pages requiring external JavaScript/data and never retries access refusals or block pages. Missing browser dependencies appear as extraction errors. This is DOM capture, not a complete archived publisher original.
+
+Capture and extracted-text hashes are retained separately; extraction changes create immutable saved versions even if acquired bytes are unchanged. Original HTML/PDF binaries are still not retained durably. A first re-fetch of an old body-only version may create a new version under the expanded identity; no old rows or reviewed reports are rewritten.
+
+### Actual live browser acquisition (PR7 follow-up)
+
+`MIRA_ENABLE_LIVE_BROWSER=1` enables real Chromium navigation and JavaScript; it does not grant source access. Install `.[browser]` and a compatible Chromium (or set `MIRA_BROWSER_EXECUTABLE`). A source additionally needs `allow_live_browser=true` and `browser_access_approval.reference` in its connector configuration, alongside existing `fetch` and `store_text` permission. An HTTP failure may trigger this path only when `browser_access_approval.allow_http_block_fallback=true`. Robots/private-address/source denials and HTTP429 never trigger browser retry. MAS remains disabled under the user's explicit instruction; no MAS approval or seed change is added.
+
+Example configuration for a source whose public browser use has been reviewed (a configuration example, not a new permission grant):
+
+```json
+{
+  "allow_live_browser": true,
+  "browser_access_approval": {
+    "reference": "source terms / curator approval reference",
+    "allow_http_block_fallback": false
+  },
+  "browser_actions": [{"type": "wait", "milliseconds": 500}]
+}
+```
+
+At most three curator-configured `click`/`wait` actions are supported. Forms, typing, login/CAPTCHA solving, stealth and write requests are excluded. Each navigation/redirect/text-resource request is source/robots/public-address checked, with public DNS pinned. Image/font/media resources are omitted, out-of-scope resources are blocked and disclosed, and the resulting DOM is explicitly partial when denied resources exist. JavaScript/CSS/XHR stay within the approved host set. No cookies/session state are imported or reused across captures.
+
+A failed HTTP attempt and the browser visit are separate acquisition attempts. Deadline cancellation kills the browser process group; unknown rate policy after interruption blocks only that target for the current run until fresh policy is established in a new run. Captured context records source approval, permitted actions, initial navigation-response identity, explicitly unknown final response identity, DOM hash, resource omissions/denials and bounded failure stages. The observed network-byte threshold may overshoot a delivered chunk; request count, DOM size and process wall deadlines are bounded. Original publisher binaries are not retained.
+
+One bounded live validation of HKMA's public Hong Kong circulars listing succeeded:24.91s,20,084 extracted characters,128 links. It used no model or paid API and made no MAS acquisition. Two blocked optional resources mean integration labels that capture partial; it is not publication completeness or a coverage/accuracy result. See `docs/agent-handoffs/hkma-live-browser-validation.json`, including the earlier60s timeout with unknown stage.

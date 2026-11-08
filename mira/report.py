@@ -18,7 +18,7 @@ from mira.contracts import Brief, ReportSentence, ReportSnapshot, RunStatus
 from mira.coverage_display import CHECKLIST_DESCRIPTION, coverage_label
 from mira.store import ExpectedSourceRecord, PassageRecord, StoredClaim
 
-TEMPLATE_VERSION = "report/4"
+TEMPLATE_VERSION = "report/5"
 
 MARKET_NAMES = {"SG": "Singapore", "HK": "Hong Kong"}
 DATE_LABELS = {
@@ -50,7 +50,9 @@ h1 { font-size: clamp(1.7rem, 5vw, 2.45rem); margin: .5rem 0 1rem; }
 h2 { margin: 2rem 0 .75rem; padding-top: .85rem; border-top: 2px solid #cad9e2; }
 h3 { margin: 1.3rem 0 .65rem; }
 .watermark { display: inline-block; color: #713d10; background: #fff2d9; font-size: .78rem; font-weight: 700; letter-spacing: .08em; padding: .2rem .55rem; }
-.meta td:first-child { font-weight: 650; white-space: nowrap; }
+.meta { width: 100%; table-layout: fixed; }
+.meta td:first-child { width: 6.5rem; font-weight: 650; white-space: nowrap; }
+.meta td:last-child { overflow-wrap: anywhere; }
 .statements { border-left: 3px solid #648295; padding-left: .8rem; color: #394b57; }
 .finding { padding: .9rem 0; border-bottom: 1px solid #dbe4ea; }
 .finding h3, .finding h4, .finding p { margin: .4rem 0; }
@@ -76,12 +78,16 @@ p, .summary li, .unresolved li { text-align: justify; text-justify: inter-word; 
 :target { outline: 2px solid #648295; outline-offset: .35rem; }
 a:focus-visible { outline: 2px solid #135782; outline-offset: 3px; }
 .back { font-size: .8rem; margin: 1rem 0; }
-.table-scroll { overflow-x: auto; }
-.timeline { width: 100%; font-size: .92rem; }
+.table-scroll { max-width: 100%; overflow-x: auto; }
+.timeline { width: 100%; min-width: 44rem; table-layout: fixed; font-size: .92rem; }
 .timeline .date { margin: 0; }
-.timeline th:first-child, .timeline td:first-child { min-width: 8rem; }
-.timeline th:last-child, .timeline td:last-child { white-space: nowrap; }
-.timeline td:nth-child(2) { min-width: 11rem; }
+.timeline th:first-child { width: 18%; }
+.timeline th:nth-child(2) { width: 55%; }
+.timeline th:nth-child(3) { width: 15%; }
+.timeline th:last-child { width: 12%; }
+.timeline td:last-child { white-space: nowrap; }
+.timeline .finding { padding: 0; border: 0; }
+.timeline p { text-align: left; text-justify: auto; hyphens: none; }
 .outcome { display: inline-block; font-weight: 650; padding: .1rem .4rem; border-radius: .2rem; background: #edf3f7; }
 .outcome-found { background: #e7f2ed; color: #24543e; }
 .outcome-missing, .outcome-fetch_failed, .outcome-out_of_budget { background: #fff2d9; color: #713d10; }
@@ -90,16 +96,24 @@ a:focus-visible { outline: 2px solid #135782; outline-offset: 3px; }
 sup { margin-left: .18rem; }
 a { color: #135782; text-underline-offset: .15em; }
 .empty { color: #52616b; font-style: italic; }
-table { border-collapse: collapse; } th, td { text-align: left; padding: .35rem .6rem; border-bottom: 1px solid #dbe4ea; vertical-align: top; }
+table { border-collapse: collapse; }
+th, td { text-align: left; padding: .75rem .85rem; border-bottom: 1px solid #dbe4ea; vertical-align: top; overflow-wrap: break-word; word-break: normal; hyphens: none; }
 th { background: #edf3f7; }
+.coverage { width: 100%; table-layout: fixed; }
 .coverage th:first-child { white-space: nowrap; }
+.coverage th:first-child { width: 10%; }
+.coverage th:nth-child(2) { width: 32%; }
+.coverage th:nth-child(3) { width: 24%; }
+.coverage th:last-child { width: 34%; }
 @media screen and (max-width: 36rem) {
   .contents ol { columns: 1; }
   .overview { grid-template-columns: repeat(2, 1fr); }
+}
+@media screen and (max-width: 48rem) {
   .coverage, .coverage tbody { display: block; }
   .coverage thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .coverage tbody tr { display: grid; grid-template-columns: 3rem 1fr; padding: .65rem 0; border-bottom: 1px solid #dbe4ea; }
-  .coverage td { border: 0; padding: .12rem 0; }
+  .coverage tbody tr { display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: .35rem .75rem; padding: .9rem 0; border-bottom: 1px solid #dbe4ea; }
+  .coverage td { border: 0; padding: .12rem 0; min-width: 0; }
   .coverage td:nth-child(2) { font-weight: 650; }
   .coverage td:nth-child(n+3) { grid-column: 2; font-size: .9rem; }
   .coverage td:nth-child(3) { color: #395568; font-weight: 650; }
@@ -110,7 +124,7 @@ th { background: #edf3f7; }
   .contents, .overview, .finding { break-inside: avoid; }
   .table-scroll { overflow: visible; }
   .back { display: none; }
-  .timeline th:first-child, .timeline td:first-child, .timeline td:nth-child(2) { min-width: 0; }
+  .timeline { min-width: 0; }
   h2, h3, h4, thead { break-after: avoid; }
   tr { break-inside: avoid; }
 }
@@ -129,6 +143,7 @@ class ReportContext:
     # Sign-off record for a reviewed report (PRD v2 §6.6). Required when run_status is "reviewed".
     reviewer: str | None = None
     decided_at: datetime | None = None
+    corroboration: Mapping[UUID, dict] = field(default_factory=dict)
 
 
 def _link(url: str, label: str) -> str:
@@ -273,6 +288,8 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
                 parts.append('<li><a href="#source-coverage">Source coverage checklist</a></li>')
             if context.unresolved:
                 parts.append('<li><a href="#unresolved-items">Unresolved items</a></li>')
+    if context.corroboration:
+        parts.append('<li><a href="#section-corroboration">Corroboration</a></li>')
     parts.append(f'<li><a href="#section-evidence">{appendix_number}. Evidence appendix</a></li></ol></nav>')
     index = 0
     for key, title in SECTION_TITLES.items():
@@ -386,8 +403,20 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
 
         parts.append('<p class="back"><a href="#contents">Back to contents</a></p></section>')
 
+    if context.corroboration:
+        from mira.corroboration_display import assessment_html
+        parts.append('<section aria-labelledby="section-corroboration"><h2 id="section-corroboration">Corroboration</h2>'
+                     '<p>Claim support, source independence and auditor review are separate decisions. '
+                     'Primary-source-only evidence is not a finding that the fact is false.</p>')
+        for fid,envelope in context.corroboration.items():
+            if fid in context.claims:
+                parts.append(assessment_html(envelope,title=context.claims[fid].draft.title))
+        parts.append('<p class="back"><a href="#contents">Back to contents</a></p></section>')
+
     parts.append(f'<section aria-labelledby="section-evidence"><h2 id="section-evidence">'
                  f'{appendix_number}. Evidence appendix</h2><ol>')
+    from mira.corroboration_display import provenance_html
+    from dataclasses import asdict
     for passage_id, number in sorted(numbers.items(), key=lambda item: item[1]):
         passage = context.passages.get(passage_id)
         if passage is None:
@@ -398,7 +427,7 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
             f'<li id="e{number}" value="{number}">{escape(passage.source_name)}, '
             f"<em>{escape(passage.title)}</em> ({published}). {_link(passage.source_url, passage.source_url)}. "
             f"Passage {passage.passage_number}, document version {passage.document_version_id}."
-            f"{' Imported by hand from a downloaded copy.' if passage.imported else ''}</li>"
+            f"{' Imported by hand from a downloaded copy.' if passage.imported else ''}{provenance_html(asdict(passage))}</li>"
         )
     parts.append('</ol><p class="back"><a href="#contents">Back to contents</a></p></section></body></html>')
     return "\n".join(part for part in parts if part)

@@ -15,6 +15,7 @@ def build_verification_input(
     claim: StoredClaim,
     claims: Mapping[UUID, StoredClaim],
     passages: Mapping[UUID, PassageRecord],
+    corroboration: Mapping[UUID, dict] | None = None,
 ) -> EvidenceInput:
     """Freeze the claim and its complete dependency closure, failing on missing inputs.
 
@@ -64,4 +65,5 @@ def build_verification_input(
         analysis_revision_id=ctx.analysis_revision_id,
         findings=dict(sorted(frozen_findings.items(), key=lambda pair: str(pair[0]))),
         passages=dict(sorted(frozen_passages.items(), key=lambda pair: str(pair[0]))),
+        corroboration={fid: corroboration[fid] for fid in frozen_findings if fid in (corroboration or {})} or None,
     )

@@ -1,0 +1,636 @@
+{
+  "source": "Hong Kong Monetary Authority",
+  "country_scope": "Hong Kong",
+  "requested_url": "https://www.hkma.gov.hk/eng/key-functions/banking/anti-money-laundering-and-counter-financing-of-terrorism/guidance-papers-circulars/",
+  "recorded_at": "2026-11-08T06:53:48.153064+00:00",
+  "max_seconds": 60,
+  "max_requests": 100,
+  "mas_acquisitions": 0,
+  "paid_or_model_calls": 0,
+  "terms_reference": "https://www.hkma.gov.hk/eng/other-information/terms-and-conditions-of-use/ (reviewed2026-11-08; non-commercial public prototype validation)",
+  "robots_precheck": "404 missing; allowed by repository robots policy",
+  "scope": "One actual live Chromium public-page acquisition after progress/non-text asset fix. No model verification/report claims.",
+  "status": "success",
+  "final_url": "https://www.hkma.gov.hk/eng/key-functions/banking/anti-money-laundering-and-counter-financing-of-terrorism/guidance-papers-circulars/",
+  "dom_bytes": 192781,
+  "dom_sha256": "07653233935f4b21ba4694513edc10635fa4e3bd33a93a0241780beec2b1acc9",
+  "extraction_status": "complete",
+  "extracted_characters": 20084,
+  "discovered_links": 128,
+  "title": "Circulars & Guidance Papers",
+  "browser_context": {
+    "acquisition_method": "live_browser",
+    "browser_engine": "chromium",
+    "javascript_enabled": true,
+    "requested_url": "https://www.hkma.gov.hk/eng/key-functions/banking/anti-money-laundering-and-counter-financing-of-terrorism/guidance-papers-circulars/",
+    "final_url": "https://www.hkma.gov.hk/eng/key-functions/banking/anti-money-laundering-and-counter-financing-of-terrorism/guidance-papers-circulars/",
+    "initial_navigation_response_sha256": "58af098f76537ac6ecef6997aeb3d6c80a1e1d8d04d92fc89bf4cecfb899dd88",
+    "initial_navigation_status": 200,
+    "final_navigation_response_sha256": null,
+    "final_navigation_status": null,
+    "rendered_dom_sha256": "07653233935f4b21ba4694513edc10635fa4e3bd33a93a0241780beec2b1acc9",
+    "approval_reference": "https://www.hkma.gov.hk/eng/other-information/terms-and-conditions-of-use/ (reviewed2026-11-08; non-commercial public prototype validation)",
+    "actions": [],
+    "requests": [
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "document"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "script"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "stylesheet"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "stylesheet"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "stylesheet"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "stylesheet"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "stylesheet"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "stylesheet"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "stylesheet"
+      },
+      {
+        "origin": "https://www.hkma.gov.hk",
+        "method": "GET",
+        "resource_type": "other"
+      }
+    ],
+    "denied_requests": [
+      {
+        "origin": "https://fonts.googleapis.com",
+        "resource_type": "stylesheet"
+      },
+      {
+        "origin": "https://www.youtube.com",
+        "resource_type": "script"
+      }
+    ],
+    "omitted_resources": [
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      },
+      {
+        "resource_type": "image"
+      }
+    ],
+    "observed_network_bytes": 2075045,
+    "original_retained": false,
+    "elapsed_seconds": 24.093715041992255,
+    "progress_events": [
+      {
+        "stage": "child_start"
+      },
+      {
+        "stage": "dns_resolved",
+        "host": "www.hkma.gov.hk"
+      },
+      {
+        "stage": "robots_response",
+        "host": "www.hkma.gov.hk",
+        "status": 404
+      },
+      {
+        "stage": "rate_policy",
+        "host": "www.hkma.gov.hk",
+        "delay": 1.0
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "document",
+        "main": true
+      },
+      {
+        "stage": "main_response",
+        "status": 200
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "stylesheet",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "stylesheet",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "stylesheet",
+        "main": false
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "stylesheet",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "stylesheet",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "stylesheet",
+        "main": false
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "stylesheet",
+        "main": false
+      },
+      {
+        "stage": "request_denied",
+        "host": "fonts.googleapis.com",
+        "resource_type": "stylesheet",
+        "main": false
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "request_denied",
+        "host": "www.youtube.com",
+        "resource_type": "script",
+        "main": false
+      },
+      {
+        "stage": "dom_ready"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "resource_omitted",
+        "resource_type": "image"
+      },
+      {
+        "stage": "request_allowed",
+        "host": "www.hkma.gov.hk",
+        "resource_type": "other",
+        "main": false
+      }
+    ],
+    "validation_note": "Live acquisition and extraction only; integration applies partial status when denied subresources exist. No source permission changes were persisted."
+  },
+  "elapsed_seconds": 24.91,
+  "previous_attempt": {
+    "status": "failed",
+    "error_type": "TimeoutError",
+    "error": "browser deadline reached",
+    "elapsed_seconds": 60.04,
+    "stage_attribution": "Unknown: initial adapter did not retain stage diagnostics. Do not infer source blocking."
+  },
+  "integration_extraction_status": "partial"
+}

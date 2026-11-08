@@ -316,6 +316,7 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
             st.error(f"The reviewed evidence bundle is invalid: {exc}")
             return
         findings, evidence, checks = display.findings, display.evidence, display.checks
+        corroboration = display.corroboration
         if display.legacy_note:
             st.info(display.legacy_note)
         reviews = []
@@ -331,6 +332,10 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
         checks = rows(sb.table("claim_checks").select("finding_id,method,verdict,reason,attempt")
                       .in_("finding_id", ids).order("checked_at")) if ids else []
         evidence = rows(sb.table("finding_evidence").select("finding_id,supporting_quote").in_("finding_id", ids)) if ids else []
+        assessments = rows(sb.table("corroboration_assessments").select("id,sequence,finding_id,result")
+                           .eq("workspace_id",workspace_id).eq("analysis_run_id",run["id"]).order("sequence"))
+        corroboration = {row["finding_id"]:{"assessment_id":row["id"],"sequence":row["sequence"],
+                          "assessment":row["result"]} for row in assessments}
         reviews = rows(sb.table("finding_reviews").select("*").in_("finding_id", ids)
                        .order("reviewed_at").order("review_sequence")) if ids else []
     cited = {fid for section in snapshot["sections"] for sentence in section["sentences"] for fid in sentence["finding_ids"]}
@@ -372,6 +377,12 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
                 for check in (c for c in checks if c["finding_id"] == finding["id"]):
                     st.caption(f"Check {check['attempt']} · {check['method'].replace('_', ' ')}: "
                                f"**{check['verdict'].replace('_', ' ')}** · {check['reason']}")
+                assessment = corroboration.get(finding["id"])
+                if assessment:
+                    from mira.corroboration_display import assessment_html
+                    components.html(assessment_html(assessment),height=380,scrolling=True)
+                else:
+                    st.caption("Corroboration: Not checked.")
                 for review in ([] if signed else mine):
                     st.caption(f"Review: {review['decision'].replace('_', ' ')} · {review['reviewer_note'] or ''}")
                 if finding["id"] in required and can_review and not signed:

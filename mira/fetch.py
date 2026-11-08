@@ -31,6 +31,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, Protocol
+from uuid import UUID
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from mira.store import SourceRecord
@@ -60,7 +61,10 @@ class FetchRefused(Exception):
 
 
 class FetchFailed(Exception):
-    """The fetch was allowed but did not produce a usable page. Logged as ``failed``."""
+    """Allowed acquisition failure with an optional HTTP status for fallback policy."""
+    def __init__(self, message: str, *, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class SiteBlocked(FetchFailed):
@@ -162,6 +166,11 @@ class AllowList:
             raise FetchRefused(f"host {host!r} is not on the allow-list")
         return self._hosts[host]
 
+    def domains_for_sources(self, source_ids: Iterable[UUID]) -> list[str]:
+        ids = set(source_ids)
+        return sorted(host for host, source in self._hosts.items()
+                      if source.id in ids and "store_text" in source.permitted_operations)
+
     def allows(self, url: str) -> bool:
         try:
             self.source_for(url)
@@ -175,6 +184,8 @@ class _HostState:
     lock: threading.Lock = field(default_factory=threading.Lock)
     last_request: float | None = None
     robots: urllib.robotparser.RobotFileParser | None = None
+    min_browser_delay: float = 0.0
+    browser_policy_unknown: bool = False
 
 
 class Fetcher:
@@ -200,7 +211,8 @@ class Fetcher:
         self._hosts_lock = threading.Lock()
         self._blocked: set[str] = set()
 
-    def fetch(self, url: str, *, json_body: dict[str, object] | None = None) -> FetchedPage:
+    def fetch(self, url: str, *, json_body: dict[str, object] | None = None,
+              source_ids: set[UUID] | None = None) -> FetchedPage:
         current = url
         for _ in range(MAX_REDIRECTS + 1):
             # HTML links can contain literal spaces; encode only the request target,
@@ -209,9 +221,13 @@ class Fetcher:
             current = urlunsplit((parts.scheme, parts.netloc, parts.path.replace(" ", "%20"),
                                   parts.query.replace(" ", "%20"), parts.fragment))
             source = self.allow.source_for(current)
+            if source_ids is not None and source.id not in source_ids:
+                raise FetchRefused("URL is outside the task source scope")
             if json_body is not None and search_payload(current) is None:
                 raise FetchRefused("JSON requests are limited to the SFC public publication-search endpoints")
             host = (urlsplit(current).hostname or "").lower()
+            if self._state(host).browser_policy_unknown:
+                raise FetchRefused("host policy state is unknown after an interrupted browser acquisition; start a fresh run")
             if host in self._blocked:
                 raise SiteBlocked(f"{host} served a block page earlier in this run; not asked again", repeated=True)
             self._check_addresses(current)
@@ -225,7 +241,7 @@ class Fetcher:
                 current = urljoin(current, location)
                 continue
             if response.status != 200:
-                raise FetchFailed(f"HTTP {response.status}")
+                raise FetchFailed(f"HTTP {response.status}", status_code=response.status)
             if len(response.body) > MAX_BYTES:
                 raise FetchFailed(f"response larger than {MAX_BYTES} bytes")
             content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
@@ -255,6 +271,9 @@ class Fetcher:
                 raise FetchRefused(f"{host} resolves to non-public address {address}")
 
     def _state(self, host: str) -> _HostState:
+        host=host.lower()
+        if host.count(":")==1 and host.rsplit(":",1)[1] in {"80","443"}:
+            host=host.rsplit(":",1)[0]
         with self._hosts_lock:
             return self._hosts.setdefault(host, _HostState())
 
@@ -278,7 +297,7 @@ class Fetcher:
         parts = urlsplit(url)
         state = self._state(parts.netloc.lower())
         with state.lock:
-            delay = max(MIN_DELAY_SECONDS, float(source.connector_config.get("crawl_delay_seconds", 0) or 0))
+            delay = max(MIN_DELAY_SECONDS, state.min_browser_delay, float(source.connector_config.get("crawl_delay_seconds", 0) or 0))
             if state.robots is not None:
                 delay = max(delay, float(state.robots.crawl_delay(USER_AGENT) or 0))
             if state.last_request is not None:

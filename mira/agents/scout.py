@@ -20,7 +20,10 @@ scout never writes outside the evidence tables and never sees database IDs.
 from __future__ import annotations
 
 import re
+import hashlib
 import threading
+import time
+from html import escape
 from concurrent.futures import Future
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -40,7 +43,7 @@ from mira.pg_store import PostgresStore
 from mira.store import PassageRecord, RunContext
 from mira.sfc import search_payload
 
-PROMPT_VERSION = "scout/5"
+PROMPT_VERSION = "scout/6"
 MAX_LINKS_SHOWN = 120
 MAX_DIAGNOSTIC_RECORDS = 300
 
@@ -61,6 +64,8 @@ REPORT_OUTPUT_TOKENS = 2_000
 # The report call always runs, so pages already fetched are not wasted. Below this
 # many passage characters it would have too little evidence to be useful.
 MIN_PASSAGE_CHARS = 8_000
+# Splitting selection is useful only when there is time for another model call.
+MIN_TWO_ROUND_SECONDS = 60
 
 
 def estimate_tokens(text: str) -> int:
@@ -141,23 +146,27 @@ def seed_plan(config: dict[str, object], categories: list[str], years: range) ->
 
 
 def distinct_links(links: list[Link]) -> list[Link]:
-    """Prefer the original PDF when its known landing-page alias is also available."""
+    """Retain dated metadata for known aliases, preferring PDFs when equally dated."""
     selected: dict[str, Link] = {}
     for link in links:
         key = document_key(link.url)
-        if key not in selected or (_is_pdf(link.url) and not _is_pdf(selected[key].url)):
+        if key not in selected or (link.published is not None, _is_pdf(link.url)) > (
+                selected[key].published is not None, _is_pdf(selected[key].url)):
             selected[key] = link
     return list(selected.values())
 
 
 class WebScout:
     def __init__(self, dsn: str, client: LLMClient, fetcher: Fetcher, *, max_rounds: int = 2,
-                 links_per_round: int = 8) -> None:
+                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None) -> None:
         self.dsn = dsn
         self.client = client
         self.fetcher = fetcher
         self.max_rounds = max_rounds
         self.links_per_round = links_per_round
+        self.discovery_adapter = discovery
+        self.browser_adapter = browser
+        self.live_browser_adapter = live_browser
         self._fetch_lock = threading.Lock()
         # Futures let concurrent tasks share one fetch/save, scoped to workspace and run.
         self._pages: dict[tuple[UUID, UUID, str], Future] = {}
@@ -179,6 +188,7 @@ class WebScout:
 
 class _ScoutRun:
     def __init__(self, scout: WebScout, conn, ctx: RunContext, step_id: UUID, task: ScoutTask) -> None:  # noqa: ANN001
+        self._started = time.monotonic()
         self.scout = scout
         self.conn = conn
         self.ctx = ctx
@@ -195,6 +205,8 @@ class _ScoutRun:
         self.token_stop = False
         self.model: str | None = None
         self.selection_diagnostics: list[dict] = []
+        self.prior_selections: list[Link] = []
+        self.deferred_alias_pdfs: set[str] = set()
         self.discovery: list[dict] = []
         self.discovery_omitted = 0
         self.origins: dict[int, tuple[Link, dict]] = {}
@@ -210,12 +222,32 @@ class _ScoutRun:
             else:
                 self.discovery_omitted += 1
 
+    def _remaining_seconds(self) -> float | None:
+        minutes = getattr(self.task, "max_minutes", None)
+        return None if minutes is None else max(0.0, minutes * 60 - (time.monotonic() - self._started))
+
     # --- Fetching -------------------------------------------------------------
 
     def _fetch(self, url: str, link: Link | None = None) -> Extracted | None:
         url = urldefrag(url)[0]
         if url in self.seen:
             return None
+        remaining = self._remaining_seconds()
+        if remaining is not None and remaining <= 0:
+            self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None,
+                                         error="task time limit reached", attempted_at=datetime.now(UTC)))
+            return None
+        scope = frozenset(getattr(self.task, "source_ids", ()))
+        if isinstance(self.scout.fetcher, Fetcher):
+            try:
+                source = self.scout.fetcher.allow.source_for(url)
+                if source.id not in scope:
+                    raise FetchRefused("URL is outside the task source scope")
+            except (FetchRefused, ValueError) as exc:
+                self.seen.add(url)
+                self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None,
+                                             error=str(exc), attempted_at=datetime.now(UTC)))
+                return None
         key = (self.ctx.workspace_id, self.ctx.analysis_run_id, url)
         with self.scout._fetch_lock:
             pending = self.scout._pages.get(key)
@@ -224,6 +256,7 @@ class _ScoutRun:
                 if self.allowance <= 0:
                     return None
                 pending = Future()
+                pending.source_scope = scope
                 self.scout._pages[key] = pending
         if owner:
             allowance_start = self.allowance
@@ -232,7 +265,11 @@ class _ScoutRun:
             try:
                 extracted = self._fetch_new(url, link)
                 visit = self.visits[-1] if extracted is not None else None
-                pending.set_result((extracted, visit, self.log[-1]))
+                attempt = self.log[-1]
+                with self.scout._fetch_lock:
+                    if attempt.outcome == "refused" and self.scout._pages.get(key) is pending:
+                        del self.scout._pages[key]
+                    pending.set_result((extracted, visit, attempt))
                 return extracted
             except BaseException as exc:
                 if isinstance(exc, Exception) and len(self.log) == log_start:
@@ -247,6 +284,22 @@ class _ScoutRun:
                 pending.set_exception(exc)
                 raise
         extracted, visit, attempt = pending.result()
+        if attempt.outcome == "refused":
+            if getattr(pending, "source_scope", scope) != scope:
+                return self._fetch(url, link)
+            self.seen.add(url)
+            self.log.append(attempt.model_copy(update={"attempted_at": datetime.now(UTC)}))
+            return None
+        if visit is not None and isinstance(self.scout.fetcher, Fetcher):
+            try:
+                source = self.scout.fetcher.allow.source_for(visit.url)
+                if source.id not in self.task.source_ids:
+                    raise FetchRefused("cached page is outside the task source scope")
+            except (FetchRefused, ValueError) as exc:
+                self.seen.add(url)
+                self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None,
+                                             error=str(exc), attempted_at=datetime.now(UTC)))
+                return None
         self.seen.add(url)
         self.log.append(attempt.model_copy(update={"outcome": "reused", "attempted_at": datetime.now(UTC)}))
         if visit is not None:
@@ -265,35 +318,125 @@ class _ScoutRun:
         now = datetime.now(UTC)
         payload = search_payload(url)
         try:
-            page = self.scout.fetcher.fetch(url, json_body=payload) if payload is not None else self.scout.fetcher.fetch(url)
+            options = {"source_ids": set(self.task.source_ids)} if isinstance(self.scout.fetcher, Fetcher) else {}
+            if payload is not None:
+                options["json_body"] = payload
+            page = self.scout.fetcher.fetch(url, **options)
         except FetchRefused as exc:
             self.log.append(FetchAttempt(url=url, outcome="refused", document_version_id=None, error=str(exc), attempted_at=now))
             return None
         except FetchFailed as exc:
             if not (isinstance(exc, SiteBlocked) and exc.repeated):  # no request was sent
                 self.allowance -= 1
-            self.log.append(FetchAttempt(url=url, outcome="failed", document_version_id=None, error=str(exc), attempted_at=now))
+            self.log.append(FetchAttempt(url=url, outcome="failed", document_version_id=None, error=str(exc), attempted_at=now,
+                acquisition_method="http_fetch", request_sent=not (isinstance(exc,SiteBlocked) and exc.repeated)))
+            if getattr(exc,"status_code",None) != 429:
+                return self._acquire_live(url, "http_blocked", link)
             return None
         self.allowance -= 1
         extracted = extract(page)
+        provenance = {"request_method": "POST", "request_json": payload} if payload is not None else {}
+        if self.scout.live_browser_adapter is not None and page.kind == "html" and not extracted.text and self.allowance>0:
+            from mira.live_browser import permitted
+            remaining=self._remaining_seconds()
+            if (remaining is None or remaining>0) and permitted(url,sources=self.store.list_sources(self.ctx.workspace_id),source_ids=set(self.task.source_ids),reason="js"):
+                self._save_page(page,extracted,provenance,link)
+                return self._acquire_live(url,"js",link) or extracted
+        if self.scout.browser_adapter is not None and page.kind == "html" and not extracted.text:
+            try:
+                remaining = self._remaining_seconds()
+                if remaining is not None and remaining <= 0:
+                    raise TimeoutError("task time limit reached")
+                adapter = self.scout.browser_adapter
+                if remaining is not None and hasattr(adapter, "with_timeout"):
+                    adapter = adapter.with_timeout(remaining)
+                captured = adapter.capture(page)
+                if captured is not None:
+                    rendered = extract(captured)
+                    if rendered.text:
+                        provenance.update(acquisition_method="offline_browser",
+                                          original_capture_sha256=hashlib.sha256(page.body).hexdigest())
+                        page, extracted = captured, rendered
+            except Exception as exc:
+                extracted.error = f"offline browser failed: {type(exc).__name__}"
+        return self._save_page(page,extracted,provenance,link)
+
+    def _acquire_live(self, url, reason, link=None):
+        adapter=self.scout.live_browser_adapter
+        remaining=self._remaining_seconds()
+        if adapter is None or self.allowance<=0 or (remaining is not None and remaining<=0):
+            return None
+        from mira.live_browser import permitted
+        sources=self.store.list_sources(self.ctx.workspace_id)
+        scope=set(self.task.source_ids)
+        if not permitted(url,sources=sources,source_ids=scope,reason=reason):
+            return None
+        timeout=min(30.,remaining) if remaining is not None else 30.
+        deadline=time.monotonic()+timeout
+        self.allowance-=1
+        navigated=False
+        try:
+            result=adapter.acquire(url,sources=sources,source_ids=scope,timeout_seconds=timeout,reason=reason)
+            navigated=True
+            def save():
+                fresh=self.store.list_sources(self.ctx.workspace_id)
+                if not permitted(url,sources=fresh,source_ids=scope,reason=reason):
+                    raise FetchRefused("live-browser source permission changed")
+                final=self.scout.fetcher.allow.source_for(result.page.url)
+                current=next((s for s in fresh if s.id==final.id),None)
+                if current is None or not permitted(result.page.url,sources=fresh,source_ids=scope,reason="js"):
+                    raise FetchRefused("live-browser final source is no longer permitted")
+                from dataclasses import replace
+                page=replace(result.page,source=current)
+                extracted=extract(page)
+                if result.provenance.get("denied_requests"):
+                    extracted.status="partial"
+                    extracted.error="Browser subresources refused by source policy; rendered capture may be incomplete"
+                return self._save_page(page,extracted,result.provenance,link,deadline=deadline)
+            if self.conn is None:
+                return save()
+            with self.conn.transaction():
+                left=deadline-time.monotonic()
+                if left<=0:
+                    raise TimeoutError("live-browser deadline reached")
+                self.conn.execute("select set_config('statement_timeout',%s,true),set_config('lock_timeout',%s,true)",
+                                  (str(max(1,int(left*1000))),str(max(1,int(left*1000)))))
+                self.conn.execute("select id from public.sources where workspace_id=%s and id=any(%s) order by id for share",
+                                  (self.ctx.workspace_id,list(scope)))
+                return save()
+        except FetchRefused as exc:
+            sent=navigated or getattr(exc,"request_sent",True)
+            if not sent:
+                self.allowance+=1
+            self.log.append(FetchAttempt(url=url,outcome="failed" if sent else "refused",document_version_id=None,error=str(exc),
+                attempted_at=datetime.now(UTC),acquisition_method="live_browser",request_sent=sent,
+                diagnostics=getattr(exc,"diagnostics",[])[:200]))
+        except Exception as exc:
+            self.log.append(FetchAttempt(url=url,outcome="failed",document_version_id=None,
+                error=f"live browser failed: {type(exc).__name__}",attempted_at=datetime.now(UTC),acquisition_method="live_browser",
+                diagnostics=getattr(exc,"diagnostics",[])[:200]))
+        return None
+
+    def _save_page(self,page,extracted,provenance,link=None,*,deadline=None):
         if extracted.published is None and link is not None and link.published and link.date_source:
             extracted.published = link.published
             extracted.published_basis = link.date_source
-        provenance = {"request_method": "POST", "request_json": payload} if payload is not None else None
-        saved = self.writer.save(page, extracted, provenance)
+        saved = (self.writer.save(page,extracted,provenance,deadline=deadline) if deadline is not None
+                 else self.writer.save(page,extracted,provenance))
         self.log.append(FetchAttempt(
             url=page.url, outcome="unchanged" if saved.unchanged else "saved",
-            document_version_id=saved.document_version_id, error=extracted.error, attempted_at=now,
+            document_version_id=saved.document_version_id, error=extracted.error, attempted_at=datetime.now(UTC),
+            acquisition_method=provenance.get("acquisition_method","http_fetch"),
         ))
         self.seen.add(page.url)
         self.visits.append(_Visit(page.url, saved.document_version_id, saved.passage_ids))
-        self._record_discovery(extracted.links, url, saved.document_version_id)
+        self._record_discovery(extracted.links, page.requested_url, saved.document_version_id)
         for link in extracted.links:
             if link.url not in self.seen and self.scout.fetcher.allow.allows(link.url):
                 self.candidates.append(link)
         return extracted
 
-    def _fetch_document(self, url: str, link: Link | None = None) -> None:
+    def _fetch_document(self, url: str, link: Link | None = None, *, reserved: int = 0) -> None:
         """Fetch a chosen page and, if it is a landing page for a PDF, the PDF it links to."""
         key = document_key(url)
         if key.startswith("hkma:"):
@@ -304,15 +447,27 @@ class _ScoutRun:
                     pdf = self._fetch(pdf_url, link)
                     if pdf is not None and pdf.status in ("complete", "partial") and pdf.text:
                         return
+                    if self.allowance <= reserved:
+                        return
         extracted = self._fetch(url, link)
         if extracted is None:
             return
         pdf = next((link for link in extracted.links if _is_pdf(link.url) and self.scout.fetcher.allow.allows(link.url)), None)
-        if pdf is not None:
+        if pdf is not None and self.allowance > reserved:
             # A parent's publication date applies only to a recognised alias of that document.
             dated = (Link(pdf.url, pdf.text, pdf.context, extracted.published, extracted.published_basis)
                      if document_key(pdf.url) == document_key(url) else pdf)
             self._fetch(pdf.url, dated)
+        elif (pdf is not None and self.allowance > 0 and reserved > 0
+              and document_key(pdf.url) == key and pdf.url not in self.seen):
+            # This exact full-content follow-up was deferred by the round quota.
+            # Its saved landing page must not suppress it as an acquired alias.
+            self.deferred_alias_pdfs.add(pdf.url)
+            if extracted.published is not None:
+                dated = Link(pdf.url, pdf.text, pdf.context, extracted.published, extracted.published_basis)
+                self.candidates = [dated if candidate is pdf else candidate for candidate in self.candidates]
+                if id(pdf) in self.origins:
+                    self.origins[id(dated)] = (dated, self.origins[id(pdf)][1])
 
     def _within_tokens(self) -> bool:
         limit = self.task.max_llm_tokens
@@ -368,8 +523,32 @@ class _ScoutRun:
         other_indexes.extend(url for queue in queues for url in queue)
         self.candidates.extend(Link(url, "Additional approved publication index", self.task.question)
                                for url in other_indexes if url not in self.seen)
+        if self.scout.discovery_adapter is not None and self.allowance > 0 and (self._remaining_seconds() is None or self._remaining_seconds() > 0):
+            try:
+                adapter = self.scout.discovery_adapter
+                remaining = self._remaining_seconds()
+                if remaining is not None and hasattr(adapter, "with_timeout"):
+                    adapter = adapter.with_timeout(remaining)
+                links = adapter.discover(
+                    self.task.question, list(self.task.source_ids), self.scout.fetcher.allow, self.ctx.brief.as_of_date)
+                safe = []
+                for link in links[:25]:
+                    try:
+                        source = self.scout.fetcher.allow.source_for(link.url)
+                        if source.id in self.task.source_ids and {"fetch", "store_text"} <= set(source.permitted_operations):
+                            if link.published is None or link.published <= self.ctx.brief.as_of_date:
+                                safe.append(Link(link.url, link.text[:200], "URL discovered by search provider"))
+                    except (FetchRefused, ValueError):
+                        continue
+                self._record_discovery(safe, "discovery", None)
+                self.candidates.extend(safe)
+            except Exception as exc:
+                self.discovery.append({"reason": "discovery_failed", "error": type(exc).__name__})
         stop_reason = "round_limit"
-        for _ in range(self.scout.max_rounds):
+        for round_index in range(self.scout.max_rounds):
+            if self._remaining_seconds() is not None and self._remaining_seconds() <= 0:
+                stop_reason = "time_limit"
+                break
             if self.allowance <= 0:
                 stop_reason = "document_allowance"
                 break
@@ -379,7 +558,7 @@ class _ScoutRun:
             if not self._within_tokens():
                 stop_reason = "token_limit"
                 break
-            self._select_and_fetch()
+            self._select_and_fetch(rounds_left=self.scout.max_rounds - round_index)
             if self.token_stop:
                 stop_reason = "token_limit"
                 break
@@ -400,7 +579,7 @@ class _ScoutRun:
         )
         return ScoutOutcome(result, self.model, PROMPT_VERSION, self.tokens_in, self.tokens_out)
 
-    def _select_and_fetch(self) -> None:
+    def _select_and_fetch(self, *, rounds_left: int = 1) -> None:
         brief = self.ctx.brief
         earliest = brief.period_start - timedelta(days=31)
         fresh: list[Link] = []
@@ -434,7 +613,7 @@ class _ScoutRun:
             if link.url in self.seen or link.url in urls:
                 filtered(link, "seen")
                 continue
-            if document_key(link.url) in completed:
+            if document_key(link.url) in completed and link.url not in self.deferred_alias_pdfs:
                 filtered(link, "known_alias")
                 continue
             if link.published and not (earliest <= link.published <= brief.as_of_date):
@@ -465,10 +644,12 @@ class _ScoutRun:
         # Continue the same host rotation only for diagnostic ranks; do not change the prompt.
         remaining = {host: list(links) for host, links in groups.items()}
         rank = len(fresh)
+        deferred: list[Link] = []
         while remaining:
             for host in list(remaining):
                 rank += 1
                 link = remaining[host].pop(0)
+                deferred.append(link)
                 before = len(diagnostic["filtered"])
                 filtered(link, "prompt_cap")
                 if len(diagnostic["filtered"]) > before:
@@ -487,14 +668,36 @@ class _ScoutRun:
             date_text = link.published.isoformat() if link.published else "date unknown"
             context = link.context.replace("<", "(").replace(">", ")")[:200]
             lines.append(f'<link label="{label}" date="{date_text}" url="{link.url}">{link.text[:200]} | {context}</link>')
+        prior = "\n".join(
+            f"{link.published.isoformat() if link.published else 'date unknown'} | "
+            f"{escape(link.text[:200]).replace(chr(10), '&#10;').replace(chr(13), '&#13;')}"
+            for link in self.prior_selections
+        )
+        def prompt(allowed: int) -> str:
+            return "\n\n".join([
+                brief_text(brief),
+                f"Research question: {self.task.question}",
+                "Links selected in earlier rounds (untrusted, not necessarily acquired):\n"
+                + "<prior_selections>\n" + (prior or "none") + "\n</prior_selections>",
+                f"Pick at most {allowed} links.",
+                "Links:\n" + "\n".join(lines),
+            ])
         allowed = min(self.scout.links_per_round, self.allowance)
-        user = "\n\n".join([
-            brief_text(brief),
-            f"Research question: {self.task.question}",
-            f"Pick at most {allowed} links.",
-            "Links:\n" + "\n".join(lines),
-        ])
+        user = prompt(allowed)
         remaining = self._remaining_tokens()
+        seconds = self._remaining_seconds()
+        # Estimate a second prompt of this size plus titles for this round's
+        # selections. A later, larger candidate set can still exhaust the cap.
+        two_round_tokens = (2 * (estimate_tokens(LINK_SYSTEM + user) + SELECTION_OUTPUT_TOKENS)
+                            + self._report_reserve() + allowed * 320)
+        can_split = (rounds_left > 1 and self.allowance > 1
+                     and (seconds is None or seconds >= MIN_TWO_ROUND_SECONDS)
+                     and (remaining is None or remaining >= two_round_tokens))
+        round_capacity = ((self.allowance + rounds_left - 1) // rounds_left
+                          if can_split else self.allowance)
+        reserved_for_later = self.allowance - round_capacity
+        allowed = min(self.scout.links_per_round, round_capacity)
+        user = prompt(allowed)
         needed = estimate_tokens(LINK_SYSTEM + user) + SELECTION_OUTPUT_TOKENS + self._report_reserve()
         if remaining is not None and needed > remaining:
             # Another selection round would leave too little for the report: stop here.
@@ -514,15 +717,18 @@ class _ScoutRun:
                               output_type=LinkSelection, prompt_version=PROMPT_VERSION, check=check)
         self._used(result)
         selected_urls = {label_to_link[label].url for label in result.output.link_labels}
+        self.prior_selections.extend(label_to_link[label] for label in result.output.link_labels)
         self.candidates.extend(link for link in fresh if link.url not in selected_urls)
+        self.candidates.extend(deferred)
         for item in diagnostic["presented"]:
             item["selected"] = item["label"] in result.output.link_labels
-        for label in result.output.link_labels:
+        for index, label in enumerate(result.output.link_labels):
             link = label_to_link[label]
+            self.deferred_alias_pdfs.discard(link.url)
             item = next(item for item in diagnostic["presented"] if item["label"] == label)
             start = len(self.log)
             allowance_before = self.allowance
-            self._fetch_document(link.url, link)
+            self._fetch_document(link.url, link, reserved=reserved_for_later + len(result.output.link_labels) - index - 1)
             item.setdefault("fetch_attempts", []).extend(
                 {"url": _safe_url(a.url), "outcome": a.outcome,
                  "document_version_id": str(a.document_version_id) if a.document_version_id else None}

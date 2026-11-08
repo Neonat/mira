@@ -128,3 +128,13 @@ def test_quote_match():
     assert quote_match("Authorized institutions should apply enhanced due dilligence", passage)  # typo, fuzzy
     assert not quote_match("must report every transaction above HK$8,000", passage)
     assert not quote_match("", passage)
+
+
+def test_task_scope_rejects_redirect_before_request_to_other_allowed_source():
+    from dataclasses import replace
+    other = replace(HKMA, id=uuid4(), base_url="https://other.example", connector_config={})
+    web = FakeWeb({"https://www.hkma.gov.hk/r": RawResponse(302, {"location": "https://other.example/doc"}, b"")})
+    f = Fetcher(AllowList([HKMA, other]), transport=web, resolver=lambda _: ["93.184.216.34"], sleep=lambda _: None)
+    with pytest.raises(FetchRefused, match="task source"):
+        f.fetch("https://www.hkma.gov.hk/r", source_ids={HKMA.id})
+    assert not any("other.example" in url for url in web.requests)

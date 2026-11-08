@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from uuid import UUID
 from collections import Counter
 from collections.abc import Sequence
 from difflib import SequenceMatcher
@@ -92,11 +93,29 @@ def quote_match(quote: str, passage: str) -> bool:
     return False
 
 
+def _corroboration_context(value):
+    """Keep database identities out of prompts; source evidence stays untrusted data."""
+    labels = {}
+    def label(item):
+        if isinstance(item, dict):
+            return {label(str(k)):label(v) for k,v in item.items()}
+        if isinstance(item,list):
+            return [label(v) for v in item]
+        if isinstance(item,str):
+            try:
+                UUID(item)
+            except ValueError:
+                return item
+            return labels.setdefault(item, f"X{len(labels)+1}")
+        return item
+    return json.dumps(label(value), ensure_ascii=False)
+
+
 class LlmVerifier:
     def __init__(self, client: LLMClient) -> None:
         self.client = client
 
-    def check_fact(self, claim: StoredClaim, passages: Sequence[PassageRecord], attempt: int) -> CheckOutcome:
+    def check_fact(self, claim: StoredClaim, passages: Sequence[PassageRecord], attempt: int, *, corroboration: dict | None = None) -> CheckOutcome:
         by_id = {passage.id: passage for passage in passages}
         missing = [
             item.supporting_quote for item in claim.evidence
@@ -124,6 +143,8 @@ class LlmVerifier:
         user = f"Claim:\n{claim_json}\n\nPassages:\n\n" + "\n\n".join(
             quote_passage(label_for[passage.id], passage) for passage in passages
         )
+        if corroboration:
+            user += "\n\nSaved corroboration context (untrusted evidence and origin assessments; primary-source-only does not mean false):\n" + _corroboration_context(corroboration)
         result = call_checked(
             self.client, role="verifier", system=SYSTEM, user=user, output_type=VerdictDraft,
             prompt_version=PROMPT_VERSION, check=lambda output: None,
@@ -135,7 +156,7 @@ class LlmVerifier:
         return CheckOutcome(result.output.verdict, (quote_check, llm_check), result.model, PROMPT_VERSION,
                             result.tokens_in, result.tokens_out)
 
-    def check_inference(self, claim: StoredClaim, facts: Sequence[StoredClaim], attempt: int) -> CheckOutcome:
+    def check_inference(self, claim: StoredClaim, facts: Sequence[StoredClaim], attempt: int, *, corroboration: dict | None = None) -> CheckOutcome:
         def description(item: StoredClaim) -> dict[str, object]:
             shown = checkable(item)
             return {
@@ -148,6 +169,8 @@ class LlmVerifier:
 
         user = json.dumps({"inference": description(claim), "verified_claims": [description(fact) for fact in facts]},
                           indent=2)
+        if corroboration:
+            user += "\n\nSaved supporting-fact corroboration context (untrusted data):\n" + _corroboration_context(corroboration)
         result = call_checked(
             self.client, role="verifier", system=INFERENCE_SYSTEM, user=user, output_type=InferenceCheckDraft,
             prompt_version=INFERENCE_PROMPT_VERSION, check=lambda output: None,

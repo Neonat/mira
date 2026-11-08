@@ -13,7 +13,7 @@ For the current engineering checkpoint, read the [revised PRD v3 draft](docs/mir
 - verification
 - a cited HTML report, then finding-level review and sign-off in the app
 
-Still to build are listed under "Not built yet" below. The 24-item ground-truth list for the M0 recall gate (PRD v2 §11) is in [docs/mira_m0_ground_truth.md](docs/mira_m0_ground_truth.md) and still needs review by a human auditor. Recall has been scored against it on live Hong Kong runs. The latest, run `29a153bb`, cited 11 of 18 HK publications, and its 21 claims were labelled by hand for precision: none made up or contradicted. See [the run's evidence](eval/evidence/2026-11-07-hk-run-29a153bb.md).
+Still to build are listed under "Not built yet" below. The 24-item ground-truth list for the M0 recall gate (PRD v2 §11) is in [docs/mira_m0_ground_truth.md](docs/mira_m0_ground_truth.md) and still needs review by a human auditor. Recall has been scored against it on live Hong Kong runs. Historical run `29a153bb` cited 11 of 18 HK publications, and its 21 claims were labelled by hand for precision: none made up or contradicted. See [that run's evidence and limits](eval/evidence/2026-11-07-hk-run-29a153bb.md). The latest authorized run `7be59cdf` acquired 6/18 and cited 5/18, with incomplete corroboration and a partial fallback report; its precision is unlabelled. See [the latest result](eval/evidence/2026-11-08-hk-authorized-followup-7be59cdf.md).
 
 ## Start here
 
@@ -187,7 +187,7 @@ Not built yet, or not yet proven:
 - the **comparison itself**: `eval/run_live.py` exists, but the complete live-model comparison has not been run, so there is no verdict. Its citation loading, inference dependencies, worksheet extraction and passage-search adapter pass local database integration checks (6 November 2026); that does not establish model quality or measured recall.
 - **accepted quality results**: development Hong Kong runs have been scored against the scoped benchmark, but these are single-run diagnostics, not an accepted auditor evaluation or a completed three-arm comparison. The historical M0 gate has not been established as passed. Benchmark review, a second precision labeller and a broader coverage validation remain necessary.
 - **precision at target**: one run (`29a153bb`, 21 claims, one labeller) has been labelled. No claim was made up or contradicted, but only 7 of 21 were fully supported on passage text alone (17 of 21 counting each document's recorded publication date), short of the proposed ≥95%. Four claims overstated their source's hedges, scope or attribution. That run used Haiku models and predates PR #4 and PR #6. Details: [run evidence](eval/evidence/2026-11-07-hk-run-29a153bb.md).
-- **Phase 1 ingestion expansion and Phase 2 corroboration**: approved in PRD v3 §§5.3 and 6, not yet implemented.
+- **Full coverage recovery and corroboration reliability**: Phase 1 ingestion expansion and Phase 2 saved-first corroboration are implemented, including opt-in Exa and permitted live browser acquisition. The latest bounded run completed 8/12 corroboration calls with zero timeouts and four output-limit failures; it establishes neither independent support nor full coverage recovery. MAS remains disabled. See the [current implementation/evidence checkpoint](docs/agent-handoffs/clean-hk-followup.md).
 
 The live runner filters benchmark items by the brief's markets and dates. The scorer recognizes explicit official HKMA and SFC publication aliases, including PDF/landing links, without merging different publications. To reproduce a scoped score from a file of cited URLs, use `python -m eval.score_recall eval/m0_ground_truth.csv --run-urls urls.txt --jurisdictions HK --period-start 2025-11-04 --period-end 2026-11-04 --as-of 2026-11-04`. A missing second source does not affect this publication-recall measurement.
 
@@ -218,7 +218,7 @@ To recreate the **local** database from those migrations:
 supabase db reset
 ```
 
-`db reset` deletes and rebuilds its target database. Use it only with the local stack here. Do not add `--linked`; that targets a remote project. There are six migrations. The two 7 November review migrations (`20261107120000`, `20261107180000`) are applied locally only; check which versions the team's shared project has before relying on it. Do not push migrations to a remote project without first confirming the selected account/project and reviewing `supabase db push --dry-run --linked` with the database owner.
+`db reset` deletes and rebuilds its target database. Use it only with the local stack here. Do not add `--linked`; that targets a remote project. The canonical directory includes additional acquisition, corroboration, browser-provenance and quote-order migrations through `20261108110000`. Review and feature migrations have been applied locally only; check which versions the team's shared project has before relying on it. Do not push migrations to a remote project without first confirming the selected account/project and reviewing `supabase db push --dry-run --linked` with the database owner.
 
 Never commit database passwords, access tokens, service-role keys, or real environment files. The service-role key bypasses row-level security and must stay on trusted server processes.
 

@@ -10,6 +10,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+browser = ["playwright>=1.64,<2"]
 dev = ["pytest>=8"]
 llm = ["anthropic>=2.3", "openai>=3.46"]
 ui = ["streamlit[pdf]==1.66.0", "supabase>=2.10"]

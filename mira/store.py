@@ -89,6 +89,7 @@ class PassageRecord:
     page_number: int | None = None
     char_start: int | None = None
     char_end: int | None = None
+    acquisition_provenance: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
