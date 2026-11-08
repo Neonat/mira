@@ -1,5 +1,8 @@
 # Mira Product Requirements v2
 
+> **Evidence-completeness addendum, 8 November 2026:** the user-approved passage coverage/batch analysis, permitted originals/page navigation and opt-in hybrid retrieval are documented in current PRD v3. This historical baseline keeps its original requirements and measurements. Intended product users remain internal-audit analysts and senior reviewers.
+
+
 > **Reading note — updated 8 November 2026.** V2 is the approved requirements baseline for unchanged scope. [PRD v3](mira_PRD_v3_draft.md) records the current implementation through merged PR9, settled amendments and pilot acceptance; the text below retains the original v2 requirements and historical targets.
 >
 > **Document audience:** Nathaniel, Ewen, Saai, the product owner and technical reviewers tracing requirements. **Product audience:** bank internal-audit analysts and senior reviewers, supported by curators and administrators. Competition judges and DBS stakeholders should start with the [README](../README.md).

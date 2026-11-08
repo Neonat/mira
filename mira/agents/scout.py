@@ -158,7 +158,7 @@ def distinct_links(links: list[Link]) -> list[Link]:
 
 class WebScout:
     def __init__(self, dsn: str, client: LLMClient, fetcher: Fetcher, *, max_rounds: int = 2,
-                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None) -> None:
+                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None, hybrid=None) -> None:
         self.dsn = dsn
         self.client = client
         self.fetcher = fetcher
@@ -167,6 +167,7 @@ class WebScout:
         self.discovery_adapter = discovery
         self.browser_adapter = browser
         self.live_browser_adapter = live_browser
+        self.hybrid = hybrid
         self._fetch_lock = threading.Lock()
         # Futures let concurrent tasks share one fetch/save, scoped to workspace and run.
         self._pages: dict[tuple[UUID, UUID, str], Future] = {}
@@ -181,7 +182,7 @@ class WebScout:
                 tokens_out = run.tokens_out + (exc.tokens_out if isinstance(exc, LLMError) else 0)
                 diagnostics = {"discovered": run.discovery, "discovered_omitted": run.discovery_omitted,
                                "rounds": run.selection_diagnostics, "stop_reason": "exception",
-                               "remaining_allowance": run.allowance}
+                               "remaining_allowance": run.allowance, "hybrid": run.hybrid_diagnostics}
                 raise ScoutFailure(exc, run.log, diagnostics, run.model, PROMPT_VERSION,
                                    tokens_in, tokens_out) from exc
 
@@ -202,6 +203,9 @@ class _ScoutRun:
         self.candidates: list[Link] = []
         self.allowance = task.max_documents
         self.tokens_in = self.tokens_out = 0
+        self.hybrid_tokens = 0
+        self.hybrid_reserved_tokens = 0
+        self.hybrid_diagnostics = None
         self.token_stop = False
         self.model: str | None = None
         self.selection_diagnostics: list[dict] = []
@@ -471,11 +475,11 @@ class _ScoutRun:
 
     def _within_tokens(self) -> bool:
         limit = self.task.max_llm_tokens
-        return limit is None or self.tokens_in + self.tokens_out < limit
+        return limit is None or self.tokens_in + self.tokens_out + self.hybrid_tokens + self.hybrid_reserved_tokens < limit
 
     def _remaining_tokens(self) -> int | None:
         limit = getattr(self.task, "max_llm_tokens", None)
-        return None if limit is None else limit - self.tokens_in - self.tokens_out
+        return None if limit is None else limit - self.tokens_in - self.tokens_out - self.hybrid_tokens - self.hybrid_reserved_tokens
 
     def _report_reserve(self) -> int:
         """Tokens kept back so the final report call fits with a minimal set of passages."""
@@ -575,7 +579,7 @@ class _ScoutRun:
             jurisdiction_code=self.task.jurisdiction_code, report=report, fetch_log=self.log, labels=labels,
             selection_diagnostics={"discovered": self.discovery, "discovered_omitted": self.discovery_omitted,
                                    "rounds": self.selection_diagnostics, "stop_reason": stop_reason,
-                                   "remaining_allowance": self.allowance},
+                                   "remaining_allowance": self.allowance, "hybrid": self.hybrid_diagnostics},
         )
         return ScoutOutcome(result, self.model, PROMPT_VERSION, self.tokens_in, self.tokens_out)
 
@@ -757,13 +761,19 @@ class _ScoutRun:
         eligible = """with eligible as (
             select distinct on (v.document_id) v.id, v.published_at, v.metadata
             from public.document_versions v
-            join public.documents d on d.id = v.document_id
-            where d.workspace_id = %s and v.workspace_id = %s
+            join public.documents d on d.id = v.document_id and d.workspace_id = v.workspace_id
+            join public.sources s on s.id = d.source_id and s.workspace_id = d.workspace_id
+            where s.is_active and 'store_text' = any(s.permitted_operations)
+              and ('fetch' = any(s.permitted_operations) or v.metadata->>'import' = 'manual')
+              and ((%s::text is null or %s::text = 'INT') and coalesce(trim(s.jurisdiction_code), '') in ('', 'INT')
+                   or %s::text is not null and %s::text <> 'INT' and s.jurisdiction_code = %s and s.jurisdiction_code = any(%s))
+              and d.workspace_id = %s and v.workspace_id = %s
               and d.source_id = any(%s)
               and (v.published_at is null or v.published_at::date <= %s)
             order by v.document_id, v.version_number desc
         ) """
-        scope = (self.ctx.workspace_id, self.ctx.workspace_id,
+        scope = (self.task.jurisdiction_code, self.task.jurisdiction_code, self.task.jurisdiction_code,
+                 self.task.jurisdiction_code, self.task.jurisdiction_code, list(brief.jurisdictions), self.ctx.workspace_id, self.ctx.workspace_id,
                  list(self.task.source_ids), brief.as_of_date)
         # Match the public search function's ranking, but only after version
         # and source eligibility, so obsolete passages cannot consume its cap.
@@ -790,6 +800,27 @@ class _ScoutRun:
             (*scope, self.ctx.workspace_id, brief.period_start, brief.period_end),
         ).fetchall()
         ids.extend(row["id"] for row in stored if row["id"] not in ids)
+        hybrid_order = {}
+        if getattr(self.scout, "hybrid", None) is not None and self.hybrid_diagnostics is None:
+            remaining = self._remaining_tokens()
+            available = None if remaining is None else max(0, remaining - self._report_reserve())
+            try:
+                hybrid = self.scout.hybrid.retrieve(self.conn, self.ctx, self.task,
+                    remaining_tokens=available, remaining_seconds=self._remaining_seconds())
+                self.hybrid_tokens += hybrid.tokens
+                self.hybrid_reserved_tokens += hybrid.reserved_tokens
+                identity = getattr(self.scout.hybrid, "identity", None)
+                self.hybrid_diagnostics = {"model": getattr(identity, "model", None),
+                                           "revision": getattr(identity, "revision", None),
+                                           "dimensions": getattr(identity, "dimensions", None),
+                                           "fallback_reason": hybrid.fallback_reason,
+                                           "tokens": hybrid.tokens, "reserved_tokens": hybrid.reserved_tokens,
+                                           "cache_error": getattr(hybrid, "cache_error", None)}
+                if hybrid.fallback_reason is None:
+                    hybrid_order = {p.id: i for i, p in enumerate(hybrid.passages)}
+                    ids.extend(p.id for p in hybrid.passages if p.id not in ids)
+            except Exception:
+                self.hybrid_diagnostics = {"fallback_reason": "runtime_error", "tokens": 0, "reserved_tokens": 0}
         # Fresh and reused visits must obey the same eligibility as stored results.
         selected = self.conn.execute(
             eligible + """select p.id from public.document_passages p
@@ -804,7 +835,9 @@ class _ScoutRun:
         terms = _terms(f"{self.ctx.brief.topic} money laundering terrorism financing {self.task.question}")
         feed_urls = {p.source_url for p in passages if p.source_url.endswith(".xml") or "/rss" in p.source_url.lower()}
         # Documents first; feed lines (titles and dates only) rank below them.
-        passages.sort(key=lambda p: (p.source_url in feed_urls, -len(terms & _terms(p.content))))
+        passages.sort(key=lambda p: (p.source_url in feed_urls,
+                                    0 if p.id in hybrid_order else 1,
+                                    hybrid_order.get(p.id, 0), -len(terms & _terms(p.content))))
         # Collapse exact passages and known document aliases; RSS remains a discovery
         # source, not an alias for all the distinct publications it lists.
         pdf_keys = {document_key(p.source_url) for p in passages if _is_pdf(p.source_url)}

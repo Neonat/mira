@@ -14,7 +14,7 @@ from datetime import datetime
 from uuid import UUID
 
 from mira.agents.verifier import quote_match
-from mira.contracts import Brief, ClaimDraft, ReportSnapshot
+from mira.contracts import ANALYSIS_REPORT_CONTRACT_VERSION, AnalysisCoverageSnapshot, Brief, ClaimDraft, ReportSnapshot
 from mira.report import ReportContext, render_html
 from mira.store import ClaimEvidence, ExpectedSourceRecord, PassageRecord, StoredClaim
 
@@ -45,6 +45,13 @@ def frozen_context(snapshot: ReportSnapshot, generated_at: datetime) -> ReportCo
     if (bundle.analysis_run_id != snapshot.analysis_run_id
             or bundle.analysis_revision_id != snapshot.analysis_revision_id):
         raise ValueError("frozen evidence scope identity does not match the report snapshot")
+    if snapshot.contract_version == ANALYSIS_REPORT_CONTRACT_VERSION and snapshot.analysis_coverage is None:
+        raise ValueError("frozen analysis coverage missing")
+    if snapshot.analysis_coverage is not None:
+        coverage = AnalysisCoverageSnapshot.model_validate(snapshot.analysis_coverage.model_dump())
+        if (coverage.workspace_id, coverage.analysis_run_id, coverage.analysis_revision_id) != (
+                bundle.workspace_id, bundle.analysis_run_id, bundle.analysis_revision_id):
+            raise ValueError("frozen analysis coverage scope mismatch")
     if not bundle.reviewer_display_name.strip():
         raise ValueError("frozen reviewer display name is missing")
     for section in snapshot.sections:

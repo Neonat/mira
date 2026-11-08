@@ -15,6 +15,7 @@ from uuid import UUID
 import psycopg
 
 from mira.agents.scout import WebScout
+from mira.analysis_batches import AnalysisLimits
 from mira.agents.verifier import LlmVerifier
 from mira.db import NotAuthorisedError, acting_as, require_role
 from mira.fetch import AllowList, Fetcher
@@ -56,6 +57,27 @@ def live_browser_from_env(fetcher):
     return LiveBrowserAcquirer(fetcher)
 
 
+def hybrid_from_env():
+    """A flag and explicit vector identity are required; a key alone enables nothing."""
+    if os.environ.get("MIRA_ENABLE_HYBRID_RETRIEVAL") != "1":
+        return None
+    from mira.hybrid import EmbeddingIdentity, HybridLimits, OpenAIEmbedder
+    from mira.hybrid_runtime import HybridRetriever
+    from openai import OpenAI
+    model = os.environ.get('MIRA_EMBEDDING_MODEL','').strip()
+    revision = os.environ.get('MIRA_EMBEDDING_REVISION','').strip()
+    if not model or not revision:
+        raise ValueError('hybrid retrieval requires an explicit embedding model and revision')
+    identity = EmbeddingIdentity(model,revision,int(os.environ.get('MIRA_EMBEDDING_DIMENSIONS','384')))
+    limits = HybridLimits(
+        max_index_passages=int(os.environ.get('MIRA_HYBRID_MAX_PASSAGES','40')),
+        max_characters=int(os.environ.get('MIRA_HYBRID_MAX_CHARACTERS','60000')),
+        max_tokens=int(os.environ.get('MIRA_HYBRID_MAX_TOKENS','20000')),
+        timeout_seconds=float(os.environ.get('MIRA_HYBRID_TIMEOUT_SECONDS','20')),
+        result_limit=int(os.environ.get('MIRA_HYBRID_RESULT_LIMIT','20')))
+    return HybridRetriever(OpenAIEmbedder(OpenAI(max_retries=0),identity,reserved_tokens=limits.max_tokens),identity,limits)
+
+
 Arm = Literal["multi_agent", "single_agent"]
 
 
@@ -84,8 +106,10 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
     discovery = discovery_from_env(store.list_sources(workspace))
     browser = browser_from_env()
     live_browser = live_browser_from_env(fetcher)
-    scout = WebScout(dsn, client, fetcher, discovery=discovery, browser=browser, live_browser=live_browser)
+    scout = WebScout(dsn, client, fetcher, discovery=discovery, browser=browser, live_browser=live_browser,
+                     hybrid=hybrid_from_env())
     return Orchestrator(store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client),
+                        analysis_limits=AnalysisLimits.from_env(),
                         corroborator=ClaimCorroborator(conn,client,discovery=discovery,browser=browser,live_browser=live_browser))
 
 

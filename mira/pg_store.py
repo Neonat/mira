@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from pathlib import Path
 from uuid import UUID
@@ -21,10 +21,11 @@ from psycopg.types.json import Jsonb
 from mira.brief import RERUNNABLE_STATUSES, analysis_run_fields, brief_from_rows, check_rerunnable, project_revision_fields
 from mira.budget import RunBudget
 from mira.config import REPORTS_DIR
-from mira.contracts import CONTRACT_VERSION, Brief, CoverageRow, ReportSnapshot, RunStatus, StepRecord, Verdict
+from mira.contracts import AnalysisCoverageSnapshot, CONTRACT_VERSION, Brief, CoverageRow, ReportSnapshot, RunStatus, StepRecord, Verdict
 from mira.db import acting_as, require_role
 from mira.report import TEMPLATE_VERSION
 from mira.store import (
+    AnalysisEvent,
     ExpectedSourceRecord,
     NewClaim,
     PassageRecord,
@@ -32,6 +33,7 @@ from mira.store import (
     RunContext,
     SourceRecord,
     StoredClaim,
+    passage_event,
 )
 
 FINAL_STATUSES = ("partial", "failed", "cancelled", "draft")
@@ -203,6 +205,57 @@ class PostgresStore:
 
     # --- Reads ----------------------------------------------------------------
 
+    def begin_analysis_coverage(self, ctx: RunContext, source_ids: Sequence[UUID]) -> None:
+        with acting_as(self.conn, ctx.user_id):
+            self.conn.execute("""insert into public.analysis_coverage_policies
+                (workspace_id,analysis_run_id,analysis_revision_id,source_ids,created_by)
+                values(%s,%s,%s,%s,%s)""", (ctx.workspace_id,ctx.analysis_run_id,ctx.analysis_revision_id,
+                    sorted(set(source_ids),key=str),ctx.user_id))
+
+    def load_analysis_candidates(self, ctx: RunContext, selections: Mapping[UUID, Sequence[UUID]]) -> list[PassageRecord]:
+        candidates = []
+        with acting_as(self.conn, ctx.user_id):
+            for version_id, task_sources in sorted(selections.items(), key=lambda i: str(i[0])):
+                row = self.conn.execute("""select d.source_id,
+                    private.analysis_coverage_document_reason(%s,%s,%s,v.id) reason
+                    from public.document_versions v join public.documents d on d.id=v.document_id and d.workspace_id=v.workspace_id
+                    where v.workspace_id=%s and v.id=%s""",
+                    (ctx.workspace_id,ctx.analysis_run_id,ctx.analysis_revision_id,ctx.workspace_id,version_id)).fetchone()
+                if not row or row['source_id'] not in task_sources:
+                    raise ValueError("document version outside scout source scope")
+                reason = row['reason']
+                self.conn.execute("""insert into public.analysis_coverage_documents
+                    (workspace_id,analysis_run_id,analysis_revision_id,document_version_id,disposition,reason,created_by)
+                    values(%s,%s,%s,%s,%s,%s,%s)""", (ctx.workspace_id,ctx.analysis_run_id,ctx.analysis_revision_id,
+                    version_id,'eligible' if reason is None else 'no_text' if reason=='no_text' else 'ineligible',reason,ctx.user_id))
+                if reason is None:
+                    ids = self.conn.execute("""select id from public.document_passages
+                        where workspace_id=%s and document_version_id=%s order by passage_number,id""",(ctx.workspace_id,version_id)).fetchall()
+                    by_id = {p.id:p for p in self.get_passages(ctx.workspace_id,[r['id'] for r in ids])}
+                    candidates.extend(by_id[r['id']] for r in ids)
+            self.append_analysis_events(ctx, [passage_event(p,'candidate') for p in candidates])
+        return candidates
+
+    def append_analysis_events(self, ctx: RunContext, events: Sequence[AnalysisEvent]) -> None:
+        with acting_as(self.conn, ctx.user_id):
+            for event in events:
+                self.conn.execute("""insert into public.analysis_passage_events
+                    (workspace_id,analysis_run_id,analysis_revision_id,document_version_id,passage_id,status,
+                     batch_id,agent_step_id,reason,event_key,created_by) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (ctx.workspace_id,ctx.analysis_run_id,ctx.analysis_revision_id,event.document_version_id,event.passage_id,
+                     event.status,event.batch_id,event.agent_step_id,event.reason,event.event_key,ctx.user_id))
+
+    def save_analysis_batch(self, ctx, batch_id, step_id, claims, passages):
+        with acting_as(self.conn, ctx.user_id):
+            stored = self.save_claims(ctx, claims)
+            self.append_analysis_events(ctx, [passage_event(p,'analysed',batch_id,step_id) for p in passages])
+        return stored
+
+    def analysis_coverage(self, ctx: RunContext) -> AnalysisCoverageSnapshot | None:
+        result = self.conn.execute("select private.capture_analysis_coverage(%s,%s,%s) summary",
+            (ctx.workspace_id,ctx.analysis_run_id,ctx.analysis_revision_id)).fetchone()['summary']
+        return AnalysisCoverageSnapshot.model_validate(result) if result is not None else None
+
     def list_sources(self, workspace_id: UUID) -> list[SourceRecord]:
         rows = self.conn.execute(
             """select id, name, source_type, base_url, jurisdiction_code, permitted_operations, connector_config
@@ -243,7 +296,7 @@ class PostgresStore:
                       coalesce(v.metadata->>'import', '') = 'manual' as imported,
                       v.content_sha256, coalesce(p.extraction_version, v.extraction_version) as extraction_version,
                       p.page_number, p.char_start, p.char_end,
-                      jsonb_build_object('acquisition_method', v.metadata->'acquisition_method', 'requested_url', v.metadata->'requested_url', 'original_capture_sha256', v.metadata->'original_capture_sha256', 'capture_sha256', v.metadata->'capture_sha256', 'extraction_sha256', v.metadata->'extraction_sha256', 'original_retained', v.metadata->'original_retained', 'acquired_at', v.retrieved_at, 'browser_context', v.metadata->'browser_context') as acquisition_provenance
+                      jsonb_build_object('acquisition_method', v.metadata->'acquisition_method', 'requested_url', v.metadata->'requested_url', 'original_capture_sha256', v.metadata->'original_capture_sha256', 'capture_sha256', v.metadata->'capture_sha256', 'extraction_sha256', v.metadata->'extraction_sha256', 'original_retained', v.metadata->'original_retained', 'acquired_at', v.retrieved_at, 'browser_context', v.metadata->'browser_context') || case when v.metadata->'retained_original' is not null and v.metadata->'retained_original'<>'null'::jsonb then jsonb_build_object('retained_original',v.metadata->'retained_original') else '{}'::jsonb end as acquisition_provenance
                from public.document_passages p
                join public.document_versions v on v.id = p.document_version_id
                join public.documents d on d.id = v.document_id

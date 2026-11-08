@@ -11,6 +11,8 @@ worker database URL or the model API key: it queues runs, and the trusted worker
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import re
 import time
 import uuid
 from datetime import UTC, date, datetime, timedelta
@@ -29,7 +31,7 @@ from mira.brief import (
     project_revision_fields,
 )
 from mira.budget import RunBudget
-from mira.config import load_env, report_file, workspace_slug
+from mira.config import REPO_ROOT, load_env, report_file, workspace_slug
 from mira.contracts import Brief
 from mira.coverage_display import CHECKLIST_DESCRIPTION, coverage_label
 from mira.llm import ROLE_MODEL_ENV, estimated_cost
@@ -39,6 +41,7 @@ from mira.review_display import dependency_closure, pending_review_ids, reviewed
 UI_KEYS = {
     "SUPABASE_URL", "SUPABASE_ANON_KEY", "MIRA_DEV_EMAIL", "MIRA_MAX_FETCHED_DOCUMENTS", "MIRA_MAX_LLM_TOKENS",
     "MIRA_MAX_RUN_MINUTES", "MIRA_MAX_GAP_ROUNDS", "MIRA_WORKSPACE_SLUG", *ROLE_MODEL_ENV.values(),
+    "MIRA_ORIGINALS_DIR", "MIRA_ORIGINAL_MAX_BYTES",
 }
 DECISIONS = ("accepted", "amended", "rejected", "needs_evidence")
 ACTIVE = ("queued", "running")
@@ -350,6 +353,7 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
             components.html(path.read_text(encoding="utf-8"), height=900, scrolling=True)
         else:
             st.info("The report file is not available here.")
+        _original_downloads(sb,workspace_id,run['id'],snapshot,signed)
     with findings_tab:
         can_review = role in ("admin", "reviewer")
         for finding in findings:
@@ -401,6 +405,46 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
                 st.error(f"Could not sign off the report: {exc}")
             else:
                 st.rerun()
+
+
+def _original_downloads(sb: Client, workspace_id: str, run_id: str, snapshot: dict, signed: bool) -> None:
+    """Load private bytes only after a deliberate request under the signed-in client."""
+    from mira.original_access import read_original
+    from mira.originals import PrivateOriginalStore, RetentionPolicy
+    frozen = (snapshot.get('evidence_bundle') or {}).get('passages',{})
+    if signed:
+        expected = {p['document_version_id']:p.get('acquisition_provenance',{}).get('retained_original')
+                    for p in frozen.values() if p.get('acquisition_provenance',{}).get('original_retained') is True}
+        ids = list(expected)
+    else:
+        expected = {}
+        ids = list({r['document_version_id'] for r in rows(sb.table('analysis_evidence').select('document_version_id')
+                    .eq('workspace_id',workspace_id).eq('analysis_run_id',run_id))})
+    versions = rows(sb.table('document_versions').select('id,title,metadata')
+                    .eq('workspace_id',workspace_id).in_('id',ids)) if ids else []
+    versions = [v for v in versions if (v.get('metadata') or {}).get('original_retained') is True
+                and (not signed or v['metadata'].get('retained_original') == expected.get(v['id']))]
+    if not versions:
+        return
+    with st.expander('Original source files'):
+        st.caption('Retained copies are available where the source permits them. Access is checked when you open a file.')
+        for version in versions:
+            st.write(version['title'])
+            key = f"original-{workspace_id}-{version['id']}"
+            if st.button('Prepare download',key=key):
+                try:
+                    storage = PrivateOriginalStore(Path(os.environ.get('MIRA_ORIGINALS_DIR',str(REPO_ROOT/'private-originals'))),
+                        RetentionPolicy.from_env())
+                    data = read_original(sb,uuid.UUID(workspace_id),uuid.UUID(version['id']),storage,
+                                         expected_identity=expected.get(version['id']) if signed else None)
+                except (PermissionError,ValueError,OSError):
+                    st.info('This original is currently unavailable. You can still review its saved evidence in the report.')
+                    continue
+                identity = version['metadata']['retained_original']
+                suffix = '.pdf' if identity.get('media_type') == 'application/pdf' else '.bin'
+                name = re.sub(r'[^\w .-]','',version['title'])[:70].strip() or 'Source'
+                st.download_button('Download original',data,file_name=name+suffix,
+                                   mime='application/octet-stream',key=key+'-download')
 
 
 def _review_form(workspace_id: str, user_id: str, finding: dict[str, Any]) -> None:

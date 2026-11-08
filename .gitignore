@@ -15,3 +15,6 @@ data/manual/*
 !data/manual/README.md
 !data/manual/manifest.example.csv
 eval/results/
+
+# Private permitted source bytes, never a public report asset.
+private-originals/

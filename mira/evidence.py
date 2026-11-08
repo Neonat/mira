@@ -14,17 +14,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time as time_module
 from dataclasses import dataclass
 from datetime import UTC, datetime, time
+from pathlib import Path
 from uuid import UUID
 
 import psycopg
 from psycopg.types.json import Jsonb
 
+from mira.config import REPO_ROOT
 from mira.db import acting_as
 from mira.extract import EXTRACTION_VERSION, Extracted, split_passages
 from mira.fetch import FetchedPage
+from mira.originals import PrivateOriginalStore, RetentionPolicy
+from mira.store import SourceRecord
 
 DOCUMENT_TYPES = {"regulator": "regulation", "website": "guidance", "rss": "news"}
 
@@ -47,10 +52,60 @@ def evidence_identity(page: FetchedPage, extracted: Extracted, method: str = "ht
 
 
 class EvidenceWriter:
-    def __init__(self, conn: psycopg.Connection, workspace_id: UUID, user_id: UUID) -> None:
+    def __init__(self, conn: psycopg.Connection, workspace_id: UUID, user_id: UUID,
+                 originals: PrivateOriginalStore | None = None) -> None:
         self.conn = conn
         self.workspace_id = workspace_id
         self.user_id = user_id
+        self._original_config_failed = False
+        self.originals = originals
+        if originals is None:
+            try:
+                self.originals = PrivateOriginalStore(
+                    Path(os.environ.get("MIRA_ORIGINALS_DIR", str(REPO_ROOT / "private-originals"))),
+                    RetentionPolicy.from_env())
+            except (ValueError, OSError):
+                # Retention configuration cannot prevent saving extracted text.
+                self._original_config_failed = True
+
+    def _retain_original(self, execute, page: FetchedPage, method: str,
+                         capture_sha256: str) -> dict[str, object]:
+        result: dict[str, object] = {"original_retained": False, "retained_original": None,
+                                    "original_retention_status": "not_enabled"}
+        if self._original_config_failed:
+            return {**result, "original_retention_status": "failed"}
+        if self.originals is None or not self.originals.policy.enabled:
+            return result
+        result["original_retention_status"] = "not_permitted"
+        if method not in {"http_fetch", "manual_import"}:
+            return result
+        # Page/source records can outlive permission changes. Re-read the actual
+        # workspace-bound source rather than trusting supplied connector grants.
+        row = execute(
+            """select id, name, source_type, base_url, jurisdiction_code,
+                      permitted_operations, connector_config
+               from public.sources where id = %s and workspace_id = %s and is_active""",
+            (page.source.id, self.workspace_id),
+        ).fetchone()
+        if row is None:
+            return result
+        source = SourceRecord(row["id"], row["name"], row["source_type"], row["base_url"],
+                              row["jurisdiction_code"], tuple(row["permitted_operations"]),
+                              row["connector_config"] or {})
+        try:
+            retained = self.originals.retain(self.workspace_id, source, page.body,
+                                             acquisition_method=method, content_type=page.content_type)
+            if retained is None:
+                return result
+            if (retained.get("sha256") != capture_sha256
+                    or retained.get("size_bytes") != len(page.body)
+                    or retained.get("workspace_id") != str(self.workspace_id)):
+                raise ValueError("Original identity does not match acquisition")
+            return {"original_retained": True, "retained_original": retained,
+                    "original_retention_status": "retained"}
+        except Exception:
+            # The pure storage boundary cannot roll back already permitted text.
+            return {**result, "original_retention_status": "failed"}
 
     def save(self, page: FetchedPage, extracted: Extracted, provenance: dict[str, object] | None = None,
              *, deadline: float | None = None) -> SavedPage:
@@ -58,9 +113,11 @@ class EvidenceWriter:
         ws, user = self.workspace_id, self.user_id
         source = page.source
         store_text = "store_text" in source.permitted_operations and extracted.status in ("complete", "partial")
-        method = ("manual_import" if (provenance or {}).get("import") == "manual" else
-                  "live_browser" if (provenance or {}).get("acquisition_method") == "live_browser" else
-                  "offline_browser" if (provenance or {}).get("acquisition_method") == "offline_browser" else "http_fetch")
+        supplied_method = (provenance or {}).get("acquisition_method")
+        method = (supplied_method if supplied_method in ("live_browser", "offline_browser") else
+                  "manual_import" if (provenance or {}).get("import") == "manual" else "http_fetch")
+        retention_method = method if supplied_method in (None, "http_fetch", "manual_import",
+                                                         "live_browser", "offline_browser") else "unknown"
         if method == "live_browser":
             details=dict(provenance or {})
             details["capture_kind"]="rendered_dom"
@@ -79,6 +136,7 @@ class EvidenceWriter:
                     raise TimeoutError("evidence save deadline reached")
             return self.conn.execute(query, params)
         with acting_as(self.conn, user):
+            original_metadata = self._retain_original(execute, page, retention_method, identity["capture_sha256"])
             document = execute(
                 "select id from public.documents where workspace_id = %s and source_id = %s and canonical_url = %s",
                 (ws, source.id, page.url),
@@ -96,6 +154,12 @@ class EvidenceWriter:
                 (document_id, digest),
             ).fetchone()
             if existing:
+                if original_metadata["original_retained"]:
+                    execute(
+                        """update public.document_versions set metadata = metadata || %s
+                           where id = %s and workspace_id = %s""",
+                        (Jsonb(original_metadata), existing["id"], ws),
+                    )
                 if extracted.published and extracted.published_basis:
                     execute(
                         """update public.document_versions set published_at = %s,
@@ -126,7 +190,7 @@ class EvidenceWriter:
                         "text_stored": store_text, "links": len(extracted.links), "error": extracted.error,
                         "publication_date_evidence": extracted.published_basis,
                         **(provenance or {}), "acquisition_method": method,
-                        "capture_sha256": identity["capture_sha256"], "original_retained": False,
+                        "capture_sha256": identity["capture_sha256"], **original_metadata,
                         "extraction_sha256": identity["extraction_sha256"]}),
                  latest["id"] if latest else None),
             ).fetchone()["id"]

@@ -195,7 +195,7 @@ def test_passage_selection_covers_distinct_publications_before_more_pages(monkey
     other = replace(first, id=uuid4(), document_version_id=uuid4(), document_id=uuid4(),
                     source_url="https://www.mas.gov.sg/another-notice")
     records = [first, second_page, other]
-    task = SimpleNamespace(max_documents=2, source_ids=(first.source_id,), question="AML")
+    task = SimpleNamespace(jurisdiction_code="SG", max_documents=2, source_ids=(first.source_id,), question="AML")
     scout = WebScout("unused", None, SimpleNamespace())
     def execute(query, *args):
         eligible = [{"id": p.id} for p in records] if "p.id = any" in query else []
