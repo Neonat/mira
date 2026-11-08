@@ -11,7 +11,6 @@ worker database URL or the model API key: it queues runs, and the trusted worker
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import re
 import time
 import uuid
@@ -31,7 +30,7 @@ from mira.brief import (
     project_revision_fields,
 )
 from mira.budget import RunBudget
-from mira.config import REPO_ROOT, load_env, report_file, workspace_slug
+from mira.config import load_env, workspace_slug
 from mira.contracts import Brief
 from mira.coverage_display import CHECKLIST_DESCRIPTION, coverage_label
 from mira.llm import ROLE_MODEL_ENV, estimated_cost
@@ -348,11 +347,13 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
 
     report_tab, findings_tab = st.tabs(["Report", f"Findings ({len(cited)} in report, {len(unresolved)} unresolved)"])
     with report_tab:
-        path = report_file(report["artifact_storage_path"])
-        if path is not None:
-            components.html(path.read_text(encoding="utf-8"), height=900, scrolling=True)
+        from mira.artifact_access import read_report
+        try:
+            html = read_report(sb,uuid.UUID(workspace_id),uuid.UUID(report['id'])).decode('utf-8')
+        except (PermissionError,UnicodeError):
+            st.info("The report file is currently unavailable. Saved findings remain available for review.")
         else:
-            st.info("The report file is not available here.")
+            components.html(html,height=900,scrolling=True)
         _original_downloads(sb,workspace_id,run['id'],snapshot,signed)
     with findings_tab:
         can_review = role in ("admin", "reviewer")
@@ -410,7 +411,6 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
 def _original_downloads(sb: Client, workspace_id: str, run_id: str, snapshot: dict, signed: bool) -> None:
     """Load private bytes only after a deliberate request under the signed-in client."""
     from mira.original_access import read_original
-    from mira.originals import PrivateOriginalStore, RetentionPolicy
     frozen = (snapshot.get('evidence_bundle') or {}).get('passages',{})
     if signed:
         expected = {p['document_version_id']:p.get('acquisition_provenance',{}).get('retained_original')
@@ -433,8 +433,8 @@ def _original_downloads(sb: Client, workspace_id: str, run_id: str, snapshot: di
             key = f"original-{workspace_id}-{version['id']}"
             if st.button('Prepare download',key=key):
                 try:
-                    storage = PrivateOriginalStore(Path(os.environ.get('MIRA_ORIGINALS_DIR',str(REPO_ROOT/'private-originals'))),
-                        RetentionPolicy.from_env())
+                    from mira.artifact_storage import original_store_from_env
+                    storage = original_store_from_env(client=sb)
                     data = read_original(sb,uuid.UUID(workspace_id),uuid.UUID(version['id']),storage,
                                          expected_identity=expected.get(version['id']) if signed else None)
                 except (PermissionError,ValueError,OSError):

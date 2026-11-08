@@ -39,6 +39,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="mira")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("seed")
+    from mira.recovery_cli import add_backup_commands
+    add_backup_commands(commands)
     run = commands.add_parser("run")
     run.add_argument("--jurisdictions", nargs="+", default=["SG", "HK"])
     run.add_argument("--as-of", type=date.fromisoformat, default=date.today())
@@ -62,6 +64,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "import" and not args.manifest and (len(args.files) != 1 or not args.url):
         parser.error("import one file with --url, or several with --manifest")
+
+    if args.command == "backup":
+        from mira.recovery_cli import execute_backup
+        raise SystemExit(execute_backup(args))
 
     from mira.db import connect
 
@@ -117,6 +123,12 @@ def main() -> None:
                         print(f"rendered reviewed report {report_id}")
                 except Exception as exc:  # one bad sign-off must not stop the worker or other sign-offs
                     print(f"render failed with {type(exc).__name__}: {exc}")
+                if os.environ.get('MIRA_ARTIFACT_STORAGE','local')!='local':
+                    from mira.artifact_jobs import retry_publications
+                    try:
+                        retry_publications(conn,workspace)
+                    except Exception as exc:
+                        print(f"artifact publication retry failed: {type(exc).__name__}")
                 run_id = claim_next_run(conn, workspace)
                 if run_id:
                     print(f"running {run_id}")

@@ -1,0 +1,41 @@
+# Durable evidence and recovery handoff
+
+Objective: work on the remaining README follow-ups: durable evidence/report storage and recovery, plus a reviewable live-quality validation path. Base `6e30570` (documentation PR12), branch `codex/durable-evidence-recovery`; merged main baseline `8fcd755`. Ewen's PR6 remains an ancestor. No model settings, source grants, MAS activation, historical report content or deployed services were changed.
+
+## Credentials and local environment
+
+The user requested local entry dialogs. `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `MIRA_DEV_EMAIL` were collected through native prompts; the separately supplied `MIRA_WORKER_DATABASE_URL` was saved too. All four are present in ignored `.env` with0600permissions; app and worker endpoints are local. Existing unrelated values were preserved, and no credential values appeared in tool output/chat/Git. Anon credentials remain app-only. No worker service-role upload key was configured; `MIRA_ARTIFACT_STORAGE` stays at its default `local` until an operator explicitly enables the backend.
+
+Docker Desktop had been stopped. The coordinator launched it in the background and restarted only the existing `supabase_db_mira-dbsearch` for local tests. PostgreSQL17.11 runs at the existing local test port55432; native dump/restore tools are available inside that container, not on the host PATH. The Storage API service itself was not exercised. No shared database reset, research worker start or remote migration/deployment occurred.
+
+## Delivered integration
+
+- Reserved private Supabase object storage uses immutable workspace/purpose/digest identities, bounded streaming, verified upload readback and secret-safe errors. Original retention still requires the existing source/global approvals and excludes browser DOM. Local/remote identities remain compatible.
+- Direct Storage policies require workspace membership and current source approval for originals. Restrictive object and bucket policies remain effective alongside permissive preexisting app policies; app roles cannot make the reserved bucket public or replace its objects.
+- Worker-only report publication pins the expected content hash before upload. Failed publication preserves the snapshot/local HTML and retries; missing old files rotate scheduling, and newer valid reports cannot be starved. Draft and reviewed rendering both publish through the same verified path. App reads use the signed-in client and can open a verified private copy after local-file loss; ready-but-missing/corrupt copies fail closed.
+- Complete native database snapshots inventory external bytes under the same repeatable-read snapshot. Private backup packages include all relational evidence and referenced bytes, detect corruption/missing members, and preserve legacy HTML paths byte-for-byte. Restore requires explicit trusted-backup acknowledgement, a fresh empty loopback recovery DB, safe native transport arguments and immutable object writes before database publication. No source/shared/in-place reset is supported.
+- Offline quality preflight/export/comparison freezes actual historical Nov4 scope and declared limits. Actual model/embedding usage, unknown reservations, all acquisition attempts, passage dispositions, primary verification and corroboration remain separate. Draft measurements bind to native verification inputs as of report generation; reviewed measurements use frozen evidence. Absent reports yield unavailable citation metrics, not fabricated zero-quality outcomes. Request classification reconciles exact persisted prompts/purpose. No provider execution path or new quality result is included.
+
+## Ownership and review
+
+Coordinator owns shared contracts/factories, original/report wiring, SQL, CLI, app reads, documentation and push. Bounded workers delivered [private storage/bridge](private-object-storage.md), [package format](recovery-package.md), [native recovery](database-recovery.md) and [quality readiness/export](quality-validation-preflight.md), each in explicitly assigned disjoint files. Workers created no recursive agents or commits.
+
+Focused independent reviews covered storage/RLS/UI, native/package/recovery CLI, and quality provenance. Resolved regressions: reserved-bucket privacy mutation, native dump/restore filtering aliases, implicit trust of SQL archives, remote original byte-cap bypass, retry starvation, SDK configuration discarding extracted text, mutable saved-report metrics and forged corroboration request classification. Final focused reviews found no remaining blockers in their assigned scope.
+
+## Validation
+
+The feature-focused integrated scope passed **272 tests in6.44s** before the final quality/config corrections. Native recovery tests perform actual PostgreSQL custom-format dump/restore using disposable synthetic databases, preserving A/B/C, full fixture passages/frozen JSON and RLS grants while excluding concurrent additions. All generated recovery fixture databases were dropped. Supabase SDK tests use actual installed clients with offline HTTP transport; direct Storage policies are tested in local PostgreSQL, including revocation and permissive-policy adversaries. These are mechanism proofs, not a hosted-provider or full application-schema restore acceptance.
+
+The first complete-suite invocation was interrupted and its exit result was not retained; no success was inferred. The final proof writes its log and exit status to `/private/tmp/mira-durable-final-proof/` so an interruption cannot require guessing. Final result: **939 tests +8 subtests passed,none skipped,in64.05s** (wrapper elapsed65.18s). Proof: `/private/tmp/mira-durable-final-proof2/result.json` and `pytest.log`. The intermediate replay found the local Docker daemon stopped after interruption:742tests passed,+8subtests,with196setup errors and one failed test all caused by PostgreSQL connection refusal. No code fix was inferred from those infrastructure errors; Docker/test PostgreSQL were restarted and reachability checked before the passing run. No runtime/test code changed after this passing candidate.
+
+Only the new migration `20261108130000_mira_private_artifacts.sql` was applied locally. During local development its new report table gained a pinned content hash (existing rows were synthetic fixtures from this same task); helpers and bucket policies were updated in place. Fresh environments apply the committed migration normally. Do not blindly replay non-idempotent table DDL on the already-updated local instance. Historical snapshots and applied historical migrations were not rewritten.
+
+## Team follow-up and next step
+
+The implementation is optional/off until separately configured and deployed. Operators still need a private bucket, worker-only credential, independently managed backup storage/schedule/encryption, and a recovery drill in the intended hosting environment. Existing local files missing before this change cannot be recreated byte-exactly by declaring a backup complete; creation refuses missing bound objects.
+
+Native archives execute SQL: checksums establish integrity, not authorship. Trust/exclusive ownership of the package and empty target, preexisting required roles/extensions, and correct transport-wrapper-to-cluster mapping remain operator requirements. The tool does not attest that an operator-supplied Docker wrapper points to the same cluster as the inspected connection.
+
+Live quality gains remain unmeasured. The next candidate is one uninterrupted Hong Kong run with the actual historical scope2025-11-04..2026-11-04/asofNov4, unchanged role models, MAS inactive, and caps30documents/600000tokens/25minutes/6Exasearches. Current configuration/source checks and fresh bounded user authorization are required before any paid/model/Exa/browser acquisition; prior run allowances remain consumed. Blinded human precision labels are still separate from automated verdicts.
+
+Status: implementation/review and final suite complete; commit/PR publication pending. No merge/deploy/live-run permission is implied.

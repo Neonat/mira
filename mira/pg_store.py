@@ -199,9 +199,10 @@ def _as_date(value: datetime | None) -> date | None:
 
 
 class PostgresStore:
-    def __init__(self, conn: psycopg.Connection, reports_dir: Path = REPORTS_DIR) -> None:
+    def __init__(self, conn: psycopg.Connection, reports_dir: Path = REPORTS_DIR, *, artifact_store=None) -> None:
         self.conn = conn
         self.reports_dir = reports_dir
+        self.artifact_store = artifact_store
 
     # --- Reads ----------------------------------------------------------------
 
@@ -537,7 +538,7 @@ class PostgresStore:
             path = self.reports_dir / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(html, encoding="utf-8")
-            return self.conn.execute(
+            report_id = self.conn.execute(
                 """insert into public.reports
                      (workspace_id, analysis_revision_id, report_version, format, review_status, template_version,
                       evidence_snapshot, artifact_storage_path, generated_by)
@@ -545,3 +546,10 @@ class PostgresStore:
                 (ctx.workspace_id, ctx.analysis_revision_id, version, TEMPLATE_VERSION,
                  Jsonb(json.loads(snapshot.model_dump_json())), str(relative), ctx.user_id),
             ).fetchone()["id"]
+
+        from mira.artifact_jobs import publish_configured_report,publish_report
+        if self.artifact_store is not None:
+            publish_report(self.conn,ctx.workspace_id,report_id,ctx.user_id,html.encode('utf-8'),self.artifact_store)
+        else:
+            publish_configured_report(self.conn,ctx.workspace_id,report_id,ctx.user_id,html.encode('utf-8'))
+        return report_id

@@ -14,21 +14,18 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import time as time_module
 from dataclasses import dataclass
 from datetime import UTC, datetime, time
-from pathlib import Path
 from uuid import UUID
 
 import psycopg
 from psycopg.types.json import Jsonb
 
-from mira.config import REPO_ROOT
 from mira.db import acting_as
 from mira.extract import EXTRACTION_VERSION, Extracted, split_passages
 from mira.fetch import FetchedPage
-from mira.originals import PrivateOriginalStore, RetentionPolicy
+from mira.originals import PrivateOriginalStore
 from mira.store import SourceRecord
 
 DOCUMENT_TYPES = {"regulator": "regulation", "website": "guidance", "rss": "news"}
@@ -61,9 +58,8 @@ class EvidenceWriter:
         self.originals = originals
         if originals is None:
             try:
-                self.originals = PrivateOriginalStore(
-                    Path(os.environ.get("MIRA_ORIGINALS_DIR", str(REPO_ROOT / "private-originals"))),
-                    RetentionPolicy.from_env())
+                from mira.artifact_storage import original_store_from_env
+                self.originals = original_store_from_env()
             except (ValueError, OSError):
                 # Retention configuration cannot prevent saving extracted text.
                 self._original_config_failed = True

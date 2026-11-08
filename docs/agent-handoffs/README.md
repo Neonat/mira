@@ -2,6 +2,10 @@
 
 This directory coordinates parallel engineering work. It is not a change to Mira's runtime agent architecture. Use a fresh task/fork without chat history; include only the task, ownership boundary, and this checkpoint. Do not ask workers to reread historic chat.
 
+## Durable evidence follow-up
+
+The user approved working on durability/recovery and quality-validation preparation. See the [current handoff](durable-evidence-checkpoint.md) and [operator runbook](../backup-recovery.md). This follow-up preserves PR6 guards, existing source grants, role models and MAS disablement. No paid live run or remote deployment is included.
+
 ## Evidence-completeness extension under review
 
 The user approved passage coverage/bounded batch analysis first, then permitted originals/page navigation and opt-in hybrid retrieval. Integration and local validation are recorded in [evidence-completeness](evidence-completeness.md). The normal worker records frozen passage dispositions; optional storage/retrieval remain off by default and need existing source approvals. MAS automation, paid runs, role models and remote deployment were not enabled. This extension is based on PR10; older run results below keep their original scope.

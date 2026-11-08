@@ -79,3 +79,9 @@ The product owner and team maintain pilot acceptance and operating decisions in 
 Normal workers analyse up to 12 whole passages and 18,000 content characters per batch, with eight batches maximum and shared run limits taking precedence. Unprocessed work remains stored and appears in the frozen coverage summary; a valid response does not certify exhaustive fact extraction. The comparison arm retains its existing policy. See `.env.example` for limits and verification/report reserves.
 
 Original retention and hybrid retrieval are off by default. Retention additionally requires a source `connector_config.original_retention` approval and reference, private storage shared by worker and authenticated app, and a backup policy for deployment. Hybrid retrieval requires an explicit embedding model/revision, compatible 384-dimensional vectors and the source `embed` permission. Its bounded candidate pool falls back to keyword retrieval when limits or acquisition errors prevent semantic ranking. MAS automated acquisition remains disabled; no new source grants are supplied by this update. Apply the new migrations locally before running the updated worker.
+
+## Durable storage and recovery
+
+Private Supabase object copies and consistent full-database/object backup recovery are implemented as optional operator paths. See the [storage and recovery runbook](backup-recovery.md) for credential separation, verified publication, complete backup checks and fresh-local-target recovery. The anon key remains app-only. Configure a worker storage credential separately before enabling uploads.
+
+Offline quality-validation preparation is in `eval/quality_preflight.py` and the read-only `eval/quality_export.py` adapter. Historical Hong Kong measurements keep their original Nov4 scope; proposals require a new bounded live-run authorization and do not invoke providers.

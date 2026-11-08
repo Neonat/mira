@@ -18,3 +18,5 @@ eval/results/
 
 # Private permitted source bytes, never a public report asset.
 private-originals/
+# Operator backups contain complete database and private evidence bytes.
+backups/

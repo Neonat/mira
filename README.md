@@ -27,7 +27,7 @@ The report brings together regulatory developments, deadlines, supervisory theme
 
 Corroboration appears in the generated report with its assessment, quotations and origin evidence. Passage analysis tracking and the source coverage checklist give reviewers a clear account of the research performed. Reviewed snapshots preserve the evidence and decisions behind the signed version.
 
-Source navigation is built for readers: verified SFC API destinations open the corresponding readable publication page, and known PDF passages link to their page. Permitted original files use integrity checks and authenticated workspace access. Optional hybrid retrieval combines keyword and semantic ranking within source and usage controls.
+Source navigation is built for readers: verified SFC API destinations open the corresponding readable publication page, and known PDF passages link to their page. Permitted original files use integrity checks and authenticated workspace access. Optional private object storage and verified backup/recovery support evidence continuity. Optional hybrid retrieval combines keyword and semantic ranking within source and usage controls.
 
 ## Alignment with the competition brief
 
@@ -44,7 +44,7 @@ Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External 
 
 ## Validation
 
-The latest integrated engineering validation passed **691 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover passage batching, frozen coverage and review, authenticated original-file access, source navigation and optional hybrid retrieval. The report's coverage layout was also inspected at desktop and mobile sizes.
+The latest integrated engineering validation passed **939 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover passage batching, frozen coverage and review, authenticated original-file access, source navigation, optional hybrid retrieval, private publication and backup/recovery. The report's coverage layout was also inspected at desktop and mobile sizes.
 
 Research evaluation uses scoped publication-recall scoring and human-labelled citation checks. The [evaluation record](docs/mira_PRD_v3_draft.md#7-evaluation-and-release-evidence) documents the measurement method and dated results; the [implementation handoff](docs/agent-handoffs/evidence-completeness.md) records engineering verification.
 
