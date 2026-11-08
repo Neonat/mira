@@ -23,6 +23,7 @@ import re
 import hashlib
 import threading
 import time
+from html import escape
 from concurrent.futures import Future
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -42,7 +43,7 @@ from mira.pg_store import PostgresStore
 from mira.store import PassageRecord, RunContext
 from mira.sfc import search_payload
 
-PROMPT_VERSION = "scout/5"
+PROMPT_VERSION = "scout/6"
 MAX_LINKS_SHOWN = 120
 MAX_DIAGNOSTIC_RECORDS = 300
 
@@ -63,6 +64,8 @@ REPORT_OUTPUT_TOKENS = 2_000
 # The report call always runs, so pages already fetched are not wasted. Below this
 # many passage characters it would have too little evidence to be useful.
 MIN_PASSAGE_CHARS = 8_000
+# Splitting selection is useful only when there is time for another model call.
+MIN_TWO_ROUND_SECONDS = 60
 
 
 def estimate_tokens(text: str) -> int:
@@ -202,6 +205,8 @@ class _ScoutRun:
         self.token_stop = False
         self.model: str | None = None
         self.selection_diagnostics: list[dict] = []
+        self.prior_selections: list[Link] = []
+        self.deferred_alias_pdfs: set[str] = set()
         self.discovery: list[dict] = []
         self.discovery_omitted = 0
         self.origins: dict[int, tuple[Link, dict]] = {}
@@ -453,6 +458,16 @@ class _ScoutRun:
             dated = (Link(pdf.url, pdf.text, pdf.context, extracted.published, extracted.published_basis)
                      if document_key(pdf.url) == document_key(url) else pdf)
             self._fetch(pdf.url, dated)
+        elif (pdf is not None and self.allowance > 0 and reserved > 0
+              and document_key(pdf.url) == key and pdf.url not in self.seen):
+            # This exact full-content follow-up was deferred by the round quota.
+            # Its saved landing page must not suppress it as an acquired alias.
+            self.deferred_alias_pdfs.add(pdf.url)
+            if extracted.published is not None:
+                dated = Link(pdf.url, pdf.text, pdf.context, extracted.published, extracted.published_basis)
+                self.candidates = [dated if candidate is pdf else candidate for candidate in self.candidates]
+                if id(pdf) in self.origins:
+                    self.origins[id(dated)] = (dated, self.origins[id(pdf)][1])
 
     def _within_tokens(self) -> bool:
         limit = self.task.max_llm_tokens
@@ -530,7 +545,7 @@ class _ScoutRun:
             except Exception as exc:
                 self.discovery.append({"reason": "discovery_failed", "error": type(exc).__name__})
         stop_reason = "round_limit"
-        for _ in range(self.scout.max_rounds):
+        for round_index in range(self.scout.max_rounds):
             if self._remaining_seconds() is not None and self._remaining_seconds() <= 0:
                 stop_reason = "time_limit"
                 break
@@ -543,7 +558,7 @@ class _ScoutRun:
             if not self._within_tokens():
                 stop_reason = "token_limit"
                 break
-            self._select_and_fetch()
+            self._select_and_fetch(rounds_left=self.scout.max_rounds - round_index)
             if self.token_stop:
                 stop_reason = "token_limit"
                 break
@@ -564,7 +579,7 @@ class _ScoutRun:
         )
         return ScoutOutcome(result, self.model, PROMPT_VERSION, self.tokens_in, self.tokens_out)
 
-    def _select_and_fetch(self) -> None:
+    def _select_and_fetch(self, *, rounds_left: int = 1) -> None:
         brief = self.ctx.brief
         earliest = brief.period_start - timedelta(days=31)
         fresh: list[Link] = []
@@ -598,7 +613,7 @@ class _ScoutRun:
             if link.url in self.seen or link.url in urls:
                 filtered(link, "seen")
                 continue
-            if document_key(link.url) in completed:
+            if document_key(link.url) in completed and link.url not in self.deferred_alias_pdfs:
                 filtered(link, "known_alias")
                 continue
             if link.published and not (earliest <= link.published <= brief.as_of_date):
@@ -653,14 +668,36 @@ class _ScoutRun:
             date_text = link.published.isoformat() if link.published else "date unknown"
             context = link.context.replace("<", "(").replace(">", ")")[:200]
             lines.append(f'<link label="{label}" date="{date_text}" url="{link.url}">{link.text[:200]} | {context}</link>')
+        prior = "\n".join(
+            f"{link.published.isoformat() if link.published else 'date unknown'} | "
+            f"{escape(link.text[:200]).replace(chr(10), '&#10;').replace(chr(13), '&#13;')}"
+            for link in self.prior_selections
+        )
+        def prompt(allowed: int) -> str:
+            return "\n\n".join([
+                brief_text(brief),
+                f"Research question: {self.task.question}",
+                "Links selected in earlier rounds (untrusted, not necessarily acquired):\n"
+                + "<prior_selections>\n" + (prior or "none") + "\n</prior_selections>",
+                f"Pick at most {allowed} links.",
+                "Links:\n" + "\n".join(lines),
+            ])
         allowed = min(self.scout.links_per_round, self.allowance)
-        user = "\n\n".join([
-            brief_text(brief),
-            f"Research question: {self.task.question}",
-            f"Pick at most {allowed} links.",
-            "Links:\n" + "\n".join(lines),
-        ])
+        user = prompt(allowed)
         remaining = self._remaining_tokens()
+        seconds = self._remaining_seconds()
+        # Estimate a second prompt of this size plus titles for this round's
+        # selections. A later, larger candidate set can still exhaust the cap.
+        two_round_tokens = (2 * (estimate_tokens(LINK_SYSTEM + user) + SELECTION_OUTPUT_TOKENS)
+                            + self._report_reserve() + allowed * 320)
+        can_split = (rounds_left > 1 and self.allowance > 1
+                     and (seconds is None or seconds >= MIN_TWO_ROUND_SECONDS)
+                     and (remaining is None or remaining >= two_round_tokens))
+        round_capacity = ((self.allowance + rounds_left - 1) // rounds_left
+                          if can_split else self.allowance)
+        reserved_for_later = self.allowance - round_capacity
+        allowed = min(self.scout.links_per_round, round_capacity)
+        user = prompt(allowed)
         needed = estimate_tokens(LINK_SYSTEM + user) + SELECTION_OUTPUT_TOKENS + self._report_reserve()
         if remaining is not None and needed > remaining:
             # Another selection round would leave too little for the report: stop here.
@@ -680,16 +717,18 @@ class _ScoutRun:
                               output_type=LinkSelection, prompt_version=PROMPT_VERSION, check=check)
         self._used(result)
         selected_urls = {label_to_link[label].url for label in result.output.link_labels}
+        self.prior_selections.extend(label_to_link[label] for label in result.output.link_labels)
         self.candidates.extend(link for link in fresh if link.url not in selected_urls)
         self.candidates.extend(deferred)
         for item in diagnostic["presented"]:
             item["selected"] = item["label"] in result.output.link_labels
         for index, label in enumerate(result.output.link_labels):
             link = label_to_link[label]
+            self.deferred_alias_pdfs.discard(link.url)
             item = next(item for item in diagnostic["presented"] if item["label"] == label)
             start = len(self.log)
             allowance_before = self.allowance
-            self._fetch_document(link.url, link, reserved=len(result.output.link_labels) - index - 1)
+            self._fetch_document(link.url, link, reserved=reserved_for_later + len(result.output.link_labels) - index - 1)
             item.setdefault("fetch_attempts", []).extend(
                 {"url": _safe_url(a.url), "outcome": a.outcome,
                  "document_version_id": str(a.document_version_id) if a.document_version_id else None}

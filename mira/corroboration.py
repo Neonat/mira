@@ -29,7 +29,7 @@ class SearchLimits(Model):
     max_queries: int = Field(default=2, ge=0, le=2)
     max_documents: int = Field(default=5, ge=0, le=5)
     max_passages: int = Field(default=20, ge=0, le=20)
-    max_seconds: float = Field(default=30, gt=0, le=30)
+    max_seconds: float = Field(default=60, gt=0, le=60)
 
 
 class CandidateEvidence(Model):
@@ -135,8 +135,10 @@ class CorroborationAssessment(Model):
     reserved_tokens: int = Field(default=0, ge=0)
 
 
-PROMPT_VERSION = "corroboration/2-bounded-excerpts"
-MAX_ASSESSOR_CANDIDATES = 2
+PROMPT_VERSION = "corroboration/3-single-candidate"
+# Historical bounded prompts retain their original frozen validation semantics.
+BOUNDED_PROMPT_VERSIONS = frozenset({"corroboration/2-bounded-excerpts", PROMPT_VERSION})
+MAX_ASSESSOR_CANDIDATES = 1
 MAX_ASSESSOR_PRIMARY = 2
 MAX_EXCERPT_CHARS = 1800
 MAX_ASSESSOR_OUTPUT_TOKENS = 4096
@@ -155,7 +157,8 @@ work; a repetition of it cannot. Use origin_evidence kind original_reporting or 
 Inputs may be bounded exact excerpts; omitted text is unassessed. Keep quotes and reasons concise.
 For known_dependent candidates assess the proposition and contradictions, but do not spend work
 proving independence: use dependent and an empty origin_evidence list. Never dismiss a contradiction
-because its origin is dependent. Return one decision per supplied candidate, including irrelevant/uncertain decisions. Never infer
+because its origin is dependent. Return one decision for the single supplied candidate, including
+irrelevant/uncertain outcomes. Keep each quote within 400 characters and each reason within 240. Never infer
 truth from source count. Metadata and unknowns must remain explicit. No auditor action advice."""
 
 
@@ -179,6 +182,25 @@ class _DecisionProposal(Model):
 class _SemanticProposal(Model):
     proposition: Proposition
     decisions: list[_DecisionProposal]
+
+
+class _BoundedOriginProposal(_OriginProposal):
+    quote: str = Field(min_length=1, max_length=400)
+    reason: str = Field(min_length=1, max_length=240)
+
+
+class _SingleDecisionProposal(Model):
+    quote: str = Field(min_length=1, max_length=400)
+    proposition: Proposition
+    relation: Literal["supports", "contradicts", "irrelevant", "uncertain"]
+    origin_relation: Literal["independent", "dependent", "unknown"]
+    origin_evidence: list[_BoundedOriginProposal] = Field(max_length=3)
+    reason: str = Field(min_length=1, max_length=240)
+
+
+class _SingleSemanticProposal(Model):
+    proposition: Proposition
+    decision: _SingleDecisionProposal
 
 
 def _excerpt(content: str, terms: set[str], anchor: str | None = None) -> tuple[str, int]:
@@ -210,6 +232,8 @@ class LlmAssessor:
         terms = set(re.findall(r"[^\W\d_]{3,}", claim.draft.content.casefold())) - {
             "the", "and", "that", "with", "from", "for", "this", "are", "was", "has", "have"}
         anchors = {e.passage_id: e.supporting_quote for e in claim.evidence}
+        if not candidates:
+            raise LLMError("corroboration requires one candidate")
         selected_primary = list(primary[:MAX_ASSESSOR_PRIMARY])
         excerpts = {p.id: _excerpt(p.content, terms, anchors.get(p.id)) for p in selected_primary}
         candidate_excerpts = {c.passage.id: _excerpt(c.passage.content, terms) for c in candidates}
@@ -235,7 +259,7 @@ class LlmAssessor:
                                           for c in selected_candidates],
                            "omitted_candidates": len(candidates) - len(selected_candidates),
                            "omitted_primary": len(primary) - len(selected_primary)}, sort_keys=True)
-        estimated_input = len((SYSTEM + user + json.dumps(_SemanticProposal.model_json_schema())).encode()) + 4096
+        estimated_input = len((SYSTEM + user + json.dumps(_SingleSemanticProposal.model_json_schema())).encode()) + 4096
         output_allowance = min(MAX_ASSESSOR_OUTPUT_TOKENS, max_tokens - estimated_input)
         if output_allowance < 256 or timeout_seconds <= 0:
             raise LLMError("corroboration input exceeds available token/time budget")
@@ -246,7 +270,7 @@ class LlmAssessor:
         if call_seconds <= 0:
             raise LLMError("corroboration input preparation exceeded time budget")
         try:
-            response = method(role="verifier", system=SYSTEM, user=user, output_type=_SemanticProposal,
+            response = method(role="verifier", system=SYSTEM, user=user, output_type=_SingleSemanticProposal,
                               prompt_version=PROMPT_VERSION, timeout_seconds=call_seconds,
                               max_output_tokens=output_allowance)
         except LLMError as exc:
@@ -256,8 +280,8 @@ class LlmAssessor:
         if time.monotonic() - started > timeout_seconds:
             raise LLMError("corroboration response exceeded time budget", response.tokens_in, response.tokens_out)
         decisions = []
-        for d in response.output.decisions:
-            pid = ids.get(d.passage_label)
+        for d in [response.output.decision]:
+            pid = selected_candidates[0].passage.id
             # An unshown quote cannot support a decision. Omitting only that decision
             # leaves the result incomplete without discarding other valid conflicts.
             if pid is None or d.quote not in excerpts[pid][0]:
@@ -375,6 +399,7 @@ class CorroborationService:
                saved_candidates: Sequence[CandidateEvidence], sources: Sequence[SourceRecord],
                budget: BudgetTracker, authoritative_primary: bool = False,
                limits: SearchLimits = SearchLimits()) -> CorroborationAssessment:
+        started = self.clock()
         base = json.loads(json.dumps(base_evidence_input))
         if base.get("corroboration"):
             raise ValueError("corroboration assessment requires un-enriched base evidence input")
@@ -401,12 +426,12 @@ class CorroborationService:
         if authoritative_primary and not any(source_map.get(p.source_id) and
                 source_map[p.source_id].source_type == "regulator" for p in primary):
             raise ValueError("authoritative primary requires an identified regulator")
-        started = self.clock()
         accepted, decisions, stop, reasons = [], [], [], []
         documents, seen = set(), set()
         queries = attempts = tokens_in = tokens_out = reserved = 0
         proposition = None
         model = prompt = None
+        assessment_attempted = False
         eligible = not claim.draft.is_inference and bool(primary)
         if not eligible:
             stop.append("not_eligible")
@@ -427,7 +452,7 @@ class CorroborationService:
             return True
 
         def assess_candidates(items):
-            nonlocal proposition, model, prompt, tokens_in, tokens_out, reserved
+            nonlocal proposition, model, prompt, tokens_in, tokens_out, reserved, assessment_attempted
             fresh = []
             for c in items:
                 p = c.passage
@@ -457,6 +482,10 @@ class CorroborationService:
                 fresh.append(c)
             if not fresh or self.assessor is None or not can_work():
                 return
+            if assessment_attempted:
+                stop.append("assessment_attempt_limit")
+                return
+            assessment_attempted = True
             try:
                 batch = self.assessor.assess(claim, primary, fresh, timeout_seconds=remaining(),
                                              max_tokens=budget.remaining_tokens())
@@ -480,7 +509,7 @@ class CorroborationService:
                     any(len(p.content) > MAX_EXCERPT_CHARS for p in primary) or
                     any(len(c.passage.content) > MAX_EXCERPT_CHARS for c in fresh)):
                 stop.append("assessment_workload_limit")
-                reasons.append("Assessor limited to two candidate and two primary passages, each at most "
+                reasons.append("Assessor limited to one candidate and two primary passages, each at most "
                                "1800 characters; omitted passages/text remain unassessed.")
             if remaining() <= 0:
                 stop.append("time_limit")
@@ -517,8 +546,10 @@ class CorroborationService:
             saved_document_count = len(documents)
             if self.discovery is None:
                 stop.append("discovery_disabled")
+            elif assessment_attempted:
+                stop.append("assessment_attempt_limit")
             else:
-                while queries < limits.max_queries and can_work():
+                while queries < limits.max_queries and not assessment_attempted and can_work():
                     capacity = min(limits.max_documents - saved_document_count - attempts, budget.remaining_documents())
                     if capacity <= 0:
                         stop.append("document_limit")
@@ -553,6 +584,8 @@ class CorroborationService:
                         stop.append("time_limit")
                         break
                     assess_candidates(response.candidates)
+                if assessment_attempted:
+                    stop.append("assessment_attempt_limit")
                 if queries == limits.max_queries:
                     stop.append("query_limit")
         if not accepted:
@@ -624,7 +657,7 @@ def validate_frozen_assessment(assessment: CorroborationAssessment) -> None:
         c = candidate_map.get(d.passage_id)
         if c is None or a.proposition is None:
             raise ValueError("decision lacks frozen candidate/proposition")
-        if a.prompt_version == PROMPT_VERSION and d.relation != "uncertain" and (
+        if a.prompt_version in BOUNDED_PROMPT_VERSIONS and d.relation != "uncertain" and (
                 len(a.primary) > MAX_ASSESSOR_PRIMARY or
                 any(len(p.content) > MAX_EXCERPT_CHARS for p in a.primary) or
                 len(c.passage.content) > MAX_EXCERPT_CHARS):

@@ -142,10 +142,9 @@ def test_llm_uses_one_bounded_verifier_call():
         def structured_bounded(self, **kwargs):
             self.calls.append(kwargs)
             decision = batch.decisions[0].model_dump(exclude={"passage_id", "origin_evidence"})
-            decision["passage_label"] = "P2"
             decision["origin_evidence"] = [dict(passage_label=f"P{i}", quote=e.quote, kind=e.kind, reason=e.reason)
                                            for i,e in enumerate(batch.decisions[0].origin_evidence, 1)]
-            output = kwargs["output_type"](proposition=batch.proposition, decisions=[decision])
+            output = kwargs["output_type"](proposition=batch.proposition, decision=decision)
             return LLMResult(output, "fixture", "fixture/1", 3, 4)
     client = Client()
     result = LlmAssessor(client).assess(args["claim"], [primary], args["saved_candidates"], timeout_seconds=5, max_tokens=100000)
@@ -255,7 +254,7 @@ def test_late_semantic_result_cannot_corroborate_but_usage_is_charged():
         def assess(self, *args, **kwargs):
             clock.value = 31
             return batch
-    result = CorroborationService(Late(), clock=clock).assess(**args)
+    result = CorroborationService(Late(), clock=clock).assess(**args, limits=SearchLimits(max_seconds=30))
     assert result.status == "inconclusive" and "time_limit" in result.stop_reasons
     assert args["budget"].tokens_used == 7
 
@@ -310,8 +309,9 @@ def test_unknown_passage_labels_fail_closed_with_reported_usage():
     class Client:
         def structured_bounded(self, **kwargs):
             decision = batch.decisions[0].model_dump(exclude={"passage_id", "origin_evidence"})
-            decision.update(passage_label="P999", origin_evidence=[])
-            return LLMResult(kwargs["output_type"](proposition=batch.proposition, decisions=[decision]), "fixture", "fixture", 3, 4)
+            decision.update(origin_evidence=[dict(passage_label="P999", quote="unshown",
+                kind="original_reporting", reason="Unknown origin reference")])
+            return LLMResult(kwargs["output_type"](proposition=batch.proposition, decision=decision), "fixture", "fixture", 3, 4)
     result = CorroborationService(LlmAssessor(Client())).assess(**args)
     assert result.status == "inconclusive" and args["budget"].tokens_used == 7
 

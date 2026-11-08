@@ -19,6 +19,6 @@ def test_runtime_uses_same_small_passage_bound_for_retrieval_and_frozen_limits(m
     monkeypatch.setattr(runtime,'CorroborationStore',lambda conn:Ledger())
     monkeypatch.setattr(runtime,'LlmAssessor',lambda client:Assessor(batch))
     envelope=runtime.ClaimCorroborator(None,object())(args['ctx'],args['claim'],args['base_evidence_input'],args['budget'])
-    assert seen==[{'max_passages':2}]
-    assert envelope['assessment']['limits']['max_passages']==2
+    assert seen==[{'max_passages':1}]
+    assert envelope['assessment']['limits']['max_passages']==1
     assert envelope['assessment']['status']=='independently_corroborated'
