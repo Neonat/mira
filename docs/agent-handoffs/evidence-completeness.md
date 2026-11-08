@@ -1,6 +1,6 @@
 # Evidence completeness implementation
 
-Objective: user-approved passage coverage and bounded batch analysis first, then permitted-original retention/page navigation and optional hybrid retrieval; test and open a PR. Base `e4ad439` (documentation PR10), merged runtime baseline `95bd1f8`. Branch `codex/passage-coverage-retrieval`. Ewen's PR6 remains an ancestor; no role model or source grant changes.
+Objective: user-approved passage coverage and bounded batch analysis first, then permitted-original retention/page navigation and optional hybrid retrieval; test and open a PR. Base `e4ad439` (documentation PR10), merged runtime baseline `95bd1f8`. Branch `codex/passage-coverage-retrieval`; [PR11](https://github.com/Neonat/mira/pull/11) is open on PR10. Tested implementation commit `6fc63b1`. Ewen's PR6 remains an ancestor; no role model or source grant changes.
 
 Coordinator owns integration, shared Python contracts/stores/orchestration, provenance projection, report/review UI, documentation and push. Bounded worker ownership and scoped results are recorded in [batch planner](analysis-batch-planner.md), [coverage database](analysis-coverage-db.md), [original storage](private-originals.md) and [hybrid retrieval](hybrid-retrieval.md). These historical handoff stages are superseded by the integrated behavior below.
 
@@ -30,5 +30,7 @@ New migrations20261108120000,20261108123000,20261108124000 were applied to local
 - Private originals use local filesystem storage. Deployment needs shared durable storage, backup/restore and retention operations; existing report artifact durability remains separate work. Source approvals are not supplied by this implementation.
 - No MAS automation was enabled. Its prior disabled/manual path and existing source grants are unchanged. Synthetic older MAS-labelled fixtures do not access the MAS site.
 - No merge/deploy/live-validation authorization is implied. PR10 remains open; this feature PR is stacked on its documentation branch unless that is merged first.
+
+Status: implementation complete; PR11 open, unmerged.
 
 Exact next step: review the new PR and apply new migrations in the intended environment only under separate deployment authorization. A future paid quality comparison needs a new bounded run authorization; prior Hong Kong run allowances remain consumed.

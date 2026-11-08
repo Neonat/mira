@@ -70,4 +70,4 @@
 - [x] Run focused regressions and independent whole-diff review, fixing blockers before final integration verification.
 - [x] Final-candidate `pytest tests eval`:691passed+8subtests,no skips,92.39s. The first run exposed six old task stubs, corrected before this result.
 - [x] Update PRD/README/handoff with demonstrated behavior, accurate audience and explicit fixture/live evidence distinction; no historical metric rewrite.
-- [ ] Secret/scope/JSON/diff checks, commit/push and open a reviewable PR. Do not merge it.
+- [x] Credential/scope/diff checks clean; implementation6fc63b1 pushed and PR11 opened on PR10. No merge.
