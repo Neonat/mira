@@ -54,6 +54,29 @@ def test_nonwriter_calls_preserve_writer_time():
     call=b.start('model','writer',1000);b.finish(call,known=10)
 
 
+def test_verifier_has_bounded_output_headroom_without_changing_model():
+    from mira.generation import GenerationClient,GenerationBudget
+    from mira.contracts import LinkSelection
+    calls=[]
+    def complete(**kw):calls.append(kw);return SimpleNamespace(tokens_in=4,tokens_out=3,model='unchanged')
+    client=GenerationClient(SimpleNamespace(structured_bounded=complete),GenerationBudget(600000,1500))
+    result=client.structured(role='verifier',system='s',user='u',output_type=LinkSelection,prompt_version='test')
+    assert (calls[0]['timeout_seconds'],calls[0]['max_output_tokens'])==(120,8192)
+    assert result.model=='unchanged'
+
+
+def test_error_journal_keeps_split_usage_when_step_persistence_is_lost():
+    from mira.generation import GenerationClient,GenerationBudget
+    from mira.contracts import LinkSelection
+    snapshots=[]
+    def fail(**kw):raise LLMError('limit',3,4,code='output_limit',request_sent=True)
+    budget=GenerationBudget(600000,1500,on_change=snapshots.append)
+    client=GenerationClient(SimpleNamespace(structured_bounded=fail),budget)
+    with pytest.raises(LLMError):client.structured(role='verifier',system='s',user='u',output_type=LinkSelection,prompt_version='test')
+    last=snapshots[-1]['calls'][-1]
+    assert (last['tokens_in'],last['tokens_out'],last['known_tokens'])==(3,4,7)
+
+
 def test_ordinary_client_is_rejected_locally_before_admission():
     from mira.generation import GenerationBudget,GenerationClient
     from mira.contracts import LinkSelection

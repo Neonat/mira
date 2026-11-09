@@ -864,7 +864,7 @@ class _Run:
         lines = [
             coverage_line,
             f"{len(self.verified)} claims verified; {len(self.unresolved)} unresolved and kept out of the report body.",
-            f"Budget used: {status['tokens_used']} of {status['max_llm_tokens']} model tokens, "
+            f"Budget allowance used (known usage plus unknown-usage reservations): {status['tokens_used']} of {status['max_llm_tokens']} tokens, "
             f"{status['documents_fetched']} of {status['max_fetched_documents']} documents, "
             f"{status['minutes_used']:g} of {status['max_run_minutes']:g} minutes.",
             *[f"Limitation: {reason}." for reason in self.reasons],

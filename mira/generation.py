@@ -52,7 +52,7 @@ class GenerationBudget:
                   'started_seconds':round(self.clock()-self.started,3)}
             self.calls.append(item);self.pending+=reservation;self._publish();return item
 
-    def finish(self,item,*,known=None,error=None,model=None):
+    def finish(self,item,*,known=None,error=None,model=None,usage=None):
         with self.lock:
             if item['status']!='pending':raise ValueError('generation call already settled')
             reservation=item['reservation_tokens'];self.pending-=reservation
@@ -71,6 +71,11 @@ class GenerationBudget:
             item.update(status=status,request_sent=sent,known_tokens=known,unknown_reserved_tokens=unknown,
                         elapsed_seconds=round(self.clock()-self.started-item['started_seconds'],3))
             if model is not None:item['model']=model
+            if item['kind']=='model':
+                if error is not None and hasattr(error,'tokens_in'):
+                    usage=(error.tokens_in,error.tokens_out)
+                if usage is not None:item.update(tokens_in=usage[0],tokens_out=usage[1])
+            item['usage_known']=error is None or bool(known) or sent is False
             if error is not None:item['error_code']=getattr(error,'code',type(error).__name__)
             self._publish()
 
@@ -80,9 +85,7 @@ class GenerationClient:
     def __init__(self,base,budget:GenerationBudget):self.base=base;self.budget=budget
 
     def structured(self,**kwargs):
-        role=kwargs['role']
-        return self.structured_bounded(timeout_seconds=90 if role=='verifier' else 120,
-                                       max_output_tokens=4096 if role=='verifier' else 8192,**kwargs)
+        return self.structured_bounded(timeout_seconds=120,max_output_tokens=8192,**kwargs)
 
     def structured_bounded(self,*,timeout_seconds,max_output_tokens,**kwargs):
         if not callable(getattr(self.base,'structured_bounded',None)):
@@ -98,7 +101,8 @@ class GenerationClient:
             result=self.base.structured_bounded(timeout_seconds=timeout,max_output_tokens=max_output_tokens,**kwargs)
         except Exception as error:
             self.budget.finish(item,error=error);raise
-        self.budget.finish(item,known=result.tokens_in+result.tokens_out,model=result.model);return result
+        self.budget.finish(item,known=result.tokens_in+result.tokens_out,model=result.model,
+                           usage=(result.tokens_in,result.tokens_out));return result
 
 
 class GenerationEmbedder:

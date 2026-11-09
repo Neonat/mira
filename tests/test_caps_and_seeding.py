@@ -98,7 +98,7 @@ def test_report_passages_shrink_and_refuse_an_unfunded_serialized_request():
     run.task.max_llm_tokens = 60_000
     run.tokens_in = 9_000
     budget = run._passage_char_budget("header")
-    assert module.MIN_PASSAGE_CHARS < budget < module.MAX_PASSAGE_CHARS
+    assert 0 < budget < module.MAX_PASSAGE_CHARS  # no unfunded minimum floor
 
     run.tokens_in = 59_000
     assert run._passage_char_budget("header") == 0

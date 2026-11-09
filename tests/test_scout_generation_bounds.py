@@ -28,7 +28,7 @@ def test_report_adapter_bounds_request_and_keeps_ordinary_clients_compatible():
     class Bounded:
         def structured_bounded(self, **kwargs):
             assert 0 < kwargs.pop('timeout_seconds') <= 30
-            assert kwargs.pop('max_output_tokens') == 8192
+            assert kwargs.pop('max_output_tokens') == 16384
             return LLMResult('ok', 'fake', 'v', 5, 2)
 
     kwargs = dict(role='regulatory_scout', system='s', user='u', output_type=scout.ScoutReport, prompt_version='v')

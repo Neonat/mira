@@ -23,7 +23,7 @@ class ClaimCorroborator:
                    if s.jurisdiction_code is None or s.jurisdiction_code in ctx.brief.jurisdictions]
         # Bound retrieval before projecting/freeze: the primary verifier must not
         # inherit twenty full passages when the assessor can check only two.
-        limits = SearchLimits(max_passages=MAX_ASSESSOR_CANDIDATES)
+        limits = SearchLimits(max_passages=MAX_ASSESSOR_CANDIDATES,max_seconds=90)
         candidates = self.ledger.candidates(ctx,claim,max_passages=limits.max_passages)
         if self.discovery is not None and self.acquisition is None:
             from mira.corroboration_acquisition import CorroborationDiscovery

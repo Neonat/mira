@@ -312,7 +312,7 @@ class ProviderClient:
         except subprocess.TimeoutExpired as exc:
             sent=b'MIRA_PROVIDER_REQUEST_STARTED' in (exc.stderr or b'')
             raise LLMError("bounded request timed out; provider usage may be unavailable",
-                           request_sent=sent,reserved_tokens=reservation if sent else 0) from None
+                           code='request_timeout',request_sent=sent,reserved_tokens=reservation if sent else 0) from None
         except Exception as exc:
             sent=b'MIRA_PROVIDER_REQUEST_STARTED' in (getattr(exc,'stderr',None) or b'')
             raise LLMError("bounded request failed; provider usage may be unavailable",

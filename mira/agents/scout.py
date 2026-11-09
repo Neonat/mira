@@ -60,7 +60,7 @@ MAX_PASSAGE_CHARS = 16_000
 # size estimate, so the cap holds approximately rather than only between calls.
 CHARS_PER_TOKEN = 4
 SELECTION_OUTPUT_TOKENS = 500
-REPORT_OUTPUT_TOKENS = 8_192
+REPORT_OUTPUT_TOKENS = 16_384
 # The report call always runs, so pages already fetched are not wasted. Below this
 # many passage characters it would have too little evidence to be useful.
 MIN_PASSAGE_CHARS = 8_000

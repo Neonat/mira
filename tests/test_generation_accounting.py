@@ -21,6 +21,7 @@ def test_unknown_attempt_timeout_has_consistent_reservation(monkeypatch):
     with pytest.raises(LLMError) as e:
         ProviderClient().structured_bounded(role='regulatory_scout',system='x',user='y',output_type=LinkSelection,prompt_version='test',timeout_seconds=1,max_output_tokens=100)
     assert e.value.request_sent is True
+    assert e.value.code=='request_timeout'
     assert e.value.reserved_tokens==llm.request_token_reservation(system='x',user='y',output_type=LinkSelection,max_output_tokens=100)
 
 

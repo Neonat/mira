@@ -21,4 +21,5 @@ def test_runtime_uses_same_small_passage_bound_for_retrieval_and_frozen_limits(m
     envelope=runtime.ClaimCorroborator(None,object())(args['ctx'],args['claim'],args['base_evidence_input'],args['budget'])
     assert seen==[{'max_passages':1}]
     assert envelope['assessment']['limits']['max_passages']==1
+    assert envelope['assessment']['limits']['max_seconds']==90
     assert envelope['assessment']['status']=='independently_corroborated'
