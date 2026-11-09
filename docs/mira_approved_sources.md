@@ -16,7 +16,7 @@ Malaysia and DFSA are not enabled. Their retrieval-system reuse restrictions req
 
 ---
 
-The allow-list of websites Mira's agents may read for the MVP (AML/CFT, Singapore and Hong Kong), and the draft expected-source list the completeness checker uses. Companion to [PRD v2](mira_PRD_v2.md) §5.3 and §6.4.
+The following October baseline records the original MVP allow-list (AML/CFT, Singapore and Hong Kong) and expected-source draft. The dated addendum above describes the current extension. Companion to [PRD v2](mira_PRD_v2.md) §5.3 and §6.4.
 
 Every URL below was requested on **26 October 2026** with an honest automated user agent (`MiraResearchPrototype/0.1`), and `robots.txt` was read for each host. The Singapore Statutes Online pages for TSFA and FSMA returned HTTP 200 at first; the CDSA page ID was confirmed by search after SSO started refusing requests. Terms of use were read for MAS, HKMA and SFC. Re-check before M0; sites move pages often (four of the first candidate URLs had moved).
 

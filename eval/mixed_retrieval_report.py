@@ -188,6 +188,7 @@ li{margin:10px 0}footer{margin-top:28px;color:#455969;font-size:.9rem}
 @media print{body{background:white}main{max-width:none;padding:0}section{padding:12px 0;border:0}.table-wrap{overflow:visible}table{font-size:8pt}th,td{padding:6px;min-width:0}h2{break-after:avoid}tr{break-inside:avoid}}
 @media print{table{font-size:10pt}table:has(th:nth-child(6)) thead{display:none}table:has(th:nth-child(6)) tr{display:block;border:1px solid #cbd5df;margin:0 0 14px;padding:10px}table:has(th:nth-child(6)) td{display:grid;grid-template-columns:100px 1fr;gap:10px;border:0;padding:3px 0}table:has(th:nth-child(6)) td::before{content:attr(data-label);font-weight:600}table:has(th:nth-child(6)) caption{display:block}}
 @media print{table:not(:has(th:nth-child(6))) th{min-width:7rem;overflow-wrap:normal}}
+@media print{footer{margin-top:10px;font-size:8pt;line-height:1.35;break-inside:avoid}}
 """
 
 

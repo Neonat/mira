@@ -74,7 +74,7 @@ Users remain auditor/analyst, reviewer, source curator and administrator. Analys
 
 ### Current prototype scope
 
-- AML/CFT; Singapore and Hong Kong selected directly from controlled lists.
+- AML/CFT; Singapore, Hong Kong and scoped Australian/UAE federal sources selected directly from controlled lists. SG/HK remain the defaults.
 - Public material and configured approved sources, with manual import where automated access is unavailable and storage is permitted.
 - User-selected period and as-of date. V2's 12–24 months is a pilot scope, not an enforced restriction in `Brief`; its validator checks date ordering. Arbitrary historical correctness is not established by a date field alone.
 - On-demand research, optional plan approval, saved evidence, HTML reports and structured snapshots, finding review, sign-off, re-run and diff.
@@ -82,7 +82,7 @@ Users remain auditor/analyst, reviewer, source curator and administrator. Analys
 
 ### Deferred unless separately approved
 
-Third jurisdiction, region expansion in the brief UI, scheduled monitoring, news-triggered investigations, 20–30-year archive/backfill, OpenSearch, theme discovery, internal bank uploads, control mapping, production deployment, PDF/DOCX export and email delivery. Unrestricted open-web fallback remains deferred. Bounded Exa-assisted discovery and controlled browser extraction are approved Phase 1 extensions where justified by observed gaps, within existing source permissions; they are merged with explicit opt-in and source-policy checks. Dated acquisition and research observations are recorded in §7 and Appendix C.
+Jurisdiction expansion beyond the approved SG/HK/AU/AE source sets, scheduled monitoring, news-triggered investigations, 20–30-year archive/backfill, OpenSearch, theme discovery, internal bank uploads, control mapping, production deployment, product PDF/DOCX export and email delivery. The separately generated peer-validation PDFs are test deliverables, not a new product export workflow. Unrestricted open-web fallback remains deferred. Bounded Exa-assisted discovery and controlled browser extraction are approved Phase 1 extensions where justified by observed gaps, within existing source permissions; they are merged with explicit opt-in and source-policy checks. Dated acquisition and research observations are recorded in §7 and Appendix C.
 
 **D6 settled by the user:** Mira may explain sourced contextual risks and trends, but must not generate DBS audit actions or business decisions. The auditor decides and acts. This approved boundary updates v2's suggested-audit-actions requirement.
 
@@ -90,7 +90,7 @@ Third jurisdiction, region expansion in the brief UI, scheduled monitoring, news
 
 | Area | V2 expectation | Observed current state | Classification / implication |
 |---|---|---|---|
-| Brief and access | Controlled brief saved as a Project revision; optional plan approval | Authenticated UI, saved brief, approval pause/resume and controlled SG/HK scope exist | Present; general region expansion not exposed |
+| Brief and access | Controlled brief saved as a Project revision; optional plan approval | Authenticated UI, saved brief, approval pause/resume and controlled SG/HK/AU/AE scope exist | Present; AE is scoped federal sources; wider region expansion deferred |
 | Orchestration | Planner, parallel scouts, analyst, verifier, completeness, writer | Code controls parallel scouting, budgets, cancellation, step records and typed outputs | Present; live HK breadth measured below, wider coverage remains incomplete |
 | Sequence | Diagram places verification before completeness-driven follow-up | Execution checks coverage and fills source gaps before analysis and verification | Document the actual sequence; do not imply post-verification claim repair |
 | Discovery and evidence | Approved HTML/PDF sources, stored versions and passages | Feeds, hubs, selected links, PDF follow-through, source scoping, reuse and manual import exist | Present; a retrieved page is not proof of adequate research |
@@ -344,7 +344,7 @@ V2 IDs remain useful for code/test traceability. No unmet requirement is silentl
 
 | V2 ID | Disposition in this draft | Main code / acceptance evidence |
 |---|---|---|
-| AG01 Brief | Retain; SG/HK direct selection; region expansion deferred | `mira/brief.py`, `mira/contracts.py`, `tests/test_brief_budget.py` |
+| AG01 Brief | Controlled SG/HK/AU/AE selection; UAE federal source scope; wider expansion deferred | `mira/brief.py`, `mira/contracts.py`, `tests/test_brief_budget.py`, `tests/test_mixed_sources.py` |
 | AG02 Planner | Retain visible valid plans and optional approval | `mira/agents/planner.py`, approval tests in `tests/test_pipeline_db.py` |
 | AG03 Orchestrator | Retain budgets, cancellation and trace; clarify actual sequence | `mira/orchestrator.py`, `tests/test_orchestrator.py` |
 | AG04 Regulatory scouts | Retain source-scoped, parallel saved-evidence research | `mira/agents/scout.py`, `tests/test_scout_reuse.py` |
