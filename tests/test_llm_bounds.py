@@ -84,7 +84,7 @@ def test_bounded_child_serializes_only_safe_error_code(monkeypatch):
     out = io.StringIO(); monkeypatch.setattr(sys, 'stdout', out)
     llm._bounded_child()
     result = json.loads(out.getvalue())
-    assert result == dict(error=True, error_code='output_validation', tokens_in=13, tokens_out=7)
+    assert result == dict(error=True, error_code='output_validation', tokens_in=13, tokens_out=7,request_sent=True)
 
 
 def test_bounded_output_validation_still_repairs_and_aggregates_usage(monkeypatch):

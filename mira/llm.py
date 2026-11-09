@@ -66,18 +66,30 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 class LLMError(RuntimeError):
     """A model call failed. Carries the tokens spent so budgets stay accurate."""
 
-    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0, *, code: str = "unknown") -> None:
+    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0, *, code: str = "unknown",
+                 request_sent: bool | None = None, reserved_tokens: int = 0) -> None:
         super().__init__(message)
         self.tokens_in = tokens_in
         self.tokens_out = tokens_out
         self.code = code
+        self.request_sent = request_sent
+        self.reserved_tokens = reserved_tokens
+
+
+def request_token_reservation(*, system: str, user: str, output_type: type,
+                              max_output_tokens: int) -> int:
+    """One conservative UTF-8/schema/output allowance, shared by every caller."""
+    import json
+    return len((system + user + json.dumps(output_type.model_json_schema())).encode('utf-8')) + 1024 + max_output_tokens
 
 
 class LLMOutputError(LLMError):
     """The model answered, but not with a valid instance of the requested contract."""
 
-    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0, *, code: str = "output_validation") -> None:
-        super().__init__(message, tokens_in, tokens_out, code="output_validation")
+    def __init__(self, message: str, tokens_in: int = 0, tokens_out: int = 0, *, code: str = "output_validation",
+                 request_sent: bool | None = None,reserved_tokens: int = 0) -> None:
+        super().__init__(message, tokens_in, tokens_out, code="output_validation",
+                         request_sent=request_sent,reserved_tokens=reserved_tokens)
 
 
 # Only categories, never provider bodies, cross the isolated-process boundary.
@@ -287,7 +299,9 @@ class ProviderClient:
         import subprocess
         import sys
         if timeout_seconds <= 0 or max_output_tokens < 1:
-            raise LLMError("bounded request has no remaining allowance")
+            raise LLMError("bounded request has no remaining allowance", request_sent=False)
+        reservation=request_token_reservation(system=system,user=user,output_type=output_type,
+                                               max_output_tokens=max_output_tokens)
         payload = dict(role=role, system=system, user=user, prompt_version=prompt_version,
                        output_module=output_type.__module__, output_name=output_type.__name__,
                        timeout_seconds=timeout_seconds, max_output_tokens=max_output_tokens)
@@ -295,16 +309,22 @@ class ProviderClient:
             result = subprocess.run([sys.executable, "-c", "from mira.llm import _bounded_child; _bounded_child()"],
                 input=json.dumps(payload).encode(), capture_output=True, timeout=timeout_seconds, check=True)
             data = json.loads(result.stdout)
-        except subprocess.TimeoutExpired:
-            raise LLMError("bounded request timed out; provider usage may be unavailable") from None
-        except Exception:
-            raise LLMError("bounded request failed; provider usage may be unavailable") from None
+        except subprocess.TimeoutExpired as exc:
+            sent=b'MIRA_PROVIDER_REQUEST_STARTED' in (exc.stderr or b'')
+            raise LLMError("bounded request timed out; provider usage may be unavailable",
+                           request_sent=sent,reserved_tokens=reservation if sent else 0) from None
+        except Exception as exc:
+            sent=b'MIRA_PROVIDER_REQUEST_STARTED' in (getattr(exc,'stderr',None) or b'')
+            raise LLMError("bounded request failed; provider usage may be unavailable",
+                           request_sent=sent,reserved_tokens=reservation if sent else 0) from None
         if "error" in data:
             code = data.get("error_code", "unknown")
             code = code if code in SAFE_ERROR_CODES else "unknown"
             error = LLMOutputError if code == "output_validation" else LLMError
-            raise error(f"bounded request failed ({code})", data.get("tokens_in", 0),
-                        data.get("tokens_out", 0), code=code)
+            tin,tout=data.get('tokens_in',0),data.get('tokens_out',0)
+            sent=data.get('request_sent',True)
+            raise error(f"bounded request failed ({code})", tin,tout,code=code,
+                        request_sent=sent,reserved_tokens=reservation if sent and not (tin or tout) else 0)
         return LLMResult(output_type.model_validate(data["output"]), data["model"], prompt_version,
                          data["tokens_in"], data["tokens_out"])
 
@@ -336,9 +356,13 @@ def call_checked(
             )
         except LLMOutputError as exc:
             tokens_in, tokens_out = tokens_in + exc.tokens_in, tokens_out + exc.tokens_out
+            if exc.reserved_tokens:
+                raise LLMOutputError(str(exc),tokens_in,tokens_out,request_sent=exc.request_sent,
+                                     reserved_tokens=exc.reserved_tokens) from exc
             error = exc
         except LLMError as exc:
-            raise LLMError(str(exc), tokens_in + exc.tokens_in, tokens_out + exc.tokens_out, code=exc.code) from exc
+            raise LLMError(str(exc), tokens_in + exc.tokens_in, tokens_out + exc.tokens_out, code=exc.code,
+                           request_sent=exc.request_sent,reserved_tokens=exc.reserved_tokens) from exc
         else:
             tokens_in, tokens_out = tokens_in + result.tokens_in, tokens_out + result.tokens_out
             try:
@@ -409,18 +433,22 @@ def _bounded_child():
     import sys
     value = json.load(sys.stdin)
     output_type = getattr(importlib.import_module(value["output_module"]), value["output_name"])
+    sent=False
     try:
         spec = model_for(value["role"])
         factories = {"anthropic": AnthropicClient, "openai": OpenAIClient}
         client = factories[spec.provider](max_tokens=value["max_output_tokens"])
         client._client = client._client.with_options(timeout=value["timeout_seconds"], max_retries=0)
+        # Written before entering provider code; no request text or credential.
+        sent=True
+        print('MIRA_PROVIDER_REQUEST_STARTED',file=sys.stderr,flush=True)
         result = client.structured(role=value["role"], system=value["system"], user=value["user"],
             output_type=output_type, prompt_version=value["prompt_version"])
         data = dict(output=result.output.model_dump(mode="json"), model=result.model,
                     tokens_in=result.tokens_in, tokens_out=result.tokens_out)
     except LLMError as exc:
         code = exc.code if exc.code in SAFE_ERROR_CODES else "unknown"
-        data = dict(error=True, error_code=code, tokens_in=exc.tokens_in, tokens_out=exc.tokens_out)
+        data = dict(error=True, error_code=code, tokens_in=exc.tokens_in, tokens_out=exc.tokens_out,request_sent=sent)
     except Exception:
-        data = dict(error=True, error_code="unknown", tokens_in=0, tokens_out=0)
+        data = dict(error=True, error_code="unknown", tokens_in=0, tokens_out=0,request_sent=sent)
     sys.stdout.write(json.dumps(data))

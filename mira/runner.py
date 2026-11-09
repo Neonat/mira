@@ -56,7 +56,7 @@ def live_browser_from_env(fetcher):
     return LiveBrowserAcquirer(fetcher)
 
 
-def hybrid_from_env():
+def hybrid_from_env(generation_budget=None):
     """A flag and explicit vector identity are required; a key alone enables nothing."""
     if os.environ.get("MIRA_ENABLE_HYBRID_RETRIEVAL") != "1":
         return None
@@ -75,7 +75,11 @@ def hybrid_from_env():
         timeout_seconds=float(os.environ.get('MIRA_HYBRID_TIMEOUT_SECONDS','20')),
         result_limit=int(os.environ.get('MIRA_HYBRID_RESULT_LIMIT','20')),
         max_index_batches=int(os.environ.get('MIRA_HYBRID_MAX_INDEX_BATCHES','4')))
-    return HybridRetriever(OpenAIEmbedder(OpenAI(max_retries=0),identity,reserved_tokens=limits.max_tokens),identity,limits)
+    embedder=OpenAIEmbedder(OpenAI(max_retries=0),identity,reserved_tokens=limits.max_tokens)
+    if generation_budget is not None:
+        from mira.generation import GenerationEmbedder
+        embedder=GenerationEmbedder(embedder,generation_budget)
+    return HybridRetriever(embedder,identity,limits)
 
 
 Arm = Literal["multi_agent", "single_agent"]
@@ -106,8 +110,10 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
     discovery = discovery_from_env(store.list_sources(workspace))
     browser = browser_from_env()
     live_browser = live_browser_from_env(fetcher)
+    from mira.generation import GenerationClient
+    shared_budget=client.budget if isinstance(client,GenerationClient) else None
     scout = WebScout(dsn, client, fetcher, discovery=discovery, browser=browser, live_browser=live_browser,
-                     hybrid=hybrid_from_env())
+                     hybrid=hybrid_from_env(shared_budget))
     return Orchestrator(store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client),
                         analysis_limits=AnalysisLimits.from_env(),
                         corroborator=ClaimCorroborator(conn,client,discovery=discovery,browser=browser,live_browser=live_browser))
@@ -141,6 +147,9 @@ def execute_run(
         store.set_run_status(ctx, "failed", f"not run: {exc}")
         return RunOutcome("failed", [str(exc)], None, None)
     build = build_single_agent_orchestrator if arm == "single_agent" else build_orchestrator
+    from mira.generation import GenerationBudget,GenerationClient
+    if client is None or (not isinstance(client,GenerationClient) and callable(getattr(client,'structured_bounded',None))):
+        client=GenerationClient(client or ProviderClient(),GenerationBudget(ctx.budget.max_llm_tokens,ctx.budget.max_run_minutes*60))
     return build(conn, dsn, ctx.workspace_id, client).run(ctx)
 
 

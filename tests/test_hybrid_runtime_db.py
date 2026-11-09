@@ -66,6 +66,17 @@ def test_database_filters_before_limit_and_reuses_content_bound_cache(monkeypatc
         assert set(embedder.calls[1]) == {'eligible', 'manual eligible'}
         assert embedder.calls[2] == ['eligible']
         assert second.tokens == 1
+        # Shared generation admission can refuse before any embedding request.
+        # The archive result must not report this as attempted provider work.
+        from mira.generation import GenerationBudget,GenerationEmbedder
+        refused=HybridRetriever(GenerationEmbedder(embedder,GenerationBudget(10,1500)),
+                                EmbeddingIdentity('fixture','1'),HybridLimits())
+        before=len(embedder.calls)
+        declined=refused.retrieve(conn,ctx,task,remaining_tokens=20000,remaining_seconds=10)
+        assert len(embedder.calls)==before
+        assert (declined.tokens,declined.reserved_tokens,declined.embedding_requests,
+                declined.input_bytes,declined.input_characters)==(0,0,0,0,0)
+        assert {p.content for p in declined.passages}=={'eligible','manual eligible'}
         from mira.db import acting_as
         with pytest.raises(psycopg.Error), acting_as(conn,user_id):
             conn.execute("update public.hybrid_passage_vectors set content_sha256=%s where workspace_id=%s", ('b'*64, ws))
@@ -126,7 +137,7 @@ def test_database_filters_before_limit_and_reuses_content_bound_cache(monkeypatc
         run.conn, run.ctx, run.task = conn, ctx, task
         run.store = PostgresStore(conn)
         run.visits, run.hybrid_diagnostics = [], None
-        run.tokens_in = run.tokens_out = run.hybrid_tokens = run.hybrid_reserved_tokens = 0
+        run.tokens_in = run.tokens_out = run.hybrid_tokens = run.hybrid_reserved_tokens = run.generation_reserved_tokens = 0
         run._started = 0
         contents = {p.content for p in run._passages()}
         assert contents == {'eligible', 'excluded', 'manual eligible'}

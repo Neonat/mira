@@ -117,7 +117,9 @@ class HybridRetriever:
             try:
                 result=self.embedder.embed(texts,timeout_seconds=max(0,deadline-time.monotonic()))
             except EmbeddingError as exc:
-                if type(exc.tokens) is int and exc.tokens>=0:used+=exc.tokens
+                if exc.request_sent is False:
+                    characters_sent-=chars;bytes_sent-=size;requests-=1
+                elif type(exc.tokens) is int and exc.tokens>=0:used+=exc.tokens
                 else:reserved+=amount
                 raise
             except Exception:

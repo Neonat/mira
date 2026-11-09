@@ -43,7 +43,7 @@ from mira.pg_store import PostgresStore
 from mira.store import PassageRecord, RunContext
 from mira.sfc import search_payload
 
-PROMPT_VERSION = "scout/6"
+PROMPT_VERSION = "scout/7"
 MAX_LINKS_SHOWN = 120
 MAX_DIAGNOSTIC_RECORDS = 300
 
@@ -55,12 +55,12 @@ def _safe_url(url: str) -> str:
     return urlunsplit((parts.scheme, parts.hostname or "", parts.path[:1000], query, ""))
 
 MAX_PASSAGES_SHOWN = 40
-MAX_PASSAGE_CHARS = 60_000
+MAX_PASSAGE_CHARS = 16_000
 # Token-cap enforcement. A task's max_llm_tokens is checked before each call using a
 # size estimate, so the cap holds approximately rather than only between calls.
 CHARS_PER_TOKEN = 4
 SELECTION_OUTPUT_TOKENS = 500
-REPORT_OUTPUT_TOKENS = 2_000
+REPORT_OUTPUT_TOKENS = 8_192
 # The report call always runs, so pages already fetched are not wasted. Below this
 # many passage characters it would have too little evidence to be useful.
 MIN_PASSAGE_CHARS = 8_000
@@ -87,10 +87,51 @@ From the saved passages, list the documents that answer the research question wi
 For each document give its instrument type or industry category, title, dates and whether it is new, amended or upcoming, using only what the passages state; use null when unknown.
 For each expected source, say found (a relevant development in the period), no_change (the relevant publication or category was inspected and shows nothing new in the period) or missing (it could not be checked).
 For no_change, list the inspected_passage_labels that show the relevant publication, index or category you actually checked for this specific checklist item. A page from the same publisher on another subject is insufficient. If that evidence is unavailable, use missing. You may list inspection evidence even when there are no relevant developments to put in documents.
+The passages are a bounded selection and do not represent all saved evidence. Do not infer found or no_change from omitted evidence; use missing when the shown passages do not establish the status.
 Listing nothing is a valid answer. Never fill gaps from memory.
 - {TEMPORAL_RULE}
 - {NO_CONCLUSIONS_RULE}
 - {UNTRUSTED_TEXT_RULE}"""
+
+
+class _SummaryClient:
+    """Keep report generation bounded without changing the shared client contract."""
+
+    def __init__(self, run):
+        self.run = run
+
+    def structured(self, **kwargs):
+        client = self.run.scout.client
+        try:
+            if not hasattr(client, "structured_bounded"):
+                return client.structured(**kwargs)
+            remaining = self.run._remaining_seconds()
+            timeout = 120 if remaining is None else min(120, remaining)
+            if timeout <= 0:
+                error = LLMError("report time limit reached")
+                error.request_sent = False
+                raise error
+            from mira.llm import request_token_reservation
+            remaining_tokens = self.run._remaining_tokens()
+            reservation = request_token_reservation(system=kwargs["system"], user=kwargs["user"],
+                                                    output_type=kwargs["output_type"],
+                                                    max_output_tokens=REPORT_OUTPUT_TOKENS)
+            if remaining_tokens is not None and reservation > remaining_tokens:
+                error = LLMError("report token limit reached")
+                error.request_sent = False
+                raise error
+            return client.structured_bounded(timeout_seconds=timeout,
+                                             max_output_tokens=REPORT_OUTPUT_TOKENS, **kwargs)
+        except LLMError as exc:
+            if getattr(exc, "request_sent", None) is not False:
+                reserved = getattr(exc, "reserved_tokens", 0) or 0
+                if not reserved and not (exc.tokens_in or exc.tokens_out):
+                    from mira.llm import request_token_reservation
+                    reserved = request_token_reservation(system=kwargs["system"], user=kwargs["user"],
+                                                         output_type=kwargs["output_type"],
+                                                         max_output_tokens=REPORT_OUTPUT_TOKENS)
+                self.run.generation_reserved_tokens += reserved
+            raise
 
 
 @dataclass
@@ -187,7 +228,10 @@ class WebScout:
                 tokens_out = run.tokens_out + (exc.tokens_out if isinstance(exc, LLMError) else 0)
                 diagnostics = {"discovered": run.discovery, "discovered_omitted": run.discovery_omitted,
                                "rounds": run.selection_diagnostics, "stop_reason": "exception",
-                               "remaining_allowance": run.allowance, "hybrid": run.hybrid_diagnostics}
+                               "remaining_allowance": run.allowance, "hybrid": run.hybrid_diagnostics,
+                               "summary": run.summary_diagnostics,
+                               "generation_usage": {"reserved_tokens": run.generation_reserved_tokens or
+                                                    (getattr(exc, "reserved_tokens", 0) if getattr(exc, "request_sent", None) is not False else 0)}}
                 raise ScoutFailure(exc, run.log, diagnostics, run.model, PROMPT_VERSION,
                                    tokens_in, tokens_out) from exc
 
@@ -211,6 +255,8 @@ class _ScoutRun:
         self.tokens_in = self.tokens_out = 0
         self.hybrid_tokens = 0
         self.hybrid_reserved_tokens = 0
+        self.generation_reserved_tokens = 0
+        self.summary_diagnostics = None
         self.hybrid_diagnostics = None
         self.token_stop = False
         self.model: str | None = None
@@ -516,22 +562,28 @@ class _ScoutRun:
 
     def _within_tokens(self) -> bool:
         limit = self.task.max_llm_tokens
-        return limit is None or self.tokens_in + self.tokens_out + self.hybrid_tokens + self.hybrid_reserved_tokens < limit
+        return limit is None or self.tokens_in + self.tokens_out + self.hybrid_tokens + self.hybrid_reserved_tokens + self.generation_reserved_tokens < limit
 
     def _remaining_tokens(self) -> int | None:
         limit = getattr(self.task, "max_llm_tokens", None)
-        return None if limit is None else limit - self.tokens_in - self.tokens_out - self.hybrid_tokens - self.hybrid_reserved_tokens
+        return None if limit is None else limit - self.tokens_in - self.tokens_out - self.hybrid_tokens - self.hybrid_reserved_tokens - self.generation_reserved_tokens
 
     def _report_reserve(self) -> int:
         """Tokens kept back so the final report call fits with a minimal set of passages."""
-        return estimate_tokens(REPORT_SYSTEM) + MIN_PASSAGE_CHARS // CHARS_PER_TOKEN + REPORT_OUTPUT_TOKENS
+        from mira.llm import request_token_reservation
+        return request_token_reservation(system=REPORT_SYSTEM, user="x" * MIN_PASSAGE_CHARS,
+                                         output_type=ScoutReport, max_output_tokens=REPORT_OUTPUT_TOKENS)
 
     def _passage_char_budget(self, prompt_without_passages: str) -> int:
         remaining = self._remaining_tokens()
         if remaining is None:
             return MAX_PASSAGE_CHARS
-        spare = remaining - estimate_tokens(REPORT_SYSTEM + prompt_without_passages) - REPORT_OUTPUT_TOKENS
-        return max(MIN_PASSAGE_CHARS, min(MAX_PASSAGE_CHARS, spare * CHARS_PER_TOKEN))
+        from mira.llm import request_token_reservation
+        base = request_token_reservation(system=REPORT_SYSTEM, user=prompt_without_passages,
+                                         output_type=ScoutReport, max_output_tokens=REPORT_OUTPUT_TOKENS)
+        # UTF-8 can use four bytes per character. Quoted passage metadata is
+        # checked against the actual reservation immediately before the call.
+        return max(0, min(MAX_PASSAGE_CHARS, (remaining - base) // 4))
 
     def _used(self, result: LLMResult) -> None:
         self.tokens_in += result.tokens_in
@@ -620,7 +672,9 @@ class _ScoutRun:
             jurisdiction_code=self.task.jurisdiction_code, report=report, fetch_log=self.log, labels=labels,
             selection_diagnostics={"discovered": self.discovery, "discovered_omitted": self.discovery_omitted,
                                    "rounds": self.selection_diagnostics, "stop_reason": stop_reason,
-                                   "remaining_allowance": self.allowance, "hybrid": self.hybrid_diagnostics},
+                                   "remaining_allowance": self.allowance, "hybrid": self.hybrid_diagnostics,
+                                   "summary": self.summary_diagnostics,
+                                   "generation_usage": {"reserved_tokens": self.generation_reserved_tokens}},
         )
         return ScoutOutcome(result, self.model, PROMPT_VERSION, self.tokens_in, self.tokens_out)
 
@@ -905,6 +959,7 @@ class _ScoutRun:
                 continue
             content_seen.add(content_key)
             by_document.setdefault(document_key(passage.source_url), []).append(passage)
+        candidate_count = sum(map(len, by_document.values()))
         chosen, total = [], 0
         while by_document and len(chosen) < MAX_PASSAGES_SHOWN:
             for key in list(by_document):
@@ -916,6 +971,10 @@ class _ScoutRun:
                     total += len(passage.content)
                 if not by_document[key]:
                     del by_document[key]
+        self.summary_diagnostics = {"passage_char_limit": max_chars, "shown_passages": len(chosen),
+                                    "shown_characters": total, "eligible_candidates": candidate_count,
+                                    "omitted_passages": candidate_count - len(chosen),
+                                    "omission_reason": "summary_passage_or_character_limit" if candidate_count > len(chosen) else None}
         return chosen
 
     def _report(self) -> tuple[ScoutReport, dict[str, UUID]]:
@@ -934,9 +993,12 @@ class _ScoutRun:
         # Show as many passages as the task's remaining tokens allow, within the usual cap.
         passages = self._passages(self._passage_char_budget(header))
         if not passages:
-            statuses = [{"expected_source_label": label, "status": "missing", "note": "no readable pages were saved"}
+            reason = ("summary passage limit excluded available evidence"
+                      if self.summary_diagnostics and self.summary_diagnostics["omitted_passages"]
+                      else "no readable pages were saved")
+            statuses = [{"expected_source_label": label, "status": "missing", "note": reason}
                         for label in expected_labels]
-            return ScoutReport(documents=[], expected_source_statuses=statuses, notes="no passages"), labels.as_dict()
+            return ScoutReport(documents=[], expected_source_statuses=statuses, notes=reason), labels.as_dict()
         quoted = [quote_passage(labels.add("P", passage.id), passage) for passage in passages]
         user = header + "\n\n" + "Passages:\n\n" + "\n\n".join(quoted)
 
@@ -948,7 +1010,18 @@ class _ScoutRun:
                 labels.resolve(status.expected_source_label, "E")
                 labels.resolve_all(status.inspected_passage_labels, "P")
 
-        result = call_checked(self.scout.client, role=self.task.role, system=REPORT_SYSTEM, user=user,
+        result = call_checked(_SummaryClient(self), role=self.task.role, system=REPORT_SYSTEM, user=user,
                               output_type=ScoutReport, prompt_version=PROMPT_VERSION, check=check)
         self._used(result)
-        return result.output, labels.as_dict()
+        # The model cannot establish coverage from passages it did not see.
+        statuses = []
+        for status in result.output.expected_source_statuses:
+            supported = (status.status != "no_change" or bool(status.inspected_passage_labels))
+            if status.status == "found":
+                supported = any(status.expected_source_label in doc.expected_source_labels
+                                and doc.relevant_passage_labels for doc in result.output.documents)
+            if not supported:
+                status = status.model_copy(update={"status": "missing",
+                                                   "note": "no shown passage establishes this status"})
+            statuses.append(status)
+        return result.output.model_copy(update={"expected_source_statuses": statuses}), labels.as_dict()

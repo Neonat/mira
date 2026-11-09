@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections import deque
 from collections.abc import Sequence
 from dataclasses import dataclass, fields
 from uuid import UUID
@@ -14,8 +15,8 @@ from mira.store import NewClaim, PassageRecord
 
 @dataclass(frozen=True)
 class AnalysisLimits:
-    max_passages: int = 12
-    max_characters: int = 18000
+    max_passages: int = 6
+    max_characters: int = 9000
     max_batches: int = 8
     max_output_tokens: int = 16384
     timeout_seconds: int = 120
@@ -47,16 +48,29 @@ class BatchPlan:
 
 def plan_batches(passages: Sequence[PassageRecord], limits: AnalysisLimits) -> BatchPlan:
     seen: dict[UUID, PassageRecord] = {}
-    batches: list[list[PassageRecord]] = []
-    deferred: dict[UUID, str] = {}
-    current_chars = 0
-    exhausted = False
+    sources: dict[UUID, dict[UUID, deque[PassageRecord]]] = {}
     for passage in passages:
         if passage.id in seen:
             if seen[passage.id] != passage:
                 raise ValueError(f"conflicting passage identity: {passage.id}")
             continue
         seen[passage.id] = passage
+        documents = sources.setdefault(passage.source_id, {})
+        documents.setdefault(passage.document_id, deque()).append(passage)
+
+    source_queue = deque(deque(documents.values()) for documents in sources.values())
+    batches: list[list[PassageRecord]] = []
+    deferred: dict[UUID, str] = {}
+    current_chars = 0
+    exhausted = False
+    while source_queue:
+        documents = source_queue.popleft()
+        document = documents.popleft()
+        passage = document.popleft()
+        if document:
+            documents.append(document)
+        if documents:
+            source_queue.append(documents)
         size = len(passage.content)
         if size > limits.max_characters:
             deferred[passage.id] = "input_limit"

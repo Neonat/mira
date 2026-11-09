@@ -84,7 +84,8 @@ def analysis_prompt(brief: Brief, passages: Sequence[PassageRecord]) -> tuple[La
 def request_reservation(brief: Brief, passages: Sequence[PassageRecord], max_output_tokens: int) -> int:
     # UTF-8 bytes are a conservative token upper bound, including schema/protocol overhead.
     _, user = analysis_prompt(brief, passages)
-    return len((SYSTEM + user + json.dumps(AnalystOutput.model_json_schema())).encode('utf-8')) + 1024 + max_output_tokens
+    from mira.llm import request_token_reservation
+    return request_token_reservation(system=SYSTEM,user=user,output_type=AnalystOutput,max_output_tokens=max_output_tokens)
 
 
 def analyse(client: LLMClient, brief: Brief, passages: Sequence[PassageRecord], *,

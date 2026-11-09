@@ -90,18 +90,18 @@ def test_selection_round_runs_when_the_cap_has_room(monkeypatch):
     assert len(calls) == 1 and not run.token_stop
 
 
-def test_report_passages_shrink_to_the_remaining_tokens_with_a_floor():
+def test_report_passages_shrink_and_refuse_an_unfunded_serialized_request():
     task = SimpleNamespace(max_documents=4, max_llm_tokens=None, question="AML", role="regulatory_scout")
     run = _ScoutRun(WebScout("unused", None, SimpleNamespace()), None, context(), uuid4(), task)
     assert run._passage_char_budget("header") == module.MAX_PASSAGE_CHARS
 
-    run.task.max_llm_tokens = 16_000
+    run.task.max_llm_tokens = 60_000
     run.tokens_in = 9_000
     budget = run._passage_char_budget("header")
     assert module.MIN_PASSAGE_CHARS < budget < module.MAX_PASSAGE_CHARS
 
-    run.tokens_in = 15_000
-    assert run._passage_char_budget("header") == module.MIN_PASSAGE_CHARS
+    run.tokens_in = 59_000
+    assert run._passage_char_budget("header") == 0
 
 
 # --- Fix 7: code opens every assigned category's index -------------------------------------------------

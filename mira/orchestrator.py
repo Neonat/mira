@@ -271,6 +271,10 @@ class _Run:
             if isinstance(exc, LLMError):
                 step.tokens_in += exc.tokens_in
                 step.tokens_out += exc.tokens_out
+                step.output_refs['provider_request_sent']=exc.request_sent
+                if exc.reserved_tokens and not step.tokens_precharged and not step.output_refs.get('reserved_tokens'):
+                    self.budget.charge_tokens(exc.reserved_tokens,0)
+                    step.output_refs['reserved_tokens']=exc.reserved_tokens
             self._finish(step, "failed", f"{type(exc).__name__}: {exc}")
             raise
         self._finish(step, "succeeded")
@@ -339,8 +343,10 @@ class _Run:
         self._check_cancel()
         self.budget.check()
         # Scouts run unattended, so each gets its share of what is left up front.
-        tokens = self.budget.remaining_tokens() // len(funded)
-        minutes = self.budget.remaining_minutes()
+        reserve_tokens=self.o.analysis_limits.reserve_tokens if self.o.analysis_limits else 0
+        reserve_seconds=self.o.analysis_limits.reserve_seconds if self.o.analysis_limits else 0
+        tokens = max(0,self.budget.remaining_tokens()-reserve_tokens) // len(funded)
+        minutes = max(0,self.budget.remaining_minutes()-reserve_seconds/60)
         launch = [
             (replace(task, max_documents=cap, max_llm_tokens=tokens, max_minutes=minutes), scout)
             for task, scout, cap in funded
@@ -431,6 +437,12 @@ class _Run:
                 self.analysis_selections.setdefault(attempt.document_version_id, set()).update(task.source_ids)
 
     def _record_scout_fetches(self, step: _Step, fetch_log: list[FetchAttempt], diagnostics: dict) -> None:
+        generation=diagnostics.get('generation_usage') or {}
+        reserved=generation.get('reserved_tokens',0)
+        if type(reserved) is not int or reserved<0:raise ValueError('invalid scout generation reservation')
+        if generation:
+            self.budget.charge_tokens(reserved,0)
+            step.output_refs['generation_usage']=generation
         hybrid = diagnostics.get('hybrid') or {}
         for key in ('tokens','reserved_tokens'):
             count = hybrid.get(key,0)
@@ -552,7 +564,11 @@ class _Run:
 
     def _load_analysis(self) -> None:
         if self.analysis_started and not self.analysis_loaded:
+            preferred={pid:i for i,pid in enumerate(self.passages)}
             pool = self.store.load_analysis_candidates(self.ctx, self.analysis_selections)
+            # The scouts already ranked relevant evidence. Give it the first
+            # bounded opportunity, retaining every expanded passage/disposition.
+            pool.sort(key=lambda p:(p.id not in preferred,preferred.get(p.id,0)))
             self.passages = {p.id:p for p in pool}
             self.analysis_loaded = True
 
@@ -593,7 +609,8 @@ class _Run:
                         analysis = analyst.analyse(self.o.client,self.ctx.brief,batch,
                             timeout_seconds=min(seconds,limits.timeout_seconds),max_output_tokens=limits.max_output_tokens)
                     except LLMError as exc:
-                        if not exc.tokens_in and not exc.tokens_out:
+                        if (not exc.tokens_in and not exc.tokens_out and not exc.reserved_tokens
+                                and exc.request_sent is not False):
                             self.budget.charge_tokens(reservation,0)
                             step.output_refs['reserved_tokens'] = reservation
                         raise
