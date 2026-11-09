@@ -1,0 +1,443 @@
+{
+  "schema_version": 1,
+  "kind": "mixed_retrieval_integration_validation",
+  "title": "Australia/UAE - generation reliability validation",
+  "date_singapore": "2026-11-10",
+  "base_sha": "0c1d500ae3879bcc06b6ea9d830a97f1b3a369f5",
+  "status": "Failed live run; separately recovered partial draft; final follow-up offline-tested",
+  "requested_scope": [
+    "Australia: Federal Register and AUSTRAC; UAE: approved CBUAE federal sources.",
+    "One authorized live validation; existing role models and effort; no gap rounds or paid continuation.",
+    "Malaysia/DIFC-DFSA/MAS disabled; hybrid experimental; UAE external embedding disabled."
+  ],
+  "budgets": [
+    {
+      "metric": "Saved research representations (includes metadata)",
+      "limit": 8,
+      "observed": 8,
+      "unit": "representations"
+    },
+    {
+      "metric": "Known + unknown-reserved allowance",
+      "limit": 600000,
+      "observed": 151169,
+      "unit": "tokens"
+    },
+    {
+      "metric": "Execution until failure",
+      "limit": 1500,
+      "observed": 715.154,
+      "unit": "seconds"
+    },
+    {
+      "metric": "Actual Exa API searches",
+      "limit": 4,
+      "observed": 2,
+      "unit": "requests"
+    },
+    {
+      "metric": "Actual embedding requests",
+      "limit": 10,
+      "observed": 3,
+      "unit": "requests"
+    },
+    {
+      "metric": "Embedding input",
+      "limit": 100000,
+      "observed": 20064,
+      "unit": "UTF-8 bytes"
+    },
+    {
+      "metric": "Gap rounds",
+      "limit": 0,
+      "observed": 0,
+      "unit": "rounds"
+    }
+  ],
+  "methods": [
+    {
+      "source": "Federal Register - native metadata",
+      "method": "Versions -> scoped Documents; complete native JSON",
+      "status": "2 complete saved representations",
+      "url": "https://www.legislation.gov.au",
+      "characters": 3050,
+      "pages": null,
+      "passages": 0,
+      "permission_status": "Existing approved source operations and attribution preserved",
+      "note": "Discovery metadata has zero citation passages; complete native records retained."
+    },
+    {
+      "source": "Federal Register - publication",
+      "method": "Fixed official PDF",
+      "status": "1 complete saved representations",
+      "url": "https://www.legislation.gov.au/C2006A00169/2026-10-01/2026-10-01/text/original/pdf",
+      "characters": 680971,
+      "pages": 433,
+      "passages": 1135,
+      "permission_status": "Existing approved source operations and attribution preserved",
+      "note": "Stored extraction hashes and all passage offsets match. Alternative formats are not independent sources."
+    },
+    {
+      "source": "AUSTRAC",
+      "method": "Approved public HTML",
+      "status": "2 complete saved representations",
+      "url": "https://www.austrac.gov.au/industry-and-business/obligations-and-guidance/your-amlctf-program/develop-your-amlctf-programs/step-3-manage-and-mitigate-your-risks-amlctf-policies",
+      "characters": 30040,
+      "pages": null,
+      "passages": 28,
+      "permission_status": "Existing approved source operations and attribution preserved",
+      "note": "Stored extraction hashes and all passage offsets match. Alternative formats are not independent sources."
+    },
+    {
+      "source": "CBUAE federal",
+      "method": "Canonical-host publication hub, HTML and PDF",
+      "status": "3 complete saved representations",
+      "url": "https://centralbank.ae/media/ltygsiln/aml-cft-cpf-thematic-review-of-insurance-sector-issued-2025.pdf",
+      "characters": 33418,
+      "pages": 12,
+      "passages": 35,
+      "permission_status": "Private organisational-use text/quote; no external embedding",
+      "note": "Stored extraction hashes and all passage offsets match. Alternative formats are not independent sources."
+    }
+  ],
+  "storage_checks": [
+    {
+      "check": "Extraction hashes",
+      "status": "8/8 match after restart",
+      "observed": 747479,
+      "note": "Characters of saved extracted text; this is post-extraction preservation, not original PDF/OCR accuracy."
+    },
+    {
+      "check": "Publication passage coverage",
+      "status": "All offsets and non-whitespace text match",
+      "observed": 628999,
+      "note": "Publication non-whitespace characters covered by 1,198 saved passages across 6 readable representations; 2 native metadata records intentionally have no citation passages."
+    },
+    {
+      "check": "Native API records",
+      "status": "2 complete records retained",
+      "observed": 2,
+      "note": "Native JSON records stored separately from their derived discovery text; no backfill or record truncation."
+    },
+    {
+      "check": "Durability after Docker/PostgreSQL restart",
+      "status": "8 versions/1,198 passages/7 draft claims retained",
+      "observed": true,
+      "note": "Four supported facts still match their saved verification input fingerprints. Failed run/stranded step closed without research resume."
+    },
+    {
+      "check": "Experimental vectors",
+      "status": "Source restrictions hold",
+      "observed": 28,
+      "note": "Australian cached passage vectors only; zero UAE vectors. 28/1,163 eligible AU passages indexed in bounded indexing,1,135 pending. No hybrid usefulness winner established."
+    }
+  ],
+  "checks": [
+    {
+      "check": "Final automated suite",
+      "status": "Pass",
+      "note": "1,075 tests + 8 subtests, no skips,70.34 seconds; PostgreSQL and actual offline Chromium. Final follow-up runtime 0c1d500."
+    },
+    {
+      "check": "Clean live end-to-end acceptance",
+      "status": "Not achieved",
+      "note": "Run f17f39d0-9fd1-4059-8c3f-e44088269b51 at a7ff8af failed after 715.154 seconds when Docker/PostgreSQL stopped; writer/report generation not reached. One corroboration timeout and two output-limit errors also occurred."
+    },
+    {
+      "check": "Bounded analysis",
+      "status": "4/4 batches succeeded; zero analyst timeouts",
+      "note": "12/1,198 candidate passages analysed (four each from Federal Register, AUSTRAC and CBUAE); 1,186 deferred, zero failed/pending. All retained text remains available."
+    },
+    {
+      "check": "Corroboration",
+      "status": "3 persisted assessments",
+      "note": "Two primary-source-only; one inconclusive after a 60.03-second timeout; one other fact not assessed because its primary quote was not exact. No established independent support."
+    },
+    {
+      "check": "Offline recovery draft",
+      "status": "4 supported facts; current checks match",
+      "note": "Three AU and one AE factual claims. Read-only supported-check/evidence fingerprint and quotation validation; deterministic rendering. No API calls, live continuation, report DB insertion or sign-off."
+    },
+    {
+      "check": "Source restrictions",
+      "status": "Preserved",
+      "note": "Only au-register, austrac, cbuae active in the dedicated workspace. MAS inactive/zero versions; Malaysia/DFSA absent from the active set. No browser grant added. 28 AU vectors, zero UAE vectors."
+    },
+    {
+      "check": "Usage reconciliation",
+      "status": "Balanced with explicit interrupted-step gap",
+      "note": "123,779 saved model tokens + 4,998 saved embedding tokens + 8,991 known failed-request tokens retained externally = 137,768 known. Add13,401 unknown reservations = 151,169 allowance used. Final failed request input/output split was not retained; no invented split."
+    },
+    {
+      "check": "Comparison with previous run",
+      "status": "Descriptive; different caps/corpus",
+      "note": "Previous:12-document/250k-token/20-minute cap; 11 saved representations,2,048 passages, zero verified facts, one analyst timeout and two scout timeouts. Current:8-document/600k-token/25-minute cap; 8 representations (2 metadata+ 6 readable),1,198 passages,4 persisted supported facts and4 successful analysis batches. Both acquired all3 source profiles. This is not publication recall or a hybrid quality comparison."
+    },
+    {
+      "check": "Follow-up after the run",
+      "status": "Offline-tested; live-unvalidated",
+      "note": "Scout output 16,384; ordinary verifier 120s/8,192; runtime one-candidate corroboration 90s/8,192; explicit timeout classification; input/output usage journal; allowance label. Models/effort unchanged. No paid rerun."
+    }
+  ],
+  "source_links": [
+    {
+      "label": "Federal Register - official compilation PDF",
+      "url": "https://www.legislation.gov.au/C2006A00169/2026-10-01/2026-10-01/text/original/pdf"
+    },
+    {
+      "label": "Step 3: Manage and mitigate your risks \u2013 AML/CTF policies",
+      "url": "https://www.austrac.gov.au/industry-and-business/obligations-and-guidance/your-amlctf-program/develop-your-amlctf-programs/step-3-manage-and-mitigate-your-risks-amlctf-policies"
+    },
+    {
+      "label": "About AML/CTF reforms",
+      "url": "https://www.austrac.gov.au/industry-and-business/about-amlctf-reforms"
+    },
+    {
+      "label": "CBUAE federal - official thematic review PDF",
+      "url": "https://centralbank.ae/media/ltygsiln/aml-cft-cpf-thematic-review-of-insurance-sector-issued-2025.pdf"
+    },
+    {
+      "label": "Offsite Supervision",
+      "url": "https://centralbank.ae/en/our-operations/anti-money-laundering-aml/offsite-supervision/"
+    },
+    {
+      "label": "CBUAE Updates AML/CFT/CPF Guidance For Licensed Financial Institutions",
+      "url": "https://centralbank.ae/en/news-and-publications/news-and-insights/press-release/cbuae-updates-amlcftcpf-guidance-for-licensed-financial-institutions/"
+    }
+  ],
+  "scope_limits": [
+    "The live run did not complete its writer/report chain and does not meet clean-run acceptance. The recovered draft is a separate offline export.",
+    "Final post-run bounds are covered by automated tests and review, with no additional paid validation. Higher allowances do not guarantee provider latency.",
+    "Analysis was explicitly scoped to 12/1,198 saved passages; deferred evidence was preserved rather than analysed exhaustively.",
+    "Source breadth and representation counts are not national publication recall, human precision, or evidence that hybrid retrieval is superior.",
+    "CBUAE extracts are for private organisational peer review with attribution; no endorsement or audit opinion."
+  ],
+  "run_id": "f17f39d0-9fd1-4059-8c3f-e44088269b51",
+  "workspace_id": "32d5dcf7-11d5-4a3c-82ab-eaecdfc85ca5",
+  "live_candidate_sha": "a7ff8afcaf226f17efeaac9d12c8f64adfc1d1eb",
+  "final_runtime_sha": "0c1d500ae3879bcc06b6ea9d830a97f1b3a369f5",
+  "live_acceptance": false,
+  "actual_usage": {
+    "known_model_tokens": 132770,
+    "known_embedding_tokens": 4998,
+    "known_combined_tokens": 137768,
+    "unknown_reserved_tokens": 13401,
+    "allowance_used": 151169,
+    "model_requests": 21,
+    "embedding_requests": 3,
+    "exa_searches": 2,
+    "generation_timeouts": 1,
+    "output_limit_errors": 2
+  },
+  "coverage": {
+    "policy_version": 1,
+    "workspace_id": "32d5dcf7-11d5-4a3c-82ab-eaecdfc85ca5",
+    "analysis_run_id": "f17f39d0-9fd1-4059-8c3f-e44088269b51",
+    "analysis_revision_id": "8356a1b7-9ba2-4f2f-be68-6f708d4d6923",
+    "event_sequence": 23154,
+    "candidate_passages": 1198,
+    "attempted_passages": 12,
+    "analysed_passages": 12,
+    "failed_passages": 0,
+    "deferred_passages": 1186,
+    "pending_passages": 0,
+    "documents": [
+      {
+        "document_version_id": "1247cb5a-8416-49a7-8052-e3a344445dd5",
+        "source_id": "8dec27c1-2950-4764-b555-10bdc441943e",
+        "source_name": "Federal Register of Legislation",
+        "title": "Federal Register versions",
+        "source_url": "https://api.prod.legislation.gov.au/v1/Versions?$filter=titleId%20eq%20'C2006A00169'&$orderby=registeredAt%20desc&$top=12",
+        "disposition": "no_text",
+        "reason": "no_text",
+        "reason_counts": {},
+        "candidate_passages": 0,
+        "attempted_passages": 0,
+        "analysed_passages": 0,
+        "failed_passages": 0,
+        "deferred_passages": 0,
+        "pending_passages": 0
+      },
+      {
+        "document_version_id": "1a88e3ce-cae5-4978-8566-09ae93ed7134",
+        "source_id": "e9b25509-2be2-4586-8f4f-0ea2770688c5",
+        "source_name": "CBUAE (federal)",
+        "title": "/    /1996",
+        "source_url": "https://centralbank.ae/media/ltygsiln/aml-cft-cpf-thematic-review-of-insurance-sector-issued-2025.pdf",
+        "disposition": "eligible",
+        "reason": null,
+        "reason_counts": {
+          "batch_limit": 21
+        },
+        "candidate_passages": 23,
+        "attempted_passages": 2,
+        "analysed_passages": 2,
+        "failed_passages": 0,
+        "deferred_passages": 21,
+        "pending_passages": 0
+      },
+      {
+        "document_version_id": "240b7f34-07ea-4d4d-a9a1-410323e4437b",
+        "source_id": "e9b25509-2be2-4586-8f4f-0ea2770688c5",
+        "source_name": "CBUAE (federal)",
+        "title": "Offsite Supervision",
+        "source_url": "https://centralbank.ae/en/our-operations/anti-money-laundering-aml/offsite-supervision/",
+        "disposition": "eligible",
+        "reason": null,
+        "reason_counts": {
+          "batch_limit": 10
+        },
+        "candidate_passages": 11,
+        "attempted_passages": 1,
+        "analysed_passages": 1,
+        "failed_passages": 0,
+        "deferred_passages": 10,
+        "pending_passages": 0
+      },
+      {
+        "document_version_id": "3fb39d20-b612-448e-96ad-f1406c519ebe",
+        "source_id": "ac808d5e-a403-4a00-adb4-1b8aef71ed88",
+        "source_name": "AUSTRAC",
+        "title": "Step 3: Manage and mitigate your risks \u2013 AML/CTF policies",
+        "source_url": "https://www.austrac.gov.au/industry-and-business/obligations-and-guidance/your-amlctf-program/develop-your-amlctf-programs/step-3-manage-and-mitigate-your-risks-amlctf-policies",
+        "disposition": "eligible",
+        "reason": null,
+        "reason_counts": {
+          "batch_limit": 24
+        },
+        "candidate_passages": 27,
+        "attempted_passages": 3,
+        "analysed_passages": 3,
+        "failed_passages": 0,
+        "deferred_passages": 24,
+        "pending_passages": 0
+      },
+      {
+        "document_version_id": "47d23e24-16df-4927-acb9-36d51f0d1dfc",
+        "source_id": "8dec27c1-2950-4764-b555-10bdc441943e",
+        "source_name": "Federal Register of Legislation",
+        "title": "Prepared by the Office of Parliamentary Counsel, Canberra",
+        "source_url": "https://www.legislation.gov.au/C2006A00169/2026-10-01/2026-10-01/text/original/pdf",
+        "disposition": "eligible",
+        "reason": null,
+        "reason_counts": {
+          "batch_limit": 1131
+        },
+        "candidate_passages": 1135,
+        "attempted_passages": 4,
+        "analysed_passages": 4,
+        "failed_passages": 0,
+        "deferred_passages": 1131,
+        "pending_passages": 0
+      },
+      {
+        "document_version_id": "80306e73-fc39-4e9d-b019-1354665dd483",
+        "source_id": "ac808d5e-a403-4a00-adb4-1b8aef71ed88",
+        "source_name": "AUSTRAC",
+        "title": "About AML/CTF reforms",
+        "source_url": "https://www.austrac.gov.au/industry-and-business/about-amlctf-reforms",
+        "disposition": "eligible",
+        "reason": null,
+        "reason_counts": {},
+        "candidate_passages": 1,
+        "attempted_passages": 1,
+        "analysed_passages": 1,
+        "failed_passages": 0,
+        "deferred_passages": 0,
+        "pending_passages": 0
+      },
+      {
+        "document_version_id": "fb672b24-cb73-4c35-9e34-84189a05a5ac",
+        "source_id": "e9b25509-2be2-4586-8f4f-0ea2770688c5",
+        "source_name": "CBUAE (federal)",
+        "title": "CBUAE Updates AML/CFT/CPF Guidance For Licensed Financial Institutions",
+        "source_url": "https://centralbank.ae/en/news-and-publications/news-and-insights/press-release/cbuae-updates-amlcftcpf-guidance-for-licensed-financial-institutions/",
+        "disposition": "eligible",
+        "reason": null,
+        "reason_counts": {},
+        "candidate_passages": 1,
+        "attempted_passages": 1,
+        "analysed_passages": 1,
+        "failed_passages": 0,
+        "deferred_passages": 0,
+        "pending_passages": 0
+      },
+      {
+        "document_version_id": "fd971ae3-686e-4563-81bd-543673f92411",
+        "source_id": "8dec27c1-2950-4764-b555-10bdc441943e",
+        "source_name": "Federal Register of Legislation",
+        "title": "Federal Register documents C2006A00169 C2026C00447",
+        "source_url": "https://api.prod.legislation.gov.au/v1/Documents?$filter=titleId%20eq%20%27C2006A00169%27%20and%20registerId%20eq%20%27C2026C00447%27",
+        "disposition": "no_text",
+        "reason": "no_text",
+        "reason_counts": {},
+        "candidate_passages": 0,
+        "attempted_passages": 0,
+        "analysed_passages": 0,
+        "failed_passages": 0,
+        "deferred_passages": 0,
+        "pending_passages": 0
+      }
+    ]
+  },
+  "recovery": {
+    "offline_only": true,
+    "live_run_resumed": false,
+    "report_row_inserted": false,
+    "supported_facts": 4,
+    "included_by_jurisdiction": {
+      "AU": 3,
+      "AE": 1
+    },
+    "proof": [
+      {
+        "finding_id": "4a733c25-1fb2-4f04-b867-507f50f3d7a5",
+        "included": true,
+        "check_id": "2a98557a-2d4a-491e-9c0a-8287ae0d82d7",
+        "current_fingerprint_matches": true
+      },
+      {
+        "finding_id": "817f3df0-c154-4bb8-af59-319a48456c16",
+        "included": true,
+        "check_id": "7143faac-5d9f-44f7-aaf1-eca498e6a2f6",
+        "current_fingerprint_matches": true
+      },
+      {
+        "finding_id": "d5215517-1e8c-45b2-9ca4-29cb8c420c79",
+        "included": true,
+        "check_id": "a1624ed2-4a45-42c4-9d29-0d891db8a2a4",
+        "current_fingerprint_matches": true
+      },
+      {
+        "finding_id": "50f1bca3-3c1f-4e53-9355-2f13dba7b403",
+        "included": true,
+        "check_id": "a7e75bdd-d3e3-4f35-9b47-ae04d71141a9",
+        "current_fingerprint_matches": true
+      }
+    ],
+    "corroboration_assessments": 3
+  },
+  "reconciliation": {
+    "saved_model_known": 123779,
+    "saved_embedding_known": 4998,
+    "externally_retained_known_not_saved_to_step": 8991,
+    "unknown_reservations": 13401,
+    "known_equation_balances": true
+  },
+  "final_automated_suite": {
+    "passed": 1075,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "seconds": 70.34
+  },
+  "previous_run_comparison": {
+    "prior_run_id": "0451a19c-431b-47aa-848e-d521e3817990",
+    "prior_saved_representations": 11,
+    "prior_passages": 2048,
+    "prior_supported_facts": 0,
+    "current_saved_representations": 8,
+    "current_passages": 1198,
+    "current_supported_facts": 4,
+    "same_corpus_or_caps": false
+  }
+}
