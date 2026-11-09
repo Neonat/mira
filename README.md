@@ -42,11 +42,27 @@ Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External 
 | Communication and presentation | Readable reports, direct source navigation, [presentation slides](slides/Mira_DBS_Presentation_v2.pptx) and a [recorded workflow showcase](docs/demo/launch-production-handoff.md) |
 | Content quality and evidence | Publication-recall scoring, human citation-precision worksheets and preserved run evidence |
 
-## Validation
+## Validation and prototype status
 
-The latest integrated engineering validation passed **691 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover passage batching, frozen coverage and review, authenticated original-file access, source navigation and optional hybrid retrieval. The report's coverage layout was also inspected at desktop and mobile sizes.
+The [recorded engineering validation](docs/agent-handoffs/evidence-completeness.md) reports **691 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover passage batching, frozen coverage and review, authenticated original-file access, source navigation and optional hybrid retrieval. The report's coverage layout was also inspected at desktop and mobile sizes.
+
+These are recorded project results, not a claim of a new test run or live research quality. The latest authorised Hong Kong follow-up remained partial: **6/18 publications acquired and 5/18 cited**; live recall, precision and latency gains from the later completeness extension remain unmeasured. See the [dated run evidence](eval/evidence/2026-11-08-hk-authorized-followup-7be59cdf.md).
 
 Research evaluation uses scoped publication-recall scoring and human-labelled citation checks. The [evaluation record](docs/mira_PRD_v3_draft.md#7-evaluation-and-release-evidence) documents the measurement method and dated results; the [implementation handoff](docs/agent-handoffs/evidence-completeness.md) records engineering verification.
+
+## Architecture and local setup
+
+A Python orchestration layer coordinates specialist research agents and typed evidence contracts. Supabase/PostgreSQL stores workspace evidence and review history; a worker processes research runs, and the authenticated Streamlit app presents reports and review controls. The separate root `app.py` is a local staging workbench.
+
+Start with **Python 3.11+**, a local Supabase/PostgreSQL stack and the [development guide](docs/development.md). From the repository root:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev,llm,ui]"
+cp .env.example .env
+```
+
+Configure the ignored `.env` and apply the database setup in [the database guide](supabase/README.md) before running `.venv/bin/python -m mira seed`. Start `.venv/bin/python -m mira worker` and `.venv/bin/streamlit run app/streamlit_app.py` in separate terminals. Provider credentials, run allowances and source permissions are required for live research. MAS automated acquisition remains inactive in the documented pilot configuration; original-file retention and hybrid retrieval are opt-in.
 
 ## Explore the project
 
