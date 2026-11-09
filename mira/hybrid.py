@@ -43,6 +43,7 @@ class HybridLimits:
     max_tokens: int = 20000
     timeout_seconds: float = 20
     result_limit: int = 20
+    max_index_batches: int = 4
 
 
 @dataclass(frozen=True)

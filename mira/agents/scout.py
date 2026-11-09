@@ -816,6 +816,10 @@ class _ScoutRun:
                                            "fallback_reason": hybrid.fallback_reason,
                                            "tokens": hybrid.tokens, "reserved_tokens": hybrid.reserved_tokens,
                                            "cache_error": getattr(hybrid, "cache_error", None)}
+                for field in ('eligible_passages','indexed_passages','pending_passages','blocked_passages',
+                              'index_batches','indexing_stop_reason','coverage_known',
+                              'input_characters','input_bytes','embedding_requests'):
+                    self.hybrid_diagnostics[field] = getattr(hybrid,field,None)
                 if hybrid.fallback_reason is None:
                     hybrid_order = {p.id: i for i, p in enumerate(hybrid.passages)}
                     ids.extend(p.id for p in hybrid.passages if p.id not in ids)

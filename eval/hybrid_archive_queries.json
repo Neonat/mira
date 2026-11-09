@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "kind": "saved_archive",
+  "provenance": {
+    "kind": "handcrafted_unlabelled_research_questions",
+    "frozen_date": "2026-11-10",
+    "purpose": "Prospective observational retrieval comparison; questions frozen before retrieval. No accepted quality ground truth or relevance labels."
+  },
+  "queries": [
+    {"id": "aml-01", "text": "What checks identify the people who ultimately control a corporate customer?"},
+    {"id": "aml-02", "text": "Which platform is used to submit suspicious transaction reports?"},
+    {"id": "aml-03", "text": "sanctions screening customer names and transaction parties"},
+    {"id": "aml-04", "text": "What identity documents and verification checks are required when opening an account?"},
+    {"id": "aml-05", "text": "supervisory anti-money laundering training seminars for financial institutions"},
+    {"id": "aml-06", "text": "How can proceeds of crime be moved through expensive property or luxury goods?"}
+  ]
+}

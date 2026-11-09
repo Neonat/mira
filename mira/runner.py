@@ -74,7 +74,8 @@ def hybrid_from_env():
         max_characters=int(os.environ.get('MIRA_HYBRID_MAX_CHARACTERS','60000')),
         max_tokens=int(os.environ.get('MIRA_HYBRID_MAX_TOKENS','20000')),
         timeout_seconds=float(os.environ.get('MIRA_HYBRID_TIMEOUT_SECONDS','20')),
-        result_limit=int(os.environ.get('MIRA_HYBRID_RESULT_LIMIT','20')))
+        result_limit=int(os.environ.get('MIRA_HYBRID_RESULT_LIMIT','20')),
+        max_index_batches=int(os.environ.get('MIRA_HYBRID_MAX_INDEX_BATCHES','4')))
     return HybridRetriever(OpenAIEmbedder(OpenAI(max_retries=0),identity,reserved_tokens=limits.max_tokens),identity,limits)
 
 
