@@ -2,9 +2,38 @@
 
 Mira turns public regulatory and industry developments into cited research reports for bank internal auditors. An auditor sets the topic, markets and reporting period; Mira plans the research, gathers approved evidence, checks claims and source independence, and prepares a report for review and sign-off.
 
-**Audience:** competition judges, DBS Internal Audit stakeholders and pilot auditors.
+**Programme:** built for the SMU run of the
+[Young Talent Programme for AI in Finance (YTP-AIF)](https://www.ibf.org.sg/home/for-financial-institutions/talent-development-and-training-support/develop-young-talent),
+responding to DBS Bank Internal Audit's *Agentic AI for Audit: External Driver
+Researcher* problem statement. [SMU's programme overview](https://computing.smu.edu.sg/news/2026/aug/11/smu-unveils-new-courses-prepare-graduates-ai-enabled-future)
+describes the applied industry-project context.
+
+**Audience:** programme assessors, DBS Internal Audit stakeholders and pilot auditors.
 
 **Scope:** an AML/CFT research prototype supporting Singapore and Hong Kong, with a demonstrated Hong Kong research case. The current workflow includes expanded ingestion, Exa-assisted discovery, permitted browser acquisition, claim-level corroboration and passage-level analysis tracking.
+
+## Nathaniel's contribution and engineering decisions
+
+Mira is a collaborative project, with development from
+[@Neonat](https://github.com/Neonat), [@ewvnn](https://github.com/ewvnn) and
+[@SaaiAravindhRaja](https://github.com/SaaiAravindhRaja) in the recorded history.
+Nathaniel Sim's documented contributions include
+[passage-coverage tracking and bounded evidence analysis](https://github.com/Neonat/mira/commit/6fc63b1eb7f1e5cf615a489c822068326c96db53),
+[publication-capacity and corroboration-workload controls](https://github.com/Neonat/mira/commit/43a7b1c1c25003ec63cac8dc27a2aa5ce59ffc10),
+[readable SFC publication links](https://github.com/Neonat/mira/commit/a4148637eab28aac869f1dd2021221ab6e1e487f) and
+[report-table readability](https://github.com/Neonat/mira/commit/42f08a4cc61e7c77bdfb3be04ee4edd1630bda70).
+
+Three choices explain the project's engineering direction:
+
+- **Traceable findings:** preserve source passages and connect generated claims
+  to their evidence so an auditor can inspect the support.
+- **Bounded research:** use typed outputs, explicit allowances and deterministic
+  orchestration to make acquisition and follow-up work inspectable.
+- **Reviewable releases:** preserve reviewer decisions and frozen evidence with
+  reviewed report versions, keeping sign-off with the auditor.
+
+The [validation section](#validation-and-prototype-status) separates recorded
+engineering checks from the measured coverage of live research runs.
 
 ## From research brief to reviewed evidence
 
@@ -29,11 +58,11 @@ Corroboration appears in the generated report with its assessment, quotations an
 
 Source navigation is built for readers: verified SFC API destinations open the corresponding readable publication page, and known PDF passages link to their page. Permitted original files use integrity checks and authenticated workspace access. Optional hybrid retrieval combines keyword and semantic ranking within source and usage controls.
 
-## Alignment with the competition brief
+## Alignment with the project brief
 
 Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External Driver Researcher*.
 
-| Judging area | What to inspect |
+| Review area | What to inspect |
 |---|---|
 | Feasibility, value and application | The complete brief-to-reviewed-report workflow for the AML/CFT pilot |
 | Governance, risk and ethics | Approved-source acquisition, workspace access controls, traceable evidence and human sign-off |
@@ -68,7 +97,7 @@ Configure the ignored `.env` and apply the database setup in [the database guide
 
 | Reader | Starting point |
 |---|---|
-| Judges, sponsors and pilot auditors | The [DBS brief](docs/dbs_project_statement.md), [slides](slides/Mira_DBS_Presentation_v2.pptx) and [workflow showcase](docs/demo/launch-production-handoff.md) |
+| Programme assessors, sponsors and pilot auditors | The [DBS brief](docs/dbs_project_statement.md), [slides](slides/Mira_DBS_Presentation_v2.pptx) and [workflow showcase](docs/demo/launch-production-handoff.md) |
 | Product owner and technical reviewers | [Current PRD](docs/mira_PRD_v3_draft.md) and [feature status](docs/presentation/feature-status-2026-11-08.md) |
 | Developers and source curators | [Setup, configuration and code reference](docs/development.md), [database guide](supabase/README.md) and [ingestion quickstart](docs/ingestion-quickstart.md) |
 | Maintainers checking design history | [PRD v2](docs/mira_PRD_v2.md), [archived v1](docs/archive/mira_PRD_v1.md), [change proposal](docs/mira_prd_changes.md) and [coordinator handoff](docs/agent-handoffs/README.md) |
