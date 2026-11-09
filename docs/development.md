@@ -80,6 +80,21 @@ Normal workers analyse up to 12 whole passages and 18,000 content characters per
 
 Original retention and hybrid retrieval are off by default. Retention additionally requires a source `connector_config.original_retention` approval and reference, private storage shared by worker and authenticated app, and a backup policy for deployment. Hybrid retrieval requires an explicit embedding model/revision, compatible 384-dimensional vectors and the source `embed` permission. Its bounded candidate pool falls back to keyword retrieval when limits or acquisition errors prevent semantic ranking. MAS automated acquisition remains disabled; no new source grants are supplied by this update. Apply the new migrations locally before running the updated worker.
 
+The recommended embedding profile is now configured and enabled in the two existing local development environment files. New installations keep the template flag off until explicitly enabled with an authorized run budget:
+
+```dotenv
+MIRA_ENABLE_HYBRID_RETRIEVAL=1
+MIRA_EMBEDDING_MODEL=text-embedding-3-small
+MIRA_EMBEDDING_REVISION=mira-te3-small-384-v1
+MIRA_EMBEDDING_DIMENSIONS=384
+```
+
+The revision is an application-managed cache version, not an immutable provider snapshot. Change it when rebuilding embeddings after changing the model/profile. The OpenAI key and database worker connection stay server-side; the separate Supabase Storage upload key is not needed for pgvector retrieval. Restart an already-running worker to load changed environment settings. No worker was automatically started by this configuration update.
+
+Default hybrid bounds remain 40 eligible passages, 60,000 input characters, 20,000 embedding tokens, 20 seconds and 20 results per task. An eligible pool above 40 falls back to the existing keyword path; enabling this profile does not backfill or silently sample a larger corpus. Existing source `embed` permission, workspace, jurisdiction, selected version and as-of checks apply before provider work. Never enable MAS acquisition to populate the cache.
+
+The [controlled live validation](../eval/evidence/2026-11-10-hybrid-embedding-validation.md) exercised the actual API, PostgreSQL cache and scout bridge with synthetic passages. It establishes integration behavior, not a new Hong Kong publication-recall or human-precision result.
+
 ## Durable storage and recovery
 
 Private Supabase object copies and consistent full-database/object backup recovery are implemented as optional operator paths. See the [storage and recovery runbook](backup-recovery.md) for credential separation, verified publication, complete backup checks and fresh-local-target recovery. The anon key remains app-only. Configure a worker storage credential separately before enabling uploads.

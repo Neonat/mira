@@ -1,9 +1,9 @@
-<!-- Current implementation update: 8 November 2026. Historical measured-run sections remain dated. -->
+<!-- Current implementation update: 10 November 2026. Historical measured-run sections remain dated. -->
 # Mira Product Requirements v3 — implementation and pilot requirements
 
 Agentic external-driver research for internal audit
 
-**Updated:** 8 November 2026 (Asia/Singapore), merged baseline through PR11 (`8fcd755`) plus the durable-evidence implementation under review. **Status:** current implementation reference and pilot requirements draft; proposed policies remain labelled.
+**Updated:** 10 November 2026 (Asia/Singapore), merged baseline through PR11 (`8fcd755`) plus the durable-evidence implementation and configured hybrid profile under review. **Status:** current implementation reference and pilot requirements draft; proposed policies remain labelled.
 
 **Document audience:** the product owner, Nathaniel, Ewen, Saai, implementation agents and technical reviewers making scope, design and acceptance decisions. **Product audience:** bank internal-audit analysts and senior reviewers; source curators and administrators support that workflow. The [README](../README.md) is the introduction for competition judges and DBS stakeholders.
 
@@ -44,6 +44,12 @@ Consistent native database snapshots pair all relational evidence with reference
 
 An offline preflight/export/comparison path prepares the next quality validation using the actual historical Hong Kong scope2025-11-04..2026-11-04, unchanged role models and declared caps. Passage, primary-verification and corroboration measurements remain distinct; missing historical fields are not invented, and human precision still needs blinded labels. No new paid/live model, embedding or Exa run is included in this implementation. MAS remains inactive.
 
+### Hybrid profile activation — 10 November 2026
+
+The user subsequently approved configuring and enabling hybrid retrieval and testing the actual embedding integration. The existing local worker environments now enable `text-embedding-3-small` at 384 dimensions, with application cache revision `mira-te3-small-384-v1`; the revision is not a provider snapshot. Existing role models, source grants and retrieval bounds remain unchanged. New installations retain an off-by-default template flag.
+
+A single controlled live validation used two actual embedding requests, 45 measured tokens and 3.719 seconds. A synonym-only query with zero eligible lexical matches returned the expected passage; four cached passage vectors were reused for a query-only warm request, and repeated scout selection incurred no extra request or charge. Inactive MAS, foreign-workspace, future/superseded-version and missing-embed-permission controls were excluded. All synthetic database rows were rolled back. MAS acquisition, Exa, browser and generative-role calls were zero. See [result and scope](../eval/evidence/2026-11-10-hybrid-embedding-validation.md). This establishes provider/cache/scout integration, not whole-corpus indexing, a new Hong Kong run or a recall/precision gain. Pools above the default 40 eligible passages still use recorded keyword fallback.
+
 ## 2. Product purpose, users and boundaries
 
 Mira helps an internal auditor research public regulatory and industry developments, inspect evidence and produce a reviewed research report. Its value must come from useful coverage, accurate statements, traceable evidence and lower research-plus-review effort. It does not determine the bank's compliance or establish deficiencies in its controls.
@@ -73,7 +79,7 @@ Third jurisdiction, region expansion in the brief UI, scheduled monitoring, news
 | Sequence | Diagram places verification before completeness-driven follow-up | Execution checks coverage and fills source gaps before analysis and verification | Document the actual sequence; do not imply post-verification claim repair |
 | Discovery and evidence | Approved HTML/PDF sources, stored versions and passages | Feeds, hubs, selected links, PDF follow-through, source scoping, reuse and manual import exist | Present; a retrieved page is not proof of adequate research |
 | Ingestion expansion | Additional discovery/acquisition routes to improve publication coverage | Scoped Exa discovery, controlled browser acquisition and candidate retention are implemented; bounded live observations are recorded below | Phase 1 gate complete; full coverage recovery remains unachieved |
-| Retrieval | Full text plus local embeddings/semantic search | Current scout retrieval uses full text; vector schema support is not an active embedding pipeline | Gap against v2; defer embeddings pending measured retrieval failures |
+| Retrieval | Full text plus local embeddings/semantic search | Opt-in keyword/cosine fusion with content-bound pgvector cache; configured local 384-dimensional OpenAI profile | Present for bounded eligible pools; actual API/cache/scout mechanism validated; archive-scale indexing and research-quality gains unproven |
 | Fact verification | Quote match, fresh-context semantic check, one partial rewrite | Implemented; unsupported claims excluded, inference dependencies checked; every number in a quote must appear in the matched passage (PR6) | Present; one labelled sample (§7.3) found no unsupported claims but four overstatements that passed the semantic check |
 | Metadata verification | Dates, market and status must be supported | Inference verification now receives displayed metadata and supporting claim metadata | Present; regression validated; labelled sample shows dates supported by recorded `published_at`, not passage text |
 | Coverage | Expected-source list, no-change evidence, gap rounds | Item-linked findings and inspected passage labels; imported evidence considered before manual-source fallback | Present; relevance and publication-level completeness still need review |
@@ -395,3 +401,7 @@ The final integrated candidate passed691tests+8subtests with no skips in92.39sec
 ### Durable-evidence validation — 8 November 2026
 
 The final integrated candidate passed **939 tests +8 subtests,none skipped,in64.05s** with local PostgreSQL17 and actual Chromium. New scope includes verified private object publication and app reads, source/bucket RLS, immutable retries, full snapshot/package/native recovery mechanics, legacy HTML/original preservation, and frozen/as-of-bound offline quality measurement. Native restore drills use disposable synthetic databases; actual SDK tests use offline HTTP transport. No hosted Storage deployment, whole application-schema hosted recovery, new paid research or precision gain is claimed. The interrupted test run and temporary database-unavailability replay are recorded in the [current handoff](agent-handoffs/durable-evidence-checkpoint.md); the passing candidate followed a reachability check. Existing research results remain dated and unchanged.
+
+### Configured embedding validation — 10 November 2026
+
+The separately authorized controlled embedding validation passed through the actual configured API, PostgreSQL cache and scout bridge: two requests,45tokens,3.719seconds, with MAS excluded and no research acquisition. Fresh regression proof: **939 tests +8 subtests,none skipped,in72.35s**, including local PostgreSQL and actual Chromium; source-scoping, process deadlines, fallback and usage regressions passed. See the [hybrid result](../eval/evidence/2026-11-10-hybrid-embedding-validation.md) and [handoff](agent-handoffs/hybrid-retrieval.md). The live fixture result is not a new HK recall/precision measurement. Source grants and agent role model settings remain unchanged.

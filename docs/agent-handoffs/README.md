@@ -2,6 +2,10 @@
 
 This directory coordinates parallel engineering work. It is not a change to Mira's runtime agent architecture. Use a fresh task/fork without chat history; include only the task, ownership boundary, and this checkpoint. Do not ask workers to reread historic chat.
 
+## Hybrid profile enabled and live integration checked — 10 November 2026
+
+The user authorized configuring and testing hybrid retrieval in PR13. Existing local environments now enable `text-embedding-3-small`/384 dimensions with application cache revision `mira-te3-small-384-v1`; template installations remain opt-in. A single controlled actual-API validation passed: two requests, 45 tokens, 3.719 seconds; synonym retrieval, pgvector cache reuse and scout usage/no-duplicate-call checks passed. MAS was inactive and excluded, with no acquisition/provider input. No HK research run, role-model/source-grant change, private Storage upload or remote deployment occurred. Default 40-passage limits and recorded keyword fallback remain. Read the [result](../../eval/evidence/2026-11-10-hybrid-embedding-validation.md) and [hybrid handoff](hybrid-retrieval.md). This embedding validation allowance is consumed; historical research run allowances remain consumed too.
+
 ## Durable evidence follow-up
 
 The user approved working on durability/recovery and quality-validation preparation. See the [current handoff](durable-evidence-checkpoint.md) and [operator runbook](../backup-recovery.md). This follow-up preserves PR6 guards, existing source grants, role models and MAS disablement. A subsequently authorized single HK run `1637f9f8` was interrupted before downstream verification/corroboration/report generation: 5/18 acquired versus 6/18 previously; citation metrics unavailable. Saved 153 passages and three unverified findings survived database restart. The stranded run was closed failed, without resuming/replacing it; strict quality export refused missing uninterrupted proof. Read [result](../../eval/evidence/2026-11-08-hk-interrupted-1637f9f8.md). The allowance is consumed. No remote deployment or private Storage upload was performed; no further paid run is authorized.

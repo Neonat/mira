@@ -29,6 +29,8 @@ Corroboration appears in the generated report with its assessment, quotations an
 
 Source navigation is built for readers: verified SFC API destinations open the corresponding readable publication page, and known PDF passages link to their page. Permitted original files use integrity checks and authenticated workspace access. Optional private object storage and verified backup/recovery support evidence continuity. Optional hybrid retrieval combines keyword and semantic ranking within source and usage controls.
 
+The configured hybrid profile uses OpenAI `text-embedding-3-small` with 384-dimensional pgvector storage. A controlled live integration check verified synonym retrieval, passage-vector reuse and scout usage accounting. See the [hybrid validation](eval/evidence/2026-11-10-hybrid-embedding-validation.md) for the measured scope.
+
 ## Alignment with the competition brief
 
 Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External Driver Researcher*.
