@@ -428,6 +428,14 @@ class _ScoutRun:
         return None
 
     def _save_page(self,page,extracted,provenance,link=None,*,deadline=None):
+        from mira.australia import is_register_api_url
+        if (page.kind=='json' and urlsplit(page.url).path=='/v1/Documents'
+                and is_register_api_url(page.url) and extracted.metadata.get('role')=='discovery_metadata'
+                and link is not None and link.published and isinstance(link.date_source,str)
+                and link.date_source.startswith('Federal Register API registeredAt in ')):
+            extracted.links=[Link(child.url,child.text,child.context,link.published,link.date_source)
+                             if child.published is None else child for child in extracted.links]
+            extracted.metadata['availability']={'registered_at':link.published.isoformat(),'evidence':link.date_source}
         from mira.publication_routes import register_publication
         publication=register_publication(page.url)
         if publication is not None:
@@ -491,7 +499,10 @@ class _ScoutRun:
             # A parent's publication date applies only to a recognised alias of that document.
             dated = (Link(pdf.url, pdf.text, pdf.context, extracted.published, extracted.published_basis)
                      if document_key(pdf.url) == document_key(url) else pdf)
-            self._fetch(pdf.url, dated)
+            if document_key(pdf.url).startswith('au-register:'):
+                self._fetch_document(pdf.url,dated,reserved=reserved)
+            else:
+                self._fetch(pdf.url, dated)
         elif (pdf is not None and self.allowance > 0 and reserved > 0
               and document_key(pdf.url) == key and pdf.url not in self.seen):
             # This exact full-content follow-up was deferred by the round quota.

@@ -17,6 +17,18 @@ _MAX_BYTES = 15_000_000
 _MAX_RECORDS = 1000
 
 
+def _document_scope(query: str) -> tuple[str, str] | None:
+    pairs = parse_qsl(query, keep_blank_values=True, max_num_fields=50)
+    if any(k not in ('$filter', '$top') for k, _ in pairs):
+        return None
+    filters = [v for k, v in pairs if k == '$filter']
+    tops = [v for k, v in pairs if k == '$top']
+    if len(filters) != 1 or len(tops) > 1 or (tops and tops[0] != '20'):
+        return None
+    match = re.fullmatch(r"titleId eq '([A-Za-z0-9]{1,64})' and registerId eq '([A-Za-z0-9]{1,64})'", filters[0])
+    return match.groups() if match else None
+
+
 def is_register_api_url(url: str) -> bool:
     try:
         p = urlsplit(url)
@@ -26,6 +38,8 @@ def is_register_api_url(url: str) -> bool:
             return False
         if re.fullmatch(r'/v1/Titles/[A-Za-z0-9]{1,64}', p.path):
             return True
+        if p.path == '/v1/Documents':
+            return _document_scope(p.query) is not None
         if p.path != '/v1/Versions':
             return False
         query = parse_qsl(p.query, keep_blank_values=True, max_num_fields=50)
@@ -66,6 +80,8 @@ def extract_register_json(body: bytes, url: str) -> Extracted:
         data = json.loads(body)
         if not isinstance(data, dict):
             raise ValueError('expected object')
+        if urlsplit(url).path == '/v1/Documents':
+            return _extract_documents(data, url)
         title_route = '/v1/Titles/' in urlsplit(url).path
         if title_route:
             title_id = _identifier(data.get('id'))
@@ -108,9 +124,15 @@ def extract_register_json(body: bytes, url: str) -> Extracted:
             lines.append(context)
             basis = f'Federal Register API registeredAt in {url}' if registered else None
             viewer_index=len(links)
-            if start:
+            if start and register_id and not documents:
+                target = ('https://api.prod.legislation.gov.au/v1/Documents?$filter='
+                          f'titleId%20eq%20%27{ident}%27%20and%20registerId%20eq%20%27{register_id}%27')
+                links.append(Link(target, f'{label} document index', context + ' Representation: document index.', registered, basis))
+            elif start:
                 prefix = f'https://www.legislation.gov.au/{ident}/{start.isoformat()}'
                 links.append(Link(prefix + '/text', f'{label} dated viewer', context + ' Representation: viewer.', registered, basis))
+            if start:
+                prefix = f'https://www.legislation.gov.au/{ident}/{start.isoformat()}'
             for doc in documents or []:
                 if not isinstance(doc, dict):
                     raise ValueError('invalid document')
@@ -142,3 +164,42 @@ def extract_register_json(body: bytes, url: str) -> Extracted:
         return result
     except (ValueError, TypeError, UnicodeDecodeError, RecursionError) as exc:
         return Extracted(title=url, status='failed', pages=[], error=f'invalid Register metadata: {exc}')
+
+
+def _extract_documents(data: dict, url: str) -> Extracted:
+    scope = _document_scope(urlsplit(url).query)
+    docs = data.get('value')
+    if scope is None or not isinstance(docs, list) or len(docs) > _MAX_RECORDS:
+        raise ValueError('invalid documents collection')
+    links: list[Link] = []
+    lines = ['Federal Register discovery metadata only; not legal text.',
+             f'Instrument {scope[0]}; register ID {scope[1]}.']
+    for doc in docs:
+        if not isinstance(doc, dict) or (doc.get('titleId'), doc.get('registerId')) != scope:
+            raise ValueError('document identity mismatch')
+        start = _date(doc.get('start'))
+        retrospective = _date(doc.get('retrospectiveStart'))
+        for key in ('type', 'format', 'fileName', 'versionType', 'compilationNumber'):
+            _optional_string(doc, key)
+        for key in ('volumeNumber', 'rectificationVersionNumber', 'uniqueTypeNumber'):
+            if doc.get(key) is not None and type(doc[key]) is not int:
+                raise ValueError(f'invalid {key}')
+        context = (f'Instrument {scope[0]}; register ID {scope[1]}; compilation '
+                   f'{doc.get("compilationNumber") or "unknown"}; effective start {start or "unknown"}; '
+                   f'retrospective start {retrospective or "unknown"}; '
+                   f'representation {doc.get("format") or "unknown"}. Discovery metadata only; not legal text.')
+        lines.append(context)
+        if (start and retrospective and doc.get('type') == 'Primary'
+                and doc.get('format') in ('Pdf', 'Epub')
+                and (doc.get('versionType') is None or
+                     (doc.get('versionType') == 'Rectification' and doc.get('rectificationVersionNumber') == 0))
+                and all(doc.get(key) in (None, 0) for key in
+                        ('volumeNumber', 'rectificationVersionNumber', 'uniqueTypeNumber'))):
+            suffix = ('pdf' if doc['format'] == 'Pdf' else
+                      'epub/OEBPS/document_1/document_1.html')
+            target = f'https://www.legislation.gov.au/{scope[0]}/{start}/{retrospective}/text/original/{suffix}'
+            links.append(Link(target, f'{scope[0]} {doc["format"]}', context))
+    result = Extracted(title=f'Federal Register documents {scope[0]} {scope[1]}',
+                       status='complete', pages=['\n'.join(lines)], links=links)
+    result.metadata = {'native_record': data, 'role': 'discovery_metadata'}
+    return result

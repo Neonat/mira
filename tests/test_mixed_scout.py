@@ -77,3 +77,39 @@ def test_actual_selection_keeps_the_discarded_australian_counterpart(monkeypatch
     run._fetch=fetch
     run._select_and_fetch()
     assert calls==[html.url,pdf.url]
+
+
+def test_scoped_file_metadata_propagates_only_known_registration_to_children():
+    run,source=run_fixture()
+    from urllib.parse import urlencode
+    url='https://api.prod.legislation.gov.au/v1/Documents?'+urlencode({'$filter':"titleId eq 'C2006A00169' and registerId eq 'C2026C00274'"})
+    page=FetchedPage(url,url,source,'json','application/json',b'{}',datetime.now(UTC))
+    ex=Extracted('Files','complete',['metadata'],links=[Link(STEM+'pdf','PDF','')],metadata={'role':'discovery_metadata'})
+    parent=Link(url,'Files','',date(2026,7,10),'Federal Register API registeredAt in official version metadata')
+    run.writer=SimpleNamespace(save=lambda *a,**k:SimpleNamespace(unchanged=False,document_version_id=uuid4(),passage_ids=[]))
+    run._save_page(page,ex,{},parent)
+    assert ex.links[0].published==parent.published and ex.links[0].date_source==parent.date_source
+
+
+def test_native_api_seed_avoids_rejected_expand_option():
+    from mira.seed import SOURCES
+    from urllib.parse import parse_qs,urlsplit
+    source=next(s for s in SOURCES if s.key=='au-register')
+    assert '$expand' not in parse_qs(urlsplit(source.start_urls[0]).query)
+
+
+def test_file_index_followup_uses_both_discovered_full_representations():
+    run,_=run_fixture()
+    html=Link(STEM+'epub/OEBPS/document_1/document_1.html','HTML','',date(2026,7,10),'Federal Register API registeredAt in official API')
+    pdf=Link(STEM+'pdf','PDF','',html.published,html.date_source)
+    index='https://api.prod.legislation.gov.au/v1/Documents?fixture=1'
+    run.allowance=3;calls=[]
+    def fetch(url,link=None):
+        calls.append(url);run.allowance-=1;run.seen.add(url)
+        if url==index:
+            run.candidates.extend([html,pdf])
+            return Extracted('Files','complete',['Metadata'],links=[html,pdf],metadata={'role':'discovery_metadata'})
+        return Extracted('Act','complete',['Full text'])
+    run._fetch=fetch
+    run._fetch_document(index)
+    assert calls==[index,html.url,pdf.url]

@@ -4,7 +4,9 @@ Mira turns public regulatory and industry developments into cited research repor
 
 **Audience:** competition judges, DBS Internal Audit stakeholders and pilot auditors.
 
-**Scope:** an AML/CFT research prototype supporting Singapore and Hong Kong, with a demonstrated Hong Kong research case. The current workflow includes expanded ingestion, Exa-assisted discovery, permitted browser acquisition, claim-level corroboration and passage-level analysis tracking.
+**Scope:** an AML/CFT research prototype supporting Singapore, Hong Kong and scoped Australian/UAE federal research, with a demonstrated Hong Kong research case. The current workflow includes expanded ingestion, Exa-assisted discovery, permitted browser acquisition, claim-level corroboration and passage-level analysis tracking.
+
+Australia uses Federal Register API metadata and direct publication files, alongside AUSTRAC public guidance subject to live access checks. UAE federal research follows approved CBUAE publication hubs to same-host documents. Malaysia and DIFC/DFSA are outside the enabled source set, and MAS remains inactive.
 
 ## From research brief to reviewed evidence
 
@@ -30,6 +32,8 @@ Corroboration appears in the generated report with its assessment, quotations an
 Source navigation is built for readers: verified SFC API destinations open the corresponding readable publication page, and known PDF passages link to their page. Permitted original files use integrity checks and authenticated workspace access. Optional private object storage and verified backup/recovery support evidence continuity. Optional hybrid retrieval combines keyword and semantic ranking within source and usage controls.
 
 The experimental hybrid profile uses OpenAI `text-embedding-3-small` with 384-dimensional pgvector storage. Bounded incremental indexing feeds database ranking across the eligible saved archive, with visible indexed/pending counts and the keyword path retained for comparison. See the [archive experiment](eval/evidence/2026-11-10-archive-hybrid-validation.md) for measured scope and usefulness limits.
+
+Native API records and complete permitted extracted text stay in the evidence store independently of findings. Australian registration and effective dates remain separate; discovery metadata and viewer shells do not become legal-text citation passages. Source reuse notices travel with frozen report evidence. CBUAE text remains outside external embedding under the current grant.
 
 ## Alignment with the competition brief
 

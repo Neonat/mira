@@ -1,5 +1,21 @@
 # Mira approved sources (D4 draft)
 
+## Implemented source extension — 10 November 2026
+
+The current catalog adds the scoped routes below for internal-audit analysts and reviewers. The October review farther down remains a dated baseline. Run `python -m mira seed` against the intended worker workspace to install the updated catalog/checklist v3. Seeding preserves operator-disabled sources and existing operation restrictions on the new profiles; it forces MAS inactive. No remote database or workspace update is implied by the code change.
+
+| Source | Route and grant | Exclusions |
+|---|---|---|
+| Australian Federal Register | Native API version/registration metadata → verified fixed publication HTML/PDF. Licensed prose may be stored, quoted and embedded with attribution under the [terms](https://www.legislation.gov.au/terms-of-use); [programmatic access](https://www.legislation.gov.au/help-and-resources/using-the-legislation-register/data-share-and-reuse) requires crawl-delay compliance. | No blanket whole-original grant for excluded logos/third-party material. Viewer/latest pages are discovery only; unsupported publication variants remain unresolved. |
+| AUSTRAC public guidance | Direct guidance and discovered files, with live robots checks. [CC BY policy](https://www.austrac.gov.au/austrac-copyright-attribution-and-third-party-guidelines) covers licensed material with attribution. | AUSTRAC Online, excluded marks and third-party material. Browser escalation is disabled for this profile. |
+| CBUAE federal | Canonical `centralbank.ae` hubs → same-host documents. Private organisational-use text/short attributed quotations under [§2.3](https://centralbank.ae/en/footer/terms-and-conditions/). | No external embeddings, live-browser grant, `rulebook.centralbank.ae` grant, DIFC/DFSA, VARA or other UAE regulators. |
+
+Native JSON is retained in version metadata when text retention is permitted; discovery records do not supply legal-text passages. Complete extracted publication text and offsets remain separate from summaries. Capture/SQL freeze includes reuse notices without modifying historical snapshots. Original-byte retention remains a separate opt-in grant.
+
+Malaysia and DFSA are not enabled. Their retrieval-system reuse restrictions require a separate source decision; manual import does not waive them. MAS is inactive by explicit user direction. Hybrid remains experimental and permission-scoped; adding a country does not establish national completeness or retrieval-quality superiority.
+
+---
+
 The allow-list of websites Mira's agents may read for the MVP (AML/CFT, Singapore and Hong Kong), and the draft expected-source list the completeness checker uses. Companion to [PRD v2](mira_PRD_v2.md) §5.3 and §6.4.
 
 Every URL below was requested on **26 October 2026** with an honest automated user agent (`MiraResearchPrototype/0.1`), and `robots.txt` was read for each host. The Singapore Statutes Online pages for TSFA and FSMA returned HTTP 200 at first; the CDSA page ID was confirmed by search after SSO started refusing requests. Terms of use were read for MAS, HKMA and SFC. Re-check before M0; sites move pages often (four of the first candidate URLs had moved).

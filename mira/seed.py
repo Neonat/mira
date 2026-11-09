@@ -138,7 +138,7 @@ SOURCES: tuple[SourceSeed, ...] = (
     SourceSeed(
         "au-register", "Federal Register of Legislation", "Office of Parliamentary Counsel", "regulator",
         "https://www.legislation.gov.au", "AU", ALL_OPERATIONS,
-        start_urls=("https://api.prod.legislation.gov.au/v1/Versions?$filter=titleId%20eq%20'C2006A00169'&$expand=documents&$orderby=registeredAt%20desc&$top=12",),
+        start_urls=("https://api.prod.legislation.gov.au/v1/Versions?$filter=titleId%20eq%20'C2006A00169'&$orderby=registeredAt%20desc&$top=12",),
         extra_hosts=("api.prod.legislation.gov.au",), crawl_delay_seconds=10,
         notes="CC BY 4.0 licensed prose with attribution, excluding marked/third-party material. API discovery and fixed dated files; no blanket grant for originals. https://www.legislation.gov.au/terms-of-use",
         profile={"acquisition_profile":"register_api_files", "allow_live_browser":False,

@@ -84,8 +84,8 @@ def _table(title: str, rows: object, columns: tuple[tuple[str, str], ...]) -> st
     head = ''.join(f'<th scope="col">{label}</th>' for _, label in columns)
     body = []
     for row in data:
-        cells = ''.join(f'<td>{_link(row.get(key)) if key == "url" else _cell(row.get(key))}</td>'
-                        for key, _ in columns)
+        cells = ''.join(f'<td data-label="{escape(label,quote=True)}">{_link(row.get(key)) if key == "url" else _cell(row.get(key))}</td>'
+                        for key, label in columns)
         body.append(f'<tr>{cells}</tr>')
     return (f'<section><h2>{title}</h2><div class="table-wrap" tabindex="0" '
             f'role="region" aria-label="{title}"><table><caption>{title}</caption>'
@@ -186,6 +186,8 @@ th{background:#eaf0f5}a{color:#075781;text-decoration:underline;overflow-wrap:an
 li{margin:10px 0}footer{margin-top:28px;color:#455969;font-size:.9rem}
 @media(max-width:600px){main{padding:20px 12px}section{padding:16px}h1{font-size:2rem}}
 @media print{body{background:white}main{max-width:none;padding:0}section{padding:12px 0;border:0}.table-wrap{overflow:visible}table{font-size:8pt}th,td{padding:6px;min-width:0}h2{break-after:avoid}tr{break-inside:avoid}}
+@media print{table{font-size:10pt}table:has(th:nth-child(6)) thead{display:none}table:has(th:nth-child(6)) tr{display:block;border:1px solid #cbd5df;margin:0 0 14px;padding:10px}table:has(th:nth-child(6)) td{display:grid;grid-template-columns:100px 1fr;gap:10px;border:0;padding:3px 0}table:has(th:nth-child(6)) td::before{content:attr(data-label);font-weight:600}table:has(th:nth-child(6)) caption{display:block}}
+@media print{table:not(:has(th:nth-child(6))) th{min-width:7rem;overflow-wrap:normal}}
 """
 
 

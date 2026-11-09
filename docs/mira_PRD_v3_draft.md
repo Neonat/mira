@@ -1,6 +1,16 @@
 <!-- Current implementation update: 10 November 2026. Historical measured-run sections remain dated. -->
 # Mira Product Requirements v3 — implementation and pilot requirements
 
+## Australia/UAE source extension — 10 November 2026
+
+The user-approved mixed retrieval extension adds `AU` and `AE` to controlled brief selection. `AE` means the approved CBUAE federal source profile, excluding DIFC/DFSA, VARA and other regulators. SG/HK remain the form defaults. Malaysia/DFSA remain unenabled and MAS is forced inactive by seeding; synthetic guard tests opt in explicitly without live MAS requests.
+
+Federal Register native metadata preserves instrument identity and separates registration/availability from effective dates. Recognized fixed publication HTML/PDF supply text; title/viewer shells and API discovery records retain metadata without citable legal-text passages. The Scout retains discovered counterparts through deduplication and fetches HTML/PDF within its existing document reservations. AUSTRAC uses permitted public guidance/file acquisition with live robots checks. UAE federal hubs supply only approved same-host files; no browser escalation or external embedding grant is added.
+
+Permitted complete extracted text and native JSON are independent of derived claims. Source reuse notices are captured and frozen consistently in Python/SQL, with legacy shapes preserved when no notice exists. Original-byte retention remains separately permissioned. Hybrid retains its experimental status and keyword comparison path; this extension is not a human-labelled usefulness or national-completeness acceptance.
+
+The source catalog/checklist is v3. The source-notice capture migration is local-only until separately deployed. See the [source register](mira_approved_sources.md) and [implementation plan](superpowers/plans/2026-11-10-mixed-retrieval.md). Historical measured-run sections below retain their original scope and dates.
+
 Agentic external-driver research for internal audit
 
 **Updated:** 10 November 2026 (Asia/Singapore), merged baseline through PR11 (`8fcd755`) plus the durable-evidence implementation and configured hybrid profile under review. **Status:** current implementation reference and pilot requirements draft; proposed policies remain labelled.
