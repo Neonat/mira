@@ -854,11 +854,19 @@ def mas_file(tmp_path):
     return path
 
 
-def test_manual_import_saves_versions_and_records_the_import(conn, workspace, tmp_path):
+@pytest.fixture()
+def mas_workspace(conn, workspace):
+    # Explicit synthetic opt-in for manual-import/block-page guard regressions.
+    # Production seeding keeps MAS inactive; these tests use FakeWeb only.
+    conn.execute("update public.sources set is_active=true where workspace_id=%s and source_key='mas'", (workspace[0],))
+    return workspace
+
+
+def test_manual_import_saves_versions_and_records_the_import(conn, mas_workspace, tmp_path):
     from mira.db import NotAuthorisedError
     from mira.manual_import import ImportItem, import_files
 
-    workspace_id, user_id = workspace
+    workspace_id, user_id = mas_workspace
     good = ImportItem(mas_file(tmp_path), MAS_URL, "Example MAS notice", date(2026, 5, 25))
     bad = ImportItem(mas_file(tmp_path), "https://www.hkma.gov.hk/not-mas")
     first = import_files(conn, workspace_id, user_id, "mas", [good, bad])
@@ -886,10 +894,10 @@ def test_manual_import_saves_versions_and_records_the_import(conn, workspace, tm
 
 @pytest.mark.parametrize("via_workbench", [False, True])
 @pytest.mark.parametrize("historical", [False, True])
-def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspace, tmp_path, via_workbench, historical):
+def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, mas_workspace, tmp_path, via_workbench, historical):
     from mira.manual_import import ImportItem, import_files
 
-    workspace_id, user_id = workspace
+    workspace_id, user_id = mas_workspace
     if via_workbench:
         import io
         import json
@@ -987,9 +995,9 @@ def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspa
     assert MAS_URL in html and "Imported by hand" in html
 
 
-def test_failed_manual_extraction_is_a_failed_ingestion_item(conn, workspace, tmp_path):
+def test_failed_manual_extraction_is_a_failed_ingestion_item(conn, mas_workspace, tmp_path):
     from mira.manual_import import ImportItem, import_files
-    workspace_id, user_id = workspace
+    workspace_id, user_id = mas_workspace
     path = tmp_path / 'broken.pdf'
     path.write_bytes(b'%PDF-1.4 truncated')
     result = import_files(conn, workspace_id, user_id, 'mas', [ImportItem(path, MAS_URL)])[0]
@@ -999,12 +1007,12 @@ def test_failed_manual_extraction_is_a_failed_ingestion_item(conn, workspace, tm
     assert row['status'] == 'completed_with_errors' and row['counts']['failed'] == 1
 
 
-def test_scout_excludes_future_manual_and_fetched_passages(conn, workspace, tmp_path):
+def test_scout_excludes_future_manual_and_fetched_passages(conn, mas_workspace, tmp_path):
     from mira.agents.scout import _ScoutRun, _Visit
     from mira.interfaces import ScoutTask
     from mira.manual_import import ImportItem, import_files, load_source
 
-    ws, user = workspace
+    ws, user = mas_workspace
     source = load_source(conn, ws, 'mas')
     items = [ImportItem(mas_file(tmp_path), MAS_URL + f'?case={label}', published=published)
              for label, published in [('historical',date(2023,4,18)),('future',date(2026,11,7)),

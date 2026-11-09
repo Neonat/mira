@@ -1,0 +1,825 @@
+{
+  "schema_version": 1,
+  "kind": "bounded_source_method_pilot",
+  "base_sha": "03eb05fc6926e98da671c2ccfb9e16e30d605b3a",
+  "date_singapore": "2026-11-10",
+  "requested_scope": [
+    "MY",
+    "AU",
+    "AE-DIFC/DFSA",
+    "AE-federal"
+  ],
+  "production_country_enablement": false,
+  "runtime_changes": false,
+  "persistent_source_grants": false,
+  "plan": {
+    "base_sha": "03eb05fc6926e98da671c2ccfb9e16e30d605b3a",
+    "frozen_at": "2026-11-09T18:54:18.217177+00:00",
+    "caps": {
+      "publication_targets": 12,
+      "exa_searches": 4,
+      "browser_captures": 2,
+      "embedding_requests": 10,
+      "embedding_tokens": 40000,
+      "embedding_input_bytes": 300000,
+      "seconds": 1200
+    },
+    "queries": [
+      {
+        "id": "risk",
+        "text": "\"risk assessment\""
+      },
+      {
+        "id": "identification",
+        "text": "\"customer identification\""
+      },
+      {
+        "id": "beneficial",
+        "text": "\"beneficial owner\""
+      },
+      {
+        "id": "str",
+        "text": "\"suspicious matter\""
+      },
+      {
+        "id": "paraphrase",
+        "text": "How should a firm check who ultimately controls a customer?"
+      },
+      {
+        "id": "no-answer",
+        "text": "\"ZXQ481 lunar banking licence\""
+      }
+    ],
+    "mas_disabled": true,
+    "scope": "MY; AU; Dubai/DIFC plus UAE federal, separately; no persistent source grants"
+  },
+  "robots": [
+    {
+      "host": "www.austrac.gov.au",
+      "url": "https://www.austrac.gov.au/robots.txt",
+      "started_at": "2026-11-09T18:52:24.959225+00:00",
+      "error": "FetchFailed",
+      "elapsed_seconds": 12.418
+    },
+    {
+      "host": "www.legislation.gov.au",
+      "url": "https://www.legislation.gov.au/robots.txt",
+      "started_at": "2026-11-09T18:52:24.959565+00:00",
+      "status": 200,
+      "content_type": "text/plain; charset=UTF-8",
+      "sha256": "ccee18ba778f81d2ee50e3f510029d801c25bcc202ae5673e1e2d57b95f995fd",
+      "location": null,
+      "robots": "# robots.txt for www.legislation.gov.au\r\nUser-agent: *\r\nCrawl-delay: 10\r\nDisallow: /assets/\r\n\r\nSitemap: https://www.legislation.gov.au/sitemap.xml\r\n# Sitemap: https://www.legislation.gov.au/sitemap-titles.xml\r\n",
+      "elapsed_seconds": 0.772
+    },
+    {
+      "host": "api.prod.legislation.gov.au",
+      "url": "https://api.prod.legislation.gov.au/robots.txt",
+      "started_at": "2026-11-09T18:52:24.959684+00:00",
+      "status": 404,
+      "content_type": null,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "location": null,
+      "elapsed_seconds": 0.413
+    },
+    {
+      "host": "centralbank.ae",
+      "url": "https://centralbank.ae/robots.txt",
+      "started_at": "2026-11-09T18:52:24.959789+00:00",
+      "status": 404,
+      "content_type": null,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "location": null,
+      "elapsed_seconds": 0.437
+    },
+    {
+      "host": "www.centralbank.ae",
+      "url": "https://www.centralbank.ae/robots.txt",
+      "started_at": "2026-11-09T18:52:25.373703+00:00",
+      "status": 301,
+      "content_type": "text/html; charset=UTF-8",
+      "sha256": "446a6087825fa73eadb045e5a2e9e2adf7df241b571228187728191d961dda1f",
+      "location": "https://centralbank.ae/robots.txt",
+      "elapsed_seconds": 0.161
+    },
+    {
+      "host": "www.dfsa.ae",
+      "url": "https://www.dfsa.ae/robots.txt",
+      "started_at": "2026-11-09T18:52:25.396436+00:00",
+      "status": 200,
+      "content_type": "text/plain",
+      "sha256": "051429dcd356974e6888622fdbd37640dd3f0b37b9c858b4dd63c0ddc26ce46d",
+      "location": null,
+      "robots": "User-agent: *\nDisallow: /application/attributes\nDisallow: /application/authentication\nDisallow: /application/bootstrap\nDisallow: /application/config\nDisallow: /application/controllers\nDisallow: /application/elements\nDisallow: /application/helpers\nDisallow: /application/jobs\nDisallow: /application/languages\nDisallow: /application/mail\nDisallow: /application/models\nDisallow: /application/page_types\nDisallow: /application/single_pages\nDisallow: /application/tools\nDisallow: /application/views\nDisallow: /concrete\nDisallow: /packages\nSitemap: https://www.dfsa.ae/sitemap.xml\n",
+      "elapsed_seconds": 1.214
+    },
+    {
+      "host": "www.bnm.gov.my",
+      "url": "https://www.bnm.gov.my/robots.txt",
+      "started_at": "2026-11-09T18:52:25.534638+00:00",
+      "status": 200,
+      "content_type": "text/plain;charset=UTF-8",
+      "sha256": "8aa7fb9b1caf9036cc7dea525f4126dd01e612fda3ac9b34e14a1769131ca390",
+      "location": null,
+      "robots": "User-agent: Bingbot\nAllow: /\nUser-agent: Googlebot\nAllow: /\nDisallow: /group/guest/\nDisallow: /?ch=statistic&pg=stats_spot_rates\nDisallow: /index.php?\nUser-agent: Googlebot-Image\nDisallow: /\nUser-agent: *\nDisallow: /view.php?*\nUser-agent: AhrefsBot\nDisallow: /\nUser-agent: SemrushBot\nDisallow: /\nUser-agent: DotBot\nDisallow: /\nUser-agent: MJ12bot\nDisallow: /\nUser-agent: Yandex\nDisallow: /\nUser-agent: YandexBot\nDisallow: /\nUser-agent: Baiduspider\nDisallow: /\nUser-agent: Baiduspider-image\nDisallow: /\nUser-agent: Baiduspider-video\nDisallow: /\nUser-agent: ExaBot\nDisallow: /\nUser-agent: PetalBot\nDisallow: /\nUser-agent: node-spider\nDisallow: /\nUser-agent: CRMNLCrawlAgent\nDisallow: /\nUser-agent: Cliqzbot\nDisallow: /\nUser-agent: Linguee\nDisallow: /\nUser-agent: Gaisbot\nDisallow: /\nUser-agent: BLP_bbot\nDisallow: /\nUser-agent: BLP_bbot/0.1\nDisallow: /\nUser-agent: ccbot\nDisallow: /\nSitemap: https://www.bnm.gov.my/documents/20124/36353/wwwbnm2025-sitemap.xml",
+      "elapsed_seconds": 0.197
+    },
+    {
+      "host": "amlcft.bnm.gov.my",
+      "url": "https://amlcft.bnm.gov.my/robots.txt",
+      "started_at": "2026-11-09T18:52:25.731499+00:00",
+      "status": 200,
+      "content_type": "text/plain;charset=UTF-8",
+      "sha256": "77af8a5c7b19fcf498a8625525eedd2938af6ec1e41df93e82ba4c54149e25af",
+      "location": null,
+      "robots": "User-agent: Bingbot\nDisallow:\n\nUser-agent: Googlebot\nDisallow:\n\nUser-agent: Googlebot-Image\nDisallow: /\n\nUser-agent: Googlebot\nDisallow: /group/guest/*\n\nUser-agent: Googlebot\nDisallow: /?ch=statistic&pg=stats_spot_rates\n\nUser-agent: Googlebot\nDisallow: /index.php?\n\nUser-agent:*\nDisallow: /view.php?*\n\nUser-Agent: magpie-crawler\nDisallow: /\n\nUser-Agent: Yandex\nDisallow: /\n\nUser-agent: dotbot\nDisallow: /\n\nUser-agent: node-spider\nDisallow: /\n\nUser-agent: AhrefsBot\nDisallow: /\n\nUser-agent: PetalBot\nDisallow: /\n\nUser-agent: YandexBot\nDisallow: / \n\nUser-agent: Twitterbot\nDisallow: /\n\nUser-agent: Linguee\nDisallow: /\n\nUser-agent: MJ12bot\nDisallow: /\n\nUser-agent: dotbot\nDisallow: /\n\nUser-agent: BLP_bbot\nDisallow: /\n\nUser-agent: BLP_bbot/0.1\nDisallow: /\n\nUser-agent: blp_bbot/0.1\nDisallow: /\n\nUser-agent: ccbot\nDisallow: /\n\nUser-agent: CRMNLCrawlAgent\nDisallow: /\n\nUser-agent: Cliqzbot\nDisallow: /\n\nUser-agent: ExaBot\nDisallow: /\n\nUser-agent: Gaisbot\nDisallow: /\n\nSitemap: http://amlcft.bnm.gov.my:8080/sitemap.xml",
+      "elapsed_seconds": 0.315
+    },
+    {
+      "host": "www.sc.com.my",
+      "url": "https://www.sc.com.my/robots.txt",
+      "started_at": "2026-11-09T18:52:25.732083+00:00",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "sha256": "74cb49b49a630fb62c41fb1d967ecf392ca48d33a27a0037898d908092cbfbc5",
+      "location": null,
+      "robots": "User-agent: *\r\nDisallow:\r\nSiteMap: https://www.sc.com.my/XTOPIA_sitemap.ashx",
+      "elapsed_seconds": 0.522
+    }
+  ],
+  "acquisitions": [
+    {
+      "id": "au-api-title",
+      "requested_url": "https://api.prod.legislation.gov.au/v1/Titles/C2006A00169",
+      "method": "http",
+      "started_at": "2026-11-09T18:54:18.217621+00:00",
+      "status": "acquired",
+      "final_url": "https://api.prod.legislation.gov.au/v1/Titles/C2006A00169",
+      "kind": "json",
+      "bytes": 1190,
+      "body_sha256": "22e6d75527eaa8e26c9626d1f07eb475633542159ca437a491715ae26e135af2",
+      "json_keys": [
+        "@odata.context",
+        "id",
+        "name",
+        "makingDate",
+        "collection",
+        "subCollection",
+        "isPrincipal",
+        "isInForce",
+        "publishComments",
+        "status",
+        "hasCommencedUnincorporatedAmendments",
+        "originatingBillUri",
+        "asMadeRegisteredAt",
+        "optionalSeriesNumber",
+        "year",
+        "number",
+        "seriesType",
+        "nameHistory",
+        "namePossibleFuture",
+        "statusHistory",
+        "statusPossibleFuture"
+      ],
+      "json_valid": true,
+      "elapsed_seconds": 1.347
+    },
+    {
+      "id": "au-act-html",
+      "requested_url": "https://www.legislation.gov.au/C2006A00169/2026-07-01/2026-07-01/text/original/epub/OEBPS/document_1/document_1.html",
+      "method": "http",
+      "started_at": "2026-11-09T18:54:19.566218+00:00",
+      "status": "acquired",
+      "final_url": "https://www.legislation.gov.au/C2006A00169/2026-07-01/2026-07-01/text/original/epub/OEBPS/document_1/document_1.html",
+      "kind": "html",
+      "bytes": 1967807,
+      "body_sha256": "899c62389513c26ed07ac81aac559bb24759876fbfcbf2a61bf345833d5767b8",
+      "extraction_status": "complete",
+      "characters": 552388,
+      "pages": 1,
+      "passages": 488,
+      "links": 0,
+      "nonspace_characters": 454898,
+      "covered_nonspace_characters": 454898,
+      "text_sha256": "d730b1b0dfdcce17ac5ae9faa84859aee686d69643d452e95511bbb28ba82490",
+      "elapsed_seconds": 11.617
+    },
+    {
+      "id": "au-act-pdf",
+      "requested_url": "https://www.legislation.gov.au/C2006A00169/2026-07-01/2026-07-01/text/original/pdf",
+      "method": "http",
+      "started_at": "2026-11-09T18:54:31.188442+00:00",
+      "status": "acquired",
+      "final_url": "https://www.legislation.gov.au/C2006A00169/2026-07-01/2026-07-01/text/original/pdf",
+      "kind": "pdf",
+      "bytes": 1776604,
+      "body_sha256": "85235a4f427ecbacb886aaa44d5c0826844ab1c8e7cf627fb8ca0ccdf0a81c15",
+      "extraction_status": "complete",
+      "characters": 681687,
+      "pages": 434,
+      "passages": 1135,
+      "links": 0,
+      "nonspace_characters": 575831,
+      "covered_nonspace_characters": 575831,
+      "text_sha256": "660e4aaa335baeff69aeff55b9b2869d2ace8be97d6b21c4d3778369f77705cb",
+      "elapsed_seconds": 12.832
+    },
+    {
+      "id": "ae-aml-html",
+      "requested_url": "https://centralbank.ae/en/our-operations/anti-money-laundering-aml/offsite-supervision/",
+      "method": "http",
+      "started_at": "2026-11-09T18:54:44.032459+00:00",
+      "status": "acquired",
+      "final_url": "https://centralbank.ae/en/our-operations/anti-money-laundering-aml/offsite-supervision/",
+      "kind": "html",
+      "bytes": 478663,
+      "body_sha256": "5012c3e80763f24169b6e71e931cf97f99f6ca299ebbacb05abf9e620967893c",
+      "extraction_status": "complete",
+      "characters": 11228,
+      "pages": 1,
+      "passages": 11,
+      "links": 30,
+      "nonspace_characters": 9554,
+      "covered_nonspace_characters": 9554,
+      "text_sha256": "0796bb9e6538221207b35d6bf5ada42bda4b64cabd6837c13bd99f42b3a5847b",
+      "elapsed_seconds": 0.757
+    },
+    {
+      "id": "au-act-browser",
+      "requested_url": "https://www.legislation.gov.au/C2006A00169/2026-07-01/text",
+      "method": "browser",
+      "started_at": "2026-11-09T18:54:49.211624+00:00",
+      "status": "acquired",
+      "final_url": "https://www.legislation.gov.au/C2006A00169/2026-07-01/text",
+      "kind": "html",
+      "bytes": 294121,
+      "body_sha256": "2357b45633e0a650d408a25f657114546d855ce2d6dc4342c1fee4318b4177cf",
+      "extraction_status": "complete",
+      "characters": 21282,
+      "pages": 1,
+      "passages": 19,
+      "links": 14,
+      "nonspace_characters": 17956,
+      "covered_nonspace_characters": 17956,
+      "text_sha256": "fe73b53ceef8ed44fbcf1571ddf7dafde819e3a8f4417faaf5482291f75af744",
+      "elapsed_seconds": 63.8,
+      "browser_summary": {
+        "denied_requests": 1,
+        "omitted_resources": 16,
+        "original_retained": false,
+        "observed_network_bytes": 1955424
+      }
+    },
+    {
+      "id": "ae-aml-browser",
+      "requested_url": "https://centralbank.ae/en/our-operations/anti-money-laundering-aml/offsite-supervision/",
+      "method": "browser",
+      "started_at": "2026-11-09T18:55:53.025931+00:00",
+      "status": "failed",
+      "error_type": "FetchFailed",
+      "error": "browser encountered access denial or challenge",
+      "elapsed_seconds": 52.676
+    },
+    {
+      "id": "ae-sanctions-pdf",
+      "requested_url": "https://centralbank.ae/media/p1fnkygl/thematic-review-on-compliance-with-screening-against-uae-local-list-and-unsc-sanctions-list-in-the-banking-sector.pdf",
+      "method": "http",
+      "started_at": "2026-11-09T18:57:46.353667+00:00",
+      "status": "acquired",
+      "final_url": "https://centralbank.ae/media/p1fnkygl/thematic-review-on-compliance-with-screening-against-uae-local-list-and-unsc-sanctions-list-in-the-banking-sector.pdf",
+      "kind": "pdf",
+      "bytes": 341701,
+      "body_sha256": "16cddddee921d74df6f16ff07fb082752fbc20a6a7d35929637c08f43639ae7e",
+      "extraction_status": "complete",
+      "characters": 15577,
+      "pages": 8,
+      "passages": 18,
+      "nonspace_characters": 13027,
+      "covered_nonspace_characters": 13027,
+      "text_sha256": "cf82096c06d7ccc89ac9537b80500ad6613494f5b0d86d5de5ebcec62f49fc2b",
+      "elapsed_seconds": 1.933
+    }
+  ],
+  "exa": [
+    {
+      "country": "AU",
+      "domain": "www.legislation.gov.au",
+      "query": "Anti-Money Laundering Counter-Terrorism Financing Act 2006 C2006A00169",
+      "status": "complete",
+      "results": [
+        {
+          "url": "https://www.legislation.gov.au/C2006A00169/2026-10-01/2026-10-01/text/original/pdf",
+          "title": "Anti-Money Laundering and Counter-Terrorism Financing Act 2006"
+        },
+        {
+          "url": "https://www.legislation.gov.au/Details/C2006A00169/",
+          "title": "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 - Federal Register of Legislation"
+        },
+        {
+          "url": "https://www.legislation.gov.au/C2006A00169/latest/text",
+          "title": "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 - Federal Register of Legislation"
+        },
+        {
+          "url": "https://www.legislation.gov.au/series/c2006a00169",
+          "title": "Anti-Money Laundering and Counter-Terrorism Financing ...",
+          "publishedDate": "2025-03-31T00:00:00.000Z"
+        },
+        {
+          "url": "https://www.legislation.gov.au/C2006A00169/latest",
+          "title": "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 - Federal Register of Legislation"
+        }
+      ],
+      "elapsed_seconds": 1.747
+    },
+    {
+      "country": "AE",
+      "domain": "centralbank.ae",
+      "query": "customer due diligence know your customer record keeping guidance AML CFT",
+      "status": "complete",
+      "results": [
+        {
+          "url": "https://rulebook.centralbank.ae/en/rulebook/guidance-licensed-financial-institutions-customer-due-diligenceknow-your-customer-and",
+          "title": "Guidance for Licensed Financial Institutions on Customer Due Diligence/Know Your Customer and Record-Keeping | CBUAE Rulebook"
+        },
+        {
+          "url": "https://rulebook.centralbank.ae/en/rulebook/4-record-keeping",
+          "title": "4. Record-keeping | CBUAE Rulebook"
+        },
+        {
+          "url": "https://rulebook.centralbank.ae/en/entiresection/4034",
+          "title": "Entire Section | CBUAE Rulebook"
+        },
+        {
+          "url": "https://rulebook.centralbank.ae/en/rulebook/636-reviewing-and-updating-customer-due-diligence-information",
+          "title": "6.3.6 Reviewing and Updating the Customer Due Diligence Information | CBUAE Rulebook"
+        },
+        {
+          "url": "https://rulebook.centralbank.ae/sites/default/files/en_net_file_store/CBUAE_EN_6725_VER1.pdf",
+          "title": "GUIDANCE FOR LICENSED FINANCIAL INSTITUTIONS ...",
+          "publishedDate": "2025-10-15T00:00:00.000Z"
+        }
+      ],
+      "elapsed_seconds": 2.626
+    }
+  ],
+  "comparison": {
+    "started_at": "2026-11-09T18:58:13.823097+00:00",
+    "base_sha": "03eb05fc6926e98da671c2ccfb9e16e30d605b3a",
+    "database": "temporary tables in existing local PostgreSQL; rollback; no public-table writes",
+    "fulltext_roundtrips": [
+      {
+        "document": "au-api-title",
+        "jsonb_equal": true,
+        "passages": 0
+      },
+      {
+        "document": "au-act-html",
+        "jsonb_equal": true,
+        "passages": 488,
+        "text_sha256": "d730b1b0dfdcce17ac5ae9faa84859aee686d69643d452e95511bbb28ba82490",
+        "characters": 552388
+      },
+      {
+        "document": "au-act-pdf",
+        "jsonb_equal": true,
+        "passages": 1135,
+        "text_sha256": "660e4aaa335baeff69aeff55b9b2869d2ace8be97d6b21c4d3778369f77705cb",
+        "characters": 681687
+      },
+      {
+        "document": "ae-aml-html",
+        "jsonb_equal": true,
+        "passages": 11,
+        "text_sha256": "0796bb9e6538221207b35d6bf5ada42bda4b64cabd6837c13bd99f42b3a5847b",
+        "characters": 11228
+      },
+      {
+        "document": "au-act-browser",
+        "jsonb_equal": true,
+        "passages": 19,
+        "text_sha256": "fe73b53ceef8ed44fbcf1571ddf7dafde819e3a8f4417faaf5482291f75af744",
+        "characters": 21282
+      },
+      {
+        "document": "ae-sanctions-pdf",
+        "jsonb_equal": true,
+        "passages": 18,
+        "text_sha256": "cf82096c06d7ccc89ac9537b80500ad6613494f5b0d86d5de5ebcec62f49fc2b",
+        "characters": 15577
+      }
+    ],
+    "embedding_calls": [
+      {
+        "phase": "index",
+        "inputs": 15,
+        "input_bytes": 16669,
+        "reserved_token_upper_bound": 16669,
+        "status": "complete",
+        "tokens": 3618,
+        "elapsed_seconds": 2.7154
+      },
+      {
+        "phase": "index",
+        "inputs": 15,
+        "input_bytes": 17367,
+        "reserved_token_upper_bound": 17367,
+        "status": "complete",
+        "tokens": 3902,
+        "elapsed_seconds": 0.8944
+      },
+      {
+        "phase": "query:risk",
+        "inputs": 1,
+        "input_bytes": 17,
+        "reserved_token_upper_bound": 17,
+        "status": "complete",
+        "tokens": 4,
+        "elapsed_seconds": 1.1211
+      },
+      {
+        "phase": "query:identification",
+        "inputs": 1,
+        "input_bytes": 25,
+        "reserved_token_upper_bound": 25,
+        "status": "complete",
+        "tokens": 4,
+        "elapsed_seconds": 0.8692
+      },
+      {
+        "phase": "query:beneficial",
+        "inputs": 1,
+        "input_bytes": 18,
+        "reserved_token_upper_bound": 18,
+        "status": "complete",
+        "tokens": 5,
+        "elapsed_seconds": 0.7892
+      },
+      {
+        "phase": "query:str",
+        "inputs": 1,
+        "input_bytes": 19,
+        "reserved_token_upper_bound": 19,
+        "status": "complete",
+        "tokens": 5,
+        "elapsed_seconds": 0.8017
+      },
+      {
+        "phase": "query:paraphrase",
+        "inputs": 1,
+        "input_bytes": 59,
+        "reserved_token_upper_bound": 59,
+        "status": "complete",
+        "tokens": 11,
+        "elapsed_seconds": 0.7856
+      },
+      {
+        "phase": "query:no-answer",
+        "inputs": 1,
+        "input_bytes": 30,
+        "reserved_token_upper_bound": 30,
+        "status": "complete",
+        "tokens": 8,
+        "elapsed_seconds": 0.7941
+      }
+    ],
+    "queries": [
+      {
+        "id": "risk",
+        "text": "\"risk assessment\"",
+        "lexical_query": "\"money laundering\" or assessment or risk",
+        "lexical_passage_numbers": [
+          157,
+          162,
+          348
+        ],
+        "hybrid_passage_numbers": [
+          157,
+          162,
+          348,
+          192,
+          197,
+          150,
+          224,
+          252,
+          355,
+          60
+        ],
+        "overlap_at_10": 3,
+        "top1_same": true,
+        "lexical_seconds": 0.00288,
+        "hybrid_seconds_including_api": 1.20252,
+        "pgvector_matches_production_fusion": true
+      },
+      {
+        "id": "identification",
+        "text": "\"customer identification\"",
+        "lexical_query": "\"money laundering\" or customer or identification",
+        "lexical_passage_numbers": [
+          150,
+          157,
+          60,
+          53,
+          162,
+          401,
+          190,
+          466,
+          386
+        ],
+        "hybrid_passage_numbers": [
+          150,
+          157,
+          162,
+          190,
+          53,
+          60,
+          386,
+          401,
+          466,
+          192
+        ],
+        "overlap_at_10": 9,
+        "top1_same": true,
+        "lexical_seconds": 0.00132,
+        "hybrid_seconds_including_api": 0.94741,
+        "pgvector_matches_production_fusion": true
+      },
+      {
+        "id": "beneficial",
+        "text": "\"beneficial owner\"",
+        "lexical_query": "\"money laundering\" or beneficial or owner",
+        "lexical_passage_numbers": [
+          53
+        ],
+        "hybrid_passage_numbers": [
+          53,
+          92,
+          60,
+          66,
+          72,
+          408,
+          294,
+          85,
+          70,
+          192
+        ],
+        "overlap_at_10": 1,
+        "top1_same": true,
+        "lexical_seconds": 0.00126,
+        "hybrid_seconds_including_api": 0.86797,
+        "pgvector_matches_production_fusion": true
+      },
+      {
+        "id": "str",
+        "text": "\"suspicious matter\"",
+        "lexical_query": "\"money laundering\" or matter or suspicious",
+        "lexical_passage_numbers": [
+          190,
+          157,
+          192,
+          162,
+          150,
+          352,
+          238,
+          197,
+          365,
+          386
+        ],
+        "hybrid_passage_numbers": [
+          157,
+          192,
+          162,
+          197,
+          190,
+          150,
+          386,
+          352,
+          294,
+          365
+        ],
+        "overlap_at_10": 9,
+        "top1_same": false,
+        "lexical_seconds": 0.00102,
+        "hybrid_seconds_including_api": 0.88329,
+        "pgvector_matches_production_fusion": true
+      },
+      {
+        "id": "paraphrase",
+        "text": "How should a firm check who ultimately controls a customer?",
+        "lexical_query": "\"money laundering\" or check or controls or customer or firm or should or ultimately or who",
+        "lexical_passage_numbers": [
+          150,
+          157,
+          60,
+          53,
+          162,
+          401,
+          190,
+          466,
+          386,
+          72
+        ],
+        "hybrid_passage_numbers": [
+          150,
+          157,
+          162,
+          190,
+          386,
+          53,
+          60,
+          72,
+          401,
+          466
+        ],
+        "overlap_at_10": 10,
+        "top1_same": true,
+        "lexical_seconds": 0.00048,
+        "hybrid_seconds_including_api": 0.86709,
+        "pgvector_matches_production_fusion": true
+      },
+      {
+        "id": "no-answer",
+        "text": "\"ZXQ481 lunar banking licence\"",
+        "lexical_query": "\"money laundering\" or banking or licence or lunar or zxq481",
+        "lexical_passage_numbers": [
+          60,
+          72
+        ],
+        "hybrid_passage_numbers": [
+          60,
+          72,
+          92,
+          408,
+          386,
+          455,
+          70,
+          252,
+          294,
+          85
+        ],
+        "overlap_at_10": 2,
+        "top1_same": true,
+        "lexical_seconds": 0.00208,
+        "hybrid_seconds_including_api": 0.87777,
+        "pgvector_matches_production_fusion": true
+      }
+    ],
+    "mas_before": [
+      3360,
+      531
+    ],
+    "temporary_passages": 1671,
+    "private_snapshot": {
+      "file": "bfe2748c9f951d6d14ca4a961070eac201b31bb3b976cb15d9ff6626f20f4b24.derived.json",
+      "bytes": 2783921,
+      "sha256": "bfe2748c9f951d6d14ca4a961070eac201b31bb3b976cb15d9ff6626f20f4b24",
+      "roundtrip_equal": true,
+      "kind": "attributed derived JSON; not publisher original; not cloud storage"
+    },
+    "sample": {
+      "source": "au-act-html",
+      "available_passages": 488,
+      "selected_passages": 30,
+      "input_bytes": 34036,
+      "selection": "first 30 by SHA256(source URL + colon + passage number), within 35000 UTF8 bytes; not query-selected",
+      "passage_numbers": [
+        66,
+        294,
+        455,
+        352,
+        460,
+        157,
+        348,
+        2,
+        386,
+        224,
+        197,
+        92,
+        355,
+        408,
+        192,
+        60,
+        238,
+        70,
+        162,
+        53,
+        401,
+        343,
+        365,
+        72,
+        234,
+        150,
+        190,
+        252,
+        85,
+        466
+      ],
+      "purpose": "observational algorithm comparison on identical sample; not full-archive coverage or quality acceptance",
+      "unlabelled": true
+    },
+    "embedding_identity": {
+      "model": "text-embedding-3-small",
+      "revision": "mira-te3-small-384-v1",
+      "dimensions": 384
+    }
+  },
+  "final_audit": {
+    "audited_at": "2026-11-09T18:59:23.732619+00:00",
+    "original_comparison_sha256": "0d2b8cdf83e635f77a2fb39ff65215a46d301227d2808c94f1881464187b4eb3",
+    "original_harness_exit": 1,
+    "failure": "Final MAS assertion was incorrectly global across unrelated persisted test workspaces; no API, acquisition, roundtrip or fusion check failed. No rerun.",
+    "global_counts_match_before": true,
+    "relevant_workspaces": [
+      {
+        "id": "78c61096-1753-4c05-9435-21050db1404f",
+        "slug": "hk-durable-f6a3f6cd22",
+        "mas_active": false,
+        "mas_versions": 0
+      }
+    ],
+    "no_pilot_tables_after_exception_rollback": true,
+    "pilot_source_hosts": [
+      "www.legislation.gov.au",
+      "api.prod.legislation.gov.au",
+      "centralbank.ae"
+    ],
+    "source_grants_persisted": false,
+    "embedding_totals": {
+      "requests": 8,
+      "known_tokens": 7557,
+      "input_bytes": 34204,
+      "unknown_reserved_tokens": 0
+    }
+  },
+  "descriptive_summary": {
+    "fulltext_documents": 5,
+    "structured_records": 1,
+    "characters": 1282162,
+    "passages": 1671,
+    "nonspace_retention_all": true,
+    "frozen_questions": 6,
+    "top1_same": 5,
+    "overlaps_at10": [
+      3,
+      9,
+      1,
+      9,
+      10,
+      2
+    ],
+    "lexical_median_seconds": 0.00129,
+    "hybrid_median_seconds_including_api": 0.88053,
+    "anchor_pdf_hits": 20,
+    "anchor_browser_hits": 0
+  },
+  "private_artifacts_directory": "/Users/natsim/.codex/worktrees/ingestion-corroboration/dbsearch/reports/country-method-pilot-20261110",
+  "private_artifact_sha256": {
+    "plan.json": "8180becf84383b3e3d90ba3d184e7f1125a67b131f4be8876ae2426b8ee6ec45",
+    "robots.json": "c5edc2f76924f087c27118e223c87766da7fde96b29b240bb6efd0ffcd661902",
+    "acquisition.json": "5254c8a14bc6cb4706666743bd08d23549ebebfb98c151ae14f9ab23a72d7a06",
+    "comparison.json": "0d2b8cdf83e635f77a2fb39ff65215a46d301227d2808c94f1881464187b4eb3",
+    "final-audit.json": "bb4818aa916afc0a60e4f252d5f7e2ca791df5ca3ecd1ce914cb7a3cdba23564",
+    "descriptive-summary.json": "a54d786c9a5003e74f29e39382353ab43786a9ddaf8d9e2718c5ba7b830050b6",
+    "documents.json": "5aa43e39f1aa42c1ba2faa715d462f5a7f166e04874f02126e753897eebdec93",
+    "probe.py": "fa6c1cac7106fd19f5044e053606bf97716bb79c01d4c6598095385c4cbd6ed6",
+    "acquire.py": "2af47e26e3da4b384467ae68de5b4e790469d61c1fba0f0201746e1f92836d37",
+    "add_pdf.py": "8f6644357ca7ba03ee6c23c26940adb1c5bd25032e4f7b8db1ccd90fd0927ced",
+    "compare.py": "be1df001b3040dc81a72873130643d3b5bcc525b48ddd7d119047222a6ea811c",
+    "acquisition.log": "a46d9cc6a1f7d42c24a58dac09d17b35a683305402b8846d721fefd9c9f39d7a",
+    "comparison.log": "b25fdb9411ace041ecde0939513a43670fe35aa4556e82d490eb820931fe211c",
+    "bfe2748c9f951d6d14ca4a961070eac201b31bb3b976cb15d9ff6626f20f4b24.derived.json": "bfe2748c9f951d6d14ca4a961070eac201b31bb3b976cb15d9ff6626f20f4b24",
+    "preliminary-api-probes.json": "b9a76f9c5f1d84310ae71b093ef650e7ea78b34cd405f48b208f7b0cd8066f72",
+    "api-probe-0.json": "01f633718f143db62ddc6e8e0214ace9f702e56d93fd904ce8a9b38b9b74f22f",
+    "api-probe-1.json": "22e6d75527eaa8e26c9626d1f07eb475633542159ca437a491715ae26e135af2"
+  },
+  "quality_acceptance": false,
+  "scope_limits": [
+    "No Malaysian or DFSA publication fulltext was acquired/stored/embedded by the application because source reuse approval was not established.",
+    "Only English was sampled. No Malay/Arabic retrieval comparison.",
+    "One Act compilation, one UAE publication, a UAE hub and alternate representations; no jurisdiction completeness denominator.",
+    "API JSON was parsed by pilot harness; no generic legislation API connector was implemented.",
+    "Embedding comparison uses 30/488 Australian HTML passages; not the full archive. Same sample, frozen questions, equal top10; no human relevance labels.",
+    "Database checks use temporary local tables and existing ranking code, not an end-to-end multi-country Mira report or production RLS acceptance.",
+    "Local derived JSON snapshot tested; whole publisher original retention, cloud object storage, encryption, backups and hosted restore not compared.",
+    "Original comparison harness exited 1 at incorrect global MAS fixture assertion; preserved unchanged. Separate read-only audit confirms unchanged global counts, target workspace inactive and rollback. No paid rerun."
+  ],
+  "preliminary_api_probes": [
+    {
+      "url": "https://api.prod.legislation.gov.au/swagger/v1/swagger.json",
+      "status": 200,
+      "bytes": 616265,
+      "sha256": "01f633718f143db62ddc6e8e0214ace9f702e56d93fd904ce8a9b38b9b74f22f",
+      "elapsed_seconds": 0.333,
+      "purpose": "API schema/endpoint discovery before application transport check; within same bounded pilot",
+      "timing_provenance": "initial probe tool output"
+    },
+    {
+      "url": "https://api.prod.legislation.gov.au/v1/Titles/C2006A00169",
+      "status": 200,
+      "bytes": 1190,
+      "sha256": "22e6d75527eaa8e26c9626d1f07eb475633542159ca437a491715ae26e135af2",
+      "elapsed_seconds": 0.618,
+      "purpose": "API schema/endpoint discovery before application transport check; within same bounded pilot",
+      "timing_provenance": "initial probe tool output"
+    }
+  ]
+}

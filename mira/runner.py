@@ -34,10 +34,9 @@ def discovery_from_env(sources):
     for source in sources:
         if not {"fetch", "store_text"} <= set(source.permitted_operations) or not source.base_url:
             continue
-        host = urlsplit(source.base_url).hostname
-        if host:
-            domains.add(host)
-        domains.update(source.connector_config.get("extra_hosts", []))
+        approved = {urlsplit(source.base_url).hostname, *source.connector_config.get("extra_hosts", [])}
+        selected = source.connector_config.get("discovery_hosts", approved)
+        domains.update(host for host in selected if isinstance(host,str) and host in approved)
     if not domains:
         return None
     return ExaDiscovery(search=ExaHTTP(os.environ["EXA_API_KEY"], domains=sorted(domains)))

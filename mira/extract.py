@@ -50,6 +50,7 @@ class Extracted:
     published: date | None = None
     error: str | None = None
     published_basis: str | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
 
     @property
     def text(self) -> str:
@@ -68,10 +69,17 @@ class PassageSpan:
 def extract(page: FetchedPage) -> Extracted:
     try:
         if page.kind == "html":
-            return extract_html(page.body, page.url)
+            result=extract_html(page.body, page.url)
+            from mira.publication_routes import is_register_viewer
+            if is_register_viewer(page.url):
+                result.metadata.update(role='discovery_metadata',representation='viewer')
+            return result
         if page.kind == "pdf":
             return extract_pdf(page.body, page.url)
         if page.kind == "json":
+            from mira.australia import is_register_api_url, extract_register_json
+            if is_register_api_url(page.url):
+                return extract_register_json(page.body, page.url)
             return extract_sfc_json(page.body, page.url)
         return extract_feed(page.body, page.url)
     except Exception as exc:  # a broken page must stay visible, never an empty success (AG06)

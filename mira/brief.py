@@ -14,7 +14,7 @@ from mira.budget import RunBudget
 from mira.contracts import Brief, Topic
 
 MVP_TOPICS: tuple[str, ...] = get_args(Topic)
-MVP_JURISDICTIONS: tuple[str, ...] = ("SG", "HK")
+MVP_JURISDICTIONS: tuple[str, ...] = ("SG", "HK", "AU", "AE")
 
 
 def check_brief_scope(brief: Brief) -> None:

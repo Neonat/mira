@@ -101,8 +101,9 @@ class _Visit:
 
 
 def _is_pdf(url: str) -> bool:
+    from mira.publication_routes import is_publication_pdf
     lowered = url.lower()
-    return lowered.split("?")[0].endswith(".pdf") or "getpdf" in lowered
+    return lowered.split("?")[0].endswith(".pdf") or "getpdf" in lowered or is_publication_pdf(url)
 
 
 def _terms(text: str) -> set[str]:
@@ -112,6 +113,10 @@ def _terms(text: str) -> set[str]:
 def document_key(url: str) -> str:
     """Only collapse explicitly recognised HKMA landing/PDF aliases, never whole feeds."""
     url = urldefrag(url)[0]
+    from mira.publication_routes import register_document_key
+    register_key=register_document_key(url)
+    if register_key is not None:
+        return 'au-register:'+register_key
     parts = urlsplit(url)
     if parts.hostname == "brdr.hkma.gov.hk":
         match = re.fullmatch(r"/(eng|chi)/doc-ldg/(?:(?:current|docId)/([^/]+)|docId/getPdf/([^/]+)/[^/]+\.pdf)", parts.path)
@@ -201,6 +206,7 @@ class _ScoutRun:
         self.visits: list[_Visit] = []
         self.seen: set[str] = set()
         self.candidates: list[Link] = []
+        self.publication_variants: dict[str, Link] = {}
         self.allowance = task.max_documents
         self.tokens_in = self.tokens_out = 0
         self.hybrid_tokens = 0
@@ -422,6 +428,18 @@ class _ScoutRun:
         return None
 
     def _save_page(self,page,extracted,provenance,link=None,*,deadline=None):
+        from mira.publication_routes import register_publication
+        publication=register_publication(page.url)
+        if publication is not None:
+            publication=dict(publication)
+            if (link is not None and link.published and isinstance(link.date_source,str)
+                    and link.date_source.startswith('Federal Register API registeredAt in ')):
+                if extracted.published is not None:
+                    publication['extracted_date']=extracted.published.isoformat()
+                publication['registered_at']=link.published.isoformat()
+                extracted.published=link.published
+                extracted.published_basis=link.date_source
+            extracted.metadata['publication']=publication
         if extracted.published is None and link is not None and link.published and link.date_source:
             extracted.published = link.published
             extracted.published_basis = link.date_source
@@ -443,6 +461,18 @@ class _ScoutRun:
     def _fetch_document(self, url: str, link: Link | None = None, *, reserved: int = 0) -> None:
         """Fetch a chosen page and, if it is a landing page for a PDF, the PDF it links to."""
         key = document_key(url)
+        if key.startswith('au-register:'):
+            # Only follow the verified counterpart actually discovered by the
+            # native API. Never turn a viewer URL into a guessed publication.
+            matches=[candidate for candidate in [*getattr(self,'publication_variants',{}).values(),*self.candidates]
+                     if document_key(candidate.url)==key and self.scout.fetcher.allow.allows(candidate.url)]
+            html=next((candidate for candidate in matches if not _is_pdf(candidate.url)),None)
+            pdf=next((candidate for candidate in matches if _is_pdf(candidate.url)),None)
+            if html is not None and pdf is not None and self.allowance>reserved+1:
+                self._fetch(html.url,html)
+                if self.allowance>reserved:
+                    self._fetch(pdf.url,pdf)
+                return
         if key.startswith("hkma:"):
             _, language, reference = key.split(":")
             if re.fullmatch(r"\d{8}-\d+-(?:EN|CHI)", reference):
@@ -605,6 +635,15 @@ class _ScoutRun:
             else:
                 diagnostic["filtered_omitted"] += 1
 
+        # Keep full-file counterparts before alias deduplication removes them.
+        # The bounded cache survives selection clearing its candidate queue.
+        for link in self.candidates:
+            if (document_key(link.url).startswith('au-register:')
+                    and (link.published is None or earliest<=link.published<=brief.as_of_date)
+                    and (link.url in self.publication_variants or len(self.publication_variants)<2000)):
+                old=self.publication_variants.get(link.url)
+                if old is None or (old.published is None and link.published is not None):
+                    self.publication_variants[link.url]=link
         distinct = distinct_links(self.candidates)
         retained_ids = {id(link) for link in distinct}
         accounted_ids: set[int] = set()

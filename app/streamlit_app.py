@@ -131,7 +131,11 @@ def new_brief_page(workspace_id: str, user_id: str) -> None:
     defaults = RunBudget.from_env()
     with st.form("brief"):
         topic = st.selectbox("Topic", ["AML/CFT"])
-        jurisdictions = st.multiselect("Jurisdictions", MVP_JURISDICTIONS, default=list(MVP_JURISDICTIONS))
+        from mira.report import MARKET_NAMES
+        jurisdictions = st.multiselect("Jurisdictions", MVP_JURISDICTIONS, default=["SG", "HK"],
+                                       format_func=lambda code: MARKET_NAMES.get(code,code))
+        if "AE" in jurisdictions:
+            st.caption("UAE coverage uses approved federal CBUAE sources. DIFC/DFSA, VARA and other UAE regulators are outside this source set.")
         months = st.slider("Period: months before the as-of date", 12, 24, 12)
         as_of = st.date_input("As-of date", value=date.today(), max_value=date.today())
         left, right = st.columns(2)

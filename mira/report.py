@@ -21,7 +21,8 @@ from mira.store import ExpectedSourceRecord, PassageRecord, StoredClaim
 
 TEMPLATE_VERSION = "report/6"
 
-MARKET_NAMES = {"SG": "Singapore", "HK": "Hong Kong"}
+MARKET_NAMES = {"SG": "Singapore", "HK": "Hong Kong", "AU": "Australia",
+                "AE": "United Arab Emirates — federal sources"}
 DATE_LABELS = {
     "published": "Published", "effective": "Effective", "deadline": "Deadline",
     "consultation_close": "Consultation closes", "event": "Event date",
