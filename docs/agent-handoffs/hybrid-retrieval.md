@@ -1,4 +1,6 @@
 Objective: Build an opt-in, deterministic and eligibility-gated hybrid passage retrieval primitive with bounded embedding and an offline comparison.
+
+Current follow-up: the user subsequently requested full eligible archive retrieval, explicitly experimental usefulness. [Archive delivery](archive-hybrid.md) supersedes the historical whole-corpus 40-passage fallback and four-passage live proof below. The new actual validation indexed 153/153 saved HK passages and compared six frozen unlabelled queries at equal top10. No usefulness winner is established. Current full suite:997 tests+ 8 subtests, no skips. MAS remains disabled.
 Base SHA: e4ad439 (coordinator assignment).
 Owned files: mira/hybrid.py, tests/test_hybrid.py, docs/agent-handoffs/hybrid-retrieval.md.
 Read-only files: AGENTS.md, docs/agent-handoffs/README.md, docs/superpowers/specs/2026-11-08-evidence-completeness-design.md; applicable TDD skill.

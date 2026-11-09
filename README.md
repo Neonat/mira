@@ -29,7 +29,7 @@ Corroboration appears in the generated report with its assessment, quotations an
 
 Source navigation is built for readers: verified SFC API destinations open the corresponding readable publication page, and known PDF passages link to their page. Permitted original files use integrity checks and authenticated workspace access. Optional private object storage and verified backup/recovery support evidence continuity. Optional hybrid retrieval combines keyword and semantic ranking within source and usage controls.
 
-The configured hybrid profile uses OpenAI `text-embedding-3-small` with 384-dimensional pgvector storage. A controlled live integration check verified synonym retrieval, passage-vector reuse and scout usage accounting. See the [hybrid validation](eval/evidence/2026-11-10-hybrid-embedding-validation.md) for the measured scope.
+The experimental hybrid profile uses OpenAI `text-embedding-3-small` with 384-dimensional pgvector storage. Bounded incremental indexing feeds database ranking across the eligible saved archive, with visible indexed/pending counts and the keyword path retained for comparison. See the [archive experiment](eval/evidence/2026-11-10-archive-hybrid-validation.md) for measured scope and usefulness limits.
 
 ## Alignment with the competition brief
 
@@ -46,7 +46,7 @@ Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External 
 
 ## Validation
 
-The latest integrated engineering validation passed **939 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover passage batching, frozen coverage and review, authenticated original-file access, source navigation, optional hybrid retrieval, private publication and backup/recovery. The report's coverage layout was also inspected at desktop and mobile sizes.
+The latest integrated engineering validation passed **997 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover passage batching, frozen coverage and review, authenticated original-file access, source navigation, archive hybrid indexing/retrieval, private publication and backup/recovery. The report's coverage layout was also inspected at desktop and mobile sizes.
 
 Research evaluation uses scoped publication-recall scoring and human-labelled citation checks. The [evaluation record](docs/mira_PRD_v3_draft.md#7-evaluation-and-release-evidence) documents the measurement method and dated results; the [implementation handoff](docs/agent-handoffs/evidence-completeness.md) records engineering verification.
 

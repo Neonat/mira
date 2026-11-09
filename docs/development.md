@@ -91,9 +91,24 @@ MIRA_EMBEDDING_DIMENSIONS=384
 
 The revision is an application-managed cache version, not an immutable provider snapshot. Change it when rebuilding embeddings after changing the model/profile. The OpenAI key and database worker connection stay server-side; the separate Supabase Storage upload key is not needed for pgvector retrieval. Restart an already-running worker to load changed environment settings. No worker was automatically started by this configuration update.
 
-Default hybrid bounds remain 40 eligible passages, 60,000 input characters, 20,000 embedding tokens, 20 seconds and 20 results per task. An eligible pool above 40 falls back to the existing keyword path; enabling this profile does not backfill or silently sample a larger corpus. Existing source `embed` permission, workspace, jurisdiction, selected version and as-of checks apply before provider work. Never enable MAS acquisition to populate the cache.
+The normal worker now uses 40 passages **per indexing batch**, at most4 batches,60,000 cumulative input characters,20,000 embedding tokens,20 seconds and 20 results per task. Archive cardinality no longer disables semantic search. PostgreSQL ranks all compatible/current indexed eligible passages; the lexical arm searches eligible saved text using the existing scout full-text query. Only bounded top candidates/results are loaded into Python. Partial indexing is explicit in `embedding_usage`: eligible/indexed/pending/blocked passages, batches, stop reason, request/character/byte counts and known/unknown usage. Repeated jobs resume missing content-bound vectors. No whole-archive re-embedding is required for a query.
+
+Index coverage counts refer to embedding-eligible passages. Text from sources without embedding permission may still be retrieved by the lexical path; no permission is expanded to improve semantic coverage.
+
+An explicit worker-side backfill can prepare a larger archive independently of a research run. Preview makes no DB/provider call; `--execute` requires the existing enable flag/key and a current workspace analyst/admin actor:
+
+```sh
+python -m mira.hybrid_index --workspace WORKSPACE_UUID --actor ACTOR_UUID \
+  --jurisdiction HK --as-of 2026-11-04 \
+  --max-tokens 20000 --max-seconds 60 --max-batches 4 --max-characters 60000
+# Add --execute to allow the explicitly budgeted cache writes and embedding requests.
+```
+
+This command never fetches pages or starts a research worker. A partial result retains completed batches and reports what remains. Whole passages above the conservative 8,192UTF-8-byte per-input bound remain stored/keyword-searchable and are counted as blocked; they are not truncated. Provider failures and database deadlines preserve measured usage/unknown reservations. Query statements use exact filtered pgvector ranking, not approximate nearest-neighbor recall claims; archive-scale latency is still unmeasured. The new source-validation migration also refuses cache publication after an embedding grant is revoked. Existing source `embed` permission, workspace, jurisdiction, selected version and as-of checks apply before provider work/ranking; MAS is excluded even from the archive path. Never enable MAS acquisition to populate the cache.
 
 The [controlled live validation](../eval/evidence/2026-11-10-hybrid-embedding-validation.md) exercised the actual API, PostgreSQL cache and scout bridge with synthetic passages. It establishes integration behavior, not a new Hong Kong publication-recall or human-precision result.
+
+The subsequent [archive experiment](../eval/evidence/2026-11-10-archive-hybrid-validation.md) compares the unchanged keyword query/ranking with hybrid at equal top-k on frozen saved-corpus questions. Hybrid remains experimental and optional; rank differences alone do not establish better relevance, report quality or research coverage.
 
 ## Durable storage and recovery
 
