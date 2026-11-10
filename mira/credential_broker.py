@@ -108,6 +108,12 @@ class CredentialBroker:
             for lease in self._entries.values():lease.keys.clear()
             self._entries.clear()
 
+    def _discard_pending(self,handle: str):
+        """Rollback a lease whose handle could not be delivered to its caller."""
+        with self._lock:
+            lease=self._entries.pop(handle,None)
+            if lease is not None:lease.keys.clear()
+
 
 class SupabaseRunAuthorizer:
     """Verify Auth and current analyst/admin ownership through ordinary RLS reads."""
@@ -204,7 +210,7 @@ def serve_broker(broker: CredentialBroker,directory: Path):
         class Handler(socketserver.StreamRequestHandler):
             timeout=5
             def handle(self):
-                result={'ok':False}
+                result={'ok':False};created_handle=None
                 try:
                     raw=_receive_frame(self.request)
                     if len(raw)>MAX_MESSAGE_BYTES or not raw.endswith(b'\n'):raise ValueError('framing')
@@ -215,11 +221,14 @@ def serve_broker(broker: CredentialBroker,directory: Path):
                         keys=broker.claim(data['handle'],data['workspace_id'],data['user_id'],data['run_id'],data['capability'])
                         result={'ok':True,'keys':keys}
                     elif not worker and operation=='put' and set(data)=={'operation','access_token','workspace_id','run_id','keys'}:
-                        result={'ok':True,'handle':broker.put(data['access_token'],data['workspace_id'],data['run_id'],data['keys'])}
+                        created_handle=broker.put(data['access_token'],data['workspace_id'],data['run_id'],data['keys'])
+                        result={'ok':True,'handle':created_handle}
                     elif not worker and operation=='revoke' and set(data)=={'operation','access_token','handle'}:
                         broker.revoke(data['access_token'],data['handle']);result={'ok':True}
                 except Exception:pass
-                self.wfile.write(json.dumps(result,separators=(',',':')).encode()+b'\n')
+                try:self.wfile.write(json.dumps(result,separators=(',',':')).encode()+b'\n')
+                except OSError:
+                    if created_handle is not None:broker._discard_pending(created_handle)
         return Handler
     servers=[];threads=[];stopping=threading.Event()
     def sweep():

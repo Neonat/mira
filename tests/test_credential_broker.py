@@ -87,3 +87,23 @@ def test_real_auth_check_has_a_total_deadline_and_no_inherited_provider_environm
         with pytest.raises(CredentialError):auth('local-user-token',WORKSPACE,RUN)
         assert time.monotonic()-started<.5
     finally:server.shutdown();server.server_close();thread.join(timeout=1)
+
+
+def test_disconnect_during_authorization_rolls_back_undeliverable_lease():
+    import threading,time
+    from mira.credential_broker import CredentialBroker,RunOwner,serve_broker
+    entered=threading.Event();resume=threading.Event()
+    def authorize(*_):
+        entered.set();resume.wait(1)
+        return RunOwner(USER,WORKSPACE,RUN,'queued')
+    b=CredentialBroker(authorize)
+    with tempfile.TemporaryDirectory(prefix='mira-test-',dir='/tmp') as root,serve_broker(b,Path(root)/'b') as service:
+        sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);sock.connect(str(service.client_socket))
+        data={'operation':'put','access_token':'owner-token','workspace_id':WORKSPACE,'run_id':RUN,'keys':{'openai':'provider-secret'}}
+        sock.sendall(json.dumps(data).encode()+b'\n');assert entered.wait(1)
+        sock.shutdown(socket.SHUT_RDWR);sock.close();resume.set()
+        # Wait for the real response-write path, not the service context cleanup.
+        deadline=time.monotonic()+.5
+        time.sleep(.05)
+        while b._entries and time.monotonic()<deadline:time.sleep(.01)
+        assert not b._entries
