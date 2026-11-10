@@ -35,10 +35,13 @@ def _table(rows: list[dict[str, object]]) -> str:
 
 
 def main() -> None:
-    load_env()
+    import sys
+    load_env(keys={'SUPABASE_URL','SUPABASE_ANON_KEY'} if len(sys.argv)>1 and sys.argv[1]=='broker' else None)
     parser = argparse.ArgumentParser(prog="mira")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("seed")
+    broker=commands.add_parser('broker',help='start the private local in-memory BYOK service; no research worker')
+    broker.add_argument('--directory',type=Path,help='new short private directory, normally under /tmp')
     from mira.recovery_cli import add_backup_commands
     add_backup_commands(commands)
     run = commands.add_parser("run")
@@ -62,6 +65,10 @@ def main() -> None:
     manual.add_argument("--published", type=date.fromisoformat, help="publication date, YYYY-MM-DD")
     manual.add_argument("--manifest", type=Path, help="CSV of file,url,title,published for several files")
     args = parser.parse_args()
+    if args.command=='broker':
+        from mira.credential_broker import run_broker
+        run_broker(args.directory)
+        return
     if args.command == "import" and not args.manifest and (len(args.files) != 1 or not args.url):
         parser.error("import one file with --url, or several with --manifest")
 
