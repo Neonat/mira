@@ -1,3 +1,5 @@
+> **Actual BYOK follow-up, 10 November 2026:** one user-authorized $10 Hong Kong run completed partial in 23.5 minutes. Six Exa searches succeeded, browser was enabled but not attempted, and the writer succeeded. Acquisition/citation coverage regressed to 5/18 and 4/18 versus 6/18 and 5/18 previously. $2.247988 known estimate plus $0.132873 unknown reserve stayed below $10. Content QA found an out-of-period amendment promoted by an index date and an unsupported technology characterization, so report quality acceptance failed. MAS stayed disabled and hybrid experimental/not selected. No replacement paid run. [Measured evidence and quality issues](../../eval/evidence/2026-11-10-hk-byok-validation.md). The implementation checkpoint below remains dated historical evidence.
+
 # Research console, cost allowance and temporary BYOK
 
 Audience: product owner, developers and the operator rehearsing the competition demo. The README presents the analyst workflow; this handoff records engineering scope and remaining acceptance work.

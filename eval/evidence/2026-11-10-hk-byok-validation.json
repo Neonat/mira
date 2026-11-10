@@ -1,0 +1,611 @@
+{
+  "schema_version": 1,
+  "kind": "bounded_hk_byok_observation",
+  "base_sha": "4d86f3eb06e012dd76ebc3a7bd407f16591af42c",
+  "brief": {
+    "topic": "AML/CFT",
+    "jurisdictions": [
+      "HK"
+    ],
+    "period_start": "2025-11-04",
+    "period_end": "2026-11-04",
+    "as_of_date": "2026-11-04",
+    "plan_requires_approval": false
+  },
+  "budget": {
+    "max_fetched_documents": 30,
+    "max_llm_tokens": 600000,
+    "max_run_minutes": 25,
+    "max_gap_rounds": 2,
+    "max_cost_usd": "10",
+    "max_exa_searches": 6
+  },
+  "selected_method": "keyword; hybrid optional experimental, not selected",
+  "current": {
+    "run_id": "ea485995-7ff1-4717-9ccd-bedb958d1866",
+    "status": "partial",
+    "started_at": "2026-11-10 06:08:06.888840+00:00",
+    "finished_at": "2026-11-10 06:31:38.626621+00:00",
+    "duration_seconds": 1412.731,
+    "models": {
+      "writer": "openai:gpt-5.4-mini",
+      "analyst": "openai:gpt-5.4",
+      "planner": "openai:gpt-5.4",
+      "verifier": "openai:gpt-5.4",
+      "industry_scout": "openai:gpt-5.4-mini",
+      "regulatory_scout": "openai:gpt-5.4-mini"
+    },
+    "model_manifest_matches": true,
+    "duration_within_1500": true,
+    "saved_versions": 29,
+    "document_30_cap": true,
+    "acquisition": {
+      "distinct_publications": 29,
+      "recall": {
+        "all": {
+          "found": 5,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 5,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 5,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT04",
+        "GT05",
+        "GT06",
+        "GT20",
+        "GT21"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT07",
+        "GT08",
+        "GT09",
+        "GT11",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT22",
+        "GT23",
+        "GT24"
+      ]
+    },
+    "stored_text_with_passages": {
+      "distinct_publications": 24,
+      "recall": {
+        "all": {
+          "found": 5,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 5,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 5,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT04",
+        "GT05",
+        "GT06",
+        "GT20",
+        "GT21"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT07",
+        "GT08",
+        "GT09",
+        "GT11",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT22",
+        "GT23",
+        "GT24"
+      ]
+    },
+    "report_cited": {
+      "distinct_publications": 8,
+      "recall": {
+        "all": {
+          "found": 4,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 4,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 4,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT05",
+        "GT06",
+        "GT20",
+        "GT21"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT04",
+        "GT07",
+        "GT08",
+        "GT09",
+        "GT11",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT22",
+        "GT23",
+        "GT24"
+      ]
+    },
+    "representations_by_source": {
+      "sfc": 16,
+      "hkma": 13
+    },
+    "extraction_statuses": {
+      "complete": 29
+    },
+    "publications_by_source": {
+      "hkma": 13,
+      "sfc": 16
+    },
+    "passages": {
+      "latest_statuses": {
+        "deferred": 272,
+        "analysed": 24
+      },
+      "reasons": {
+        "batch_limit": 272
+      },
+      "event_statuses": {
+        "candidate": 296,
+        "deferred": 272,
+        "attempted": 24,
+        "analysed": 24
+      },
+      "total_saved": 296
+    },
+    "findings": {
+      "total": 19,
+      "model_verified_facts": 10,
+      "model_verified_inferences": 1,
+      "report_included_facts": 10,
+      "report_included_inferences": 1,
+      "report_findings_all_latest_supported": true,
+      "human_precision": "unlabelled"
+    },
+    "check_verdicts": {
+      "supported": 21,
+      "unsupported": 7
+    },
+    "corroboration": {
+      "assessment_history": 7,
+      "latest_statuses": {
+        "primary_source_only": 3,
+        "inconclusive": 4
+      },
+      "stop_reasons": {
+        "assessment_attempt_limit": 7,
+        "saved_evidence_exhausted": 7,
+        "assessment_workload_limit": 3,
+        "incomplete_assessment": 4
+      },
+      "call_timeouts": 0
+    },
+    "checklist": [
+      {
+        "source_key": "wolfsberg",
+        "category": "industry",
+        "status": "missing"
+      },
+      {
+        "source_key": "hk-elegislation",
+        "category": "legislation",
+        "status": "fetch_failed"
+      },
+      {
+        "source_key": "sfc",
+        "category": "guideline",
+        "status": "no_change"
+      },
+      {
+        "source_key": "hkma",
+        "category": "consultation",
+        "status": "no_change"
+      },
+      {
+        "source_key": "apg",
+        "category": "industry",
+        "status": "missing"
+      },
+      {
+        "source_key": "hkma",
+        "category": "circular",
+        "status": "found"
+      },
+      {
+        "source_key": "sfc",
+        "category": "enforcement",
+        "status": "found"
+      },
+      {
+        "source_key": "fatf",
+        "category": "industry",
+        "status": "missing"
+      },
+      {
+        "source_key": "sfc",
+        "category": "consultation",
+        "status": "no_change"
+      },
+      {
+        "source_key": "sfc",
+        "category": "circular",
+        "status": "found"
+      },
+      {
+        "source_key": "hkma",
+        "category": "enforcement",
+        "status": "no_change"
+      },
+      {
+        "source_key": "fstb",
+        "category": "circular",
+        "status": "missing"
+      },
+      {
+        "source_key": "hkma",
+        "category": "guideline",
+        "status": "no_change"
+      }
+    ],
+    "checklist_statuses": {
+      "missing": 4,
+      "fetch_failed": 1,
+      "no_change": 5,
+      "found": 3
+    },
+    "step_statuses": {
+      "succeeded": 50,
+      "failed": 1
+    },
+    "expected_checklist": {
+      "active_hk_topic_rows": 13,
+      "with_results": 13,
+      "without_results": []
+    },
+    "step_failures": [
+      {
+        "role": "verifier",
+        "prompt_version": null
+      }
+    ],
+    "model_call_failures": [
+      {
+        "role": "verifier",
+        "prompt_version": "inference-check/3",
+        "error_type": "LLMError",
+        "error_code": "request_timeout",
+        "request_sent": true
+      }
+    ],
+    "event_counts": {
+      "run_started": 1,
+      "step_started": 51,
+      "model_started": 53,
+      "model_completed": 52,
+      "exa_started": 6,
+      "exa_completed": 6,
+      "model_failed": 1,
+      "run_finished": 1
+    },
+    "exa": {
+      "actual_attempts": 6,
+      "completed": 6,
+      "failed": 0
+    },
+    "browser": {
+      "actual_attempts": 0,
+      "completed": 0,
+      "failed": 0
+    },
+    "fetch_log_outcomes": {
+      "saved": 29,
+      "refused": 3,
+      "reused": 3
+    },
+    "tokens": {
+      "known_tokens": 390699,
+      "unknown_reserved_tokens": 12189,
+      "pending_tokens": 0,
+      "allowance_used": 402888,
+      "reconciles": true,
+      "within_600000": true
+    },
+    "money": {
+      "known_estimated_usd": "2.247988",
+      "unknown_reserved_usd": "0.132873",
+      "pending_usd": "0.000000",
+      "allowance_used_usd": "2.380861",
+      "reconciles": true,
+      "within_10": true
+    },
+    "journal_calls": {
+      "complete": 58,
+      "failed": 1
+    },
+    "monetary_file_matches": true,
+    "mas": {
+      "active": false,
+      "saved_versions": 0,
+      "fetch_log_entries": 0,
+      "browser_attempts": 0
+    },
+    "writer": {
+      "successful_llm_steps": 1,
+      "fallback": false
+    },
+    "report_artifact": {
+      "report_id": "98d2a2cd-ccef-4869-bf6e-b5b66aaadd7c",
+      "path": "reports/ea485995-7ff1-4717-9ccd-bedb958d1866/report-v1.html",
+      "exists": true,
+      "sha256": "e6a2b8cb80376db31599a0dba8b98658592491d6638550079d0bd16866b1f104",
+      "review_status": "draft"
+    },
+    "fetch_request_sent_true_log_entries": 35
+  },
+  "comparisons": {
+    "7be59cdf": {
+      "prior_acquired": {
+        "found": 6,
+        "total": 18
+      },
+      "current_acquired": {
+        "found": 5,
+        "total": 18
+      },
+      "newly_acquired": [
+        "GT05",
+        "GT20"
+      ],
+      "not_reacquired": [
+        "GT08",
+        "GT22",
+        "GT23"
+      ]
+    },
+    "1637f9f8": {
+      "prior_acquired": {
+        "found": 5,
+        "total": 18
+      },
+      "current_acquired": {
+        "found": 5,
+        "total": 18
+      },
+      "newly_acquired": [
+        "GT05",
+        "GT20"
+      ],
+      "not_reacquired": [
+        "GT11",
+        "GT23"
+      ]
+    }
+  },
+  "prior_completed": {
+    "acquired": "6/18",
+    "cited": "5/18",
+    "model_verified_facts": 19,
+    "writer_fallback": true
+  },
+  "comparison_design": {
+    "equal_budget_controlled": false,
+    "runtime_changed": true,
+    "pristine_corpus": true,
+    "same_brief_and_denominator": true,
+    "baseline_models": {
+      "planner": "openai:gpt-5.4",
+      "regulatory_scout": "openai:gpt-5.4-mini",
+      "industry_scout": "openai:gpt-5.4-mini",
+      "analyst": "openai:gpt-5.4",
+      "verifier": "openai:gpt-5.4",
+      "writer": "openai:gpt-5.4-mini"
+    },
+    "baseline_models_match_manifest": true,
+    "interrupted_models_match_manifest": true
+  },
+  "prior_interrupted": {
+    "acquired": "5/18",
+    "report_cited": null,
+    "report_exists": false
+  },
+  "process": {
+    "exit_code": 0,
+    "hard_deadline_reached": false,
+    "database_failures": 0,
+    "database_ready_same_postmaster_at_end": true,
+    "elapsed_seconds": 1417.848,
+    "finished_at": "2026-11-10T06:31:42.943741+00:00",
+    "paid_resume_or_replacement": false
+  },
+  "database_health": {
+    "successful_checks": 282,
+    "failures": [],
+    "final_ready_same_postmaster": true,
+    "same_postmaster_all_checks": true,
+    "baseline_postmaster_started": "2026-11-10 04:55:10.318252+00:00",
+    "sampling_note": "Five-second health observations support no observed outage/restart; not continuous uptime proof."
+  },
+  "cleanup": {
+    "temporary_browser_grant_removed": true,
+    "credential_handle_cleared": true,
+    "ambient_provider_keys_absent": true,
+    "MAS_active": false
+  },
+  "artifact_hashes": {
+    "manifest.json": "85e61d89b2327a5543e3e698f6c4391fb42a601cac85762fefd0fe838e0feb03",
+    "outcome.json": "5ec8b7e7ef6300b9b359118051812b221754b3cfc8871896fb5c971906ee2b0d",
+    "process-exit.json": "7fba0206eb86c32f71c3abf35650c62d1b8d4a78db02651e4a346f6b0961b04c",
+    "events.jsonl": "a80d7aec1572fbb328b90ed9d039ba25dc5ecf4f338a87a22ab968c136c81d32",
+    "database-health.json": "add1109bc07688a6e6cdbfc1ddaa25df8edc246960a9c6198381eb563921a94a",
+    "monetary-usage.json": "a453677e9b97900ac974cb9768b64eef7d6ba658939091a471135b052d9e4a23",
+    "cleanup.json": "ca1eefe1dada83430a749163f01e6deb921f747ca71505f153c90ac09b5601dd",
+    "audit.py": "9a671fcb539dc0e3bf21a0083ba0310f568100d66fb80526f7225a5ad362ed39"
+  },
+  "limitations": [
+    "Same market/date/18-item benchmark; changed runtime and pristine corpus. Observational comparison, not causal feature or equal-budget evidence.",
+    "Optional browser permission is HKMA-scoped. No country-wide completeness or causal Exa/browser claim.",
+    "Model verification/corroboration statuses are not human precision/relevance labels or report acceptance.",
+    "Estimated known charges and conservative unknown/pending reservations are not provider invoices.",
+    "Source URLs count explicit publication aliases. Saved representations and passages are not independent publications.",
+    "The earlier Australia report was described as bad by the user; this HK observation does not relabel it acceptable.",
+    "The 18-item denominator retains two MAS-hosted benchmark publications despite MAS being disabled; no truth labels or denominator changed.",
+    "Fetch-log request_sent flags include reused/refused rows and are not a reliable network-request counter. Actual Exa/browser counts come from separately instrumented starts.",
+    "Complete extraction status appears on all 29 versions, but only 24 have stored passages. Extraction status alone is not document quality or human relevance.",
+    "Current 19 candidates include only 10 model-supported facts and one inference; historical baseline 19 verified facts is a separate metric.",
+    "Manual content QA identified an out-of-period amendment and unsupported technology inference despite model approval; no formal human precision rate has been computed."
+  ],
+  "outcome_reasons": [
+    "verifier failed on claim C19: bounded request timed out; provider usage may be unavailable",
+    "Passage analysis is incomplete; see passage analysis coverage for recorded dispositions."
+  ],
+  "status": "Partial draft; manual content QA failed; report not demo-ready; recorded model counts remain provisional",
+  "execution": {
+    "paid_runs": 1,
+    "resumed": false,
+    "replacement": false,
+    "run_started_events": 1,
+    "run_finished_events": 1
+  },
+  "missing_acquisition_items": [
+    {
+      "id": "GT02",
+      "publisher": "HKMA",
+      "title": "Gazettal of Guideline on AI-to-AI Information Sharing for the Detection or Prevention of Crime",
+      "url": "https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20251106-2-EN"
+    },
+    {
+      "id": "GT03",
+      "publisher": "SFC",
+      "title": "Detection and prevention of potential layering activities in money laundering",
+      "url": "https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/aml/doc?refNo=25EC62"
+    },
+    {
+      "id": "GT07",
+      "publisher": "FSTB / SFC",
+      "title": "FSTB and SFC conclude consultations on virtual asset dealer and custodian regimes, further consult on two new regimes",
+      "url": "https://apps.sfc.hk/edistributionWeb/api/news/list-content?refNo=25PR210&lang=EN"
+    },
+    {
+      "id": "GT08",
+      "publisher": "SFC",
+      "title": "SFC reprimands and fines Kylin International (HK) Co., Limited $9 million for fund management failures",
+      "url": "https://apps.sfc.hk/edistributionWeb/api/news/list-content?refNo=26PR19&lang=EN"
+    },
+    {
+      "id": "GT09",
+      "publisher": "MAS (FATF)",
+      "title": "February 2026 FATF Statement",
+      "url": "https://www.mas.gov.sg/publications/fatf-statement/2026/february-2026"
+    },
+    {
+      "id": "GT11",
+      "publisher": "HKMA",
+      "title": "Thematic Review of Sanctions Screening Systems",
+      "url": "https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20260316-1-EN"
+    },
+    {
+      "id": "GT16",
+      "publisher": "HKMA",
+      "title": "Supporting Adoption of Artificial Intelligence in Fighting Financial Crime",
+      "url": "https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20260622-1-EN"
+    },
+    {
+      "id": "GT17",
+      "publisher": "Wolfsberg Group",
+      "title": "The Wolfsberg Group publishes updated Guidance on the Risk-Based Approach",
+      "url": "https://wolfsberg-group.org/news/guidance-on-the-risk-based-approach"
+    },
+    {
+      "id": "GT18",
+      "publisher": "MAS (FATF)",
+      "title": "June 2026 FATF Statement",
+      "url": "https://www.mas.gov.sg/publications/fatf-statement/2026/june-2026"
+    },
+    {
+      "id": "GT19",
+      "publisher": "Wolfsberg Group",
+      "title": "The Wolfsberg Group publishes Guidance on the provision of banking services to non-bank payment service providers (PSPs)",
+      "url": "https://wolfsberg-group.org/news/guidance-on-the-provision-of-banking-services"
+    },
+    {
+      "id": "GT22",
+      "publisher": "HKMA",
+      "title": "Remote on-boarding of individual customers",
+      "url": "https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20260902-1-EN"
+    },
+    {
+      "id": "GT23",
+      "publisher": "SFC",
+      "title": "SFC reprimands and fines Zheng Da International Financial Holding Limited $7 million and suspends its responsible officer for regulatory breaches",
+      "url": "https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR158"
+    },
+    {
+      "id": "GT24",
+      "publisher": "HKMA",
+      "title": "Anti-bribery & corruption controls for account opening",
+      "url": "https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20261022-1-EN"
+    }
+  ],
+  "bounded_next_step": "Do not present this draft as demo-ready. Retain the original report with its separate QA cover; human-review all 11 existing claims for temporal/source support and substance, then diagnose coverage from saved evidence. No further paid run or runtime change is authorized.",
+  "quality_acceptance": "failed: content QA blockers",
+  "content_qa": {
+    "basis": "Coordinator and independent report-content review; coordinator confirmed the saved-source context with read-only DB inspection. Evaluation worker used the supplied confirmation; no additional DB/API queries.",
+    "formal_human_precision_study": false,
+    "report_demo_ready": false,
+    "model_approval_is_human_validation": false,
+    "issues": [
+      {
+        "finding_id_prefix": "fa018a03",
+        "severity": "blocker",
+        "issue": "An amendment finding is presented within the 2025\u20132026 scope using the 2026 index-page publication/last-modified date for a 2023 archive entry.",
+        "saved_source_basis": "Saved index text immediately before the amendment entry is dated 06 Jul 2023; the next entry is dated 25 May 2023. The statutory guideline is marked Revised May 2023. The 2026 index-page date does not date the underlying amendment.",
+        "implication": "The accepted in-period amendment claim is temporally unsupported and outside the requested period on the supplied source context; the source checklist no_change result also conflicts with its presentation as a new amendment."
+      },
+      {
+        "finding_id_prefix": "988a75f0",
+        "severity": "blocker",
+        "issue": "The sole accepted inference characterizes AI-to-AI information-sharing guidance as technology-focused on title-only evidence.",
+        "saved_source_basis": "The saved title-only source does not establish that interpretation or expand the abbreviation AI as artificial intelligence.",
+        "implication": "The technology interpretation and abbreviation expansion are unsupported by the supplied evidence."
+      },
+      {
+        "severity": "quality_gap",
+        "issue": "Some accepted facts merely record references or personnel tenure rather than substantive guidance requirements or misconduct findings.",
+        "saved_source_basis": "Coordinator/independent review of the existing report and its saved evidence; finding identifiers for this broader group were not supplied.",
+        "implication": "Model-approved count and successful prose generation do not establish substantive audit usefulness."
+      }
+    ],
+    "count_interpretation": "The unchanged 10 model-approved facts and one model-approved inference are provisional runtime outputs. They are not validated human precision, acceptable report quality or evidence of a winning demo.",
+    "original_artifacts": "Original model report, run artifacts, report hash and all recorded acquisition/citation/accounting metrics are preserved; QA annotations do not replace the report."
+  }
+}
