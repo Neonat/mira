@@ -20,6 +20,7 @@ import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Generic, Protocol, TypeVar
+from types import MappingProxyType
 
 from pydantic import BaseModel, ValidationError
 
@@ -36,27 +37,24 @@ ROLE_MODEL_ENV: dict[str, str] = {
     "writer": "MIRA_MODEL_WRITER",
 }
 
-# List prices in US dollars per million tokens (input, output), October 2026.
-# Used only to estimate run cost for people; check current pricing before relying on it.
-MODEL_PRICES: dict[str, tuple[float, float]] = {
-    "claude-opus-5-5": (4.0, 20.0),
-    "claude-sonnet-5-5": (2.0, 10.0),
-    "claude-haiku-5-5": (0.10, 0.50),
-    # Standard text pricing checked 6 Nov 2026; excludes cache discounts.
-    "gpt-5.4": (2.50, 15.00),
-    "gpt-5.4-mini": (0.75, 4.50),
-}
-
-
-def estimated_cost(model: str | None, tokens_in: int, tokens_out: int) -> float:
-    name = model or ""
-    # Served OpenAI model names may include a dated snapshot suffix.
-    for base in ("gpt-5.4-mini", "gpt-5.4"):
-        if name.startswith(base + "-20"):
-            name = base
-            break
-    price_in, price_out = MODEL_PRICES.get(name, (0.0, 0.0))
-    return (tokens_in * price_in + tokens_out * price_out) / 1_000_000
+def estimated_cost(model: str | None, tokens_in: int, tokens_out: int, *, price_book=None) -> float | None:
+    """Estimate only from an explicitly supplied current price book."""
+    if model == "scripted":
+        return 0.0
+    if not model or price_book is None:
+        return None
+    provider, sep, name = model.partition(":")
+    if not sep:
+        name = provider
+        provider = "openai" if name.startswith("gpt-") else "anthropic" if name.startswith("claude-") else ""
+    snapshots = {"gpt-5.4-mini-2026-03-17": "gpt-5.4-mini",
+                 "gpt-5.4-2026-03-05": "gpt-5.4"}
+    if provider == "openai":
+        name = snapshots.get(name, name)
+    try:
+        return float(price_book.token_rate(provider, name).cost(tokens_in, tokens_out))
+    except (ValueError, KeyError):
+        return None
 
 
 # Server-side fallback when the requested model declines for policy reasons. The
@@ -238,12 +236,14 @@ class LLMClient(Protocol):
 class AnthropicClient:
     """Anthropic Messages API with structured output. Needs ``pip install -e ".[llm]"``."""
 
-    def __init__(self, client: object | None = None, *, effort: str = "high", max_tokens: int = 64000) -> None:
+    def __init__(self, client: object | None = None, *, effort: str = "high", max_tokens: int = 64000, models: Mapping[str, str] | None = None, api_key: str | None = None, byok: bool = False) -> None:
         if client is None:
             import anthropic
 
-            client = anthropic.Anthropic()
+            client = anthropic.Anthropic(api_key=api_key, base_url="https://api.anthropic.com") if byok else anthropic.Anthropic()
         self._client = client
+        self._models = dict(models) if models is not None else None
+        self._byok = byok
         self._effort = effort
         self._max_tokens = max_tokens
 
@@ -252,7 +252,7 @@ class AnthropicClient:
     ) -> LLMResult[T]:
         from anthropic import transform_schema
 
-        spec = model_for(role)
+        spec = ModelSpec.parse(self._models[role]) if self._models is not None else model_for(role)
         if spec.provider != "anthropic":
             raise LLMError(f"provider {spec.provider!r} is not implemented yet")
         # Streaming: adaptive thinking shares max_tokens with the answer, so the
@@ -266,8 +266,7 @@ class AnthropicClient:
                 "effort": self._effort,
                 "format": {"type": "json_schema", "schema": transform_schema(output_type)},
             },
-            fallbacks="default",
-            betas=[FALLBACK_BETA],
+            **({} if self._byok else {"fallbacks": "default", "betas": [FALLBACK_BETA]}),
         ) as stream:
             message = stream.get_final_message()
         tokens_in, tokens_out = message.usage.input_tokens, message.usage.output_tokens
@@ -291,12 +290,14 @@ class OpenAIClient:
     No built-in web tools: source acquisition remains in Mira's allow-listed scouts.
     """
 
-    def __init__(self, client: object | None = None, *, effort: str = "high", max_tokens: int = 64000) -> None:
+    def __init__(self, client: object | None = None, *, effort: str = "high", max_tokens: int = 64000, models: Mapping[str, str] | None = None, api_key: str | None = None, byok: bool = False) -> None:
         if client is None:
             from openai import OpenAI
 
-            client = OpenAI()
+            client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1") if byok else OpenAI()
         self._client = client
+        self._models = dict(models) if models is not None else None
+        self._byok = byok
         self._effort = effort
         self._max_tokens = max_tokens
 
@@ -305,7 +306,7 @@ class OpenAIClient:
     ) -> LLMResult[T]:
         from openai import APIError
 
-        spec = model_for(role)
+        spec = ModelSpec.parse(self._models[role]) if self._models is not None else model_for(role)
         if spec.provider != "openai":
             raise LLMError(f"OpenAI client cannot serve provider {spec.provider!r}")
         try:
@@ -318,6 +319,7 @@ class OpenAIClient:
                 text={"format": {"type": "json_schema", "name": output_type.__name__,
                                   "schema": output_type.model_json_schema(), "strict": True}},
                 store=False,
+                **({"service_tier": "default"} if self._byok else {}),
             ) as stream:
                 # The SDK's get_final_response only returns response.completed;
                 # incomplete/failed events otherwise raise and lose their usage.
@@ -361,9 +363,38 @@ class OpenAIClient:
 class ProviderClient:
     """Lazily construct only the providers configured for the requested roles."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, models: Mapping[str, str] | None = None, api_keys: Mapping[str, str] | None = None) -> None:
+        self._models = dict(models) if models is not None else None
+        self._api_keys = MappingProxyType(dict(api_keys)) if api_keys is not None else None
+        self._byok = api_keys is not None
         self._clients: dict[str, LLMClient] = {}
         self._lock = threading.Lock()
+
+    @property
+    def byok(self) -> bool:
+        return self._byok
+
+    @property
+    def model_settings(self) -> dict[str, str]:
+        if self._models is not None:
+            return dict(self._models)
+        return {role: os.environ[var] for role, var in ROLE_MODEL_ENV.items() if os.environ.get(var)}
+
+    def close(self) -> None:
+        with self._lock:
+            self._clients.clear()
+            self._api_keys = None
+
+    def _spec(self, role: AgentRole) -> ModelSpec:
+        try:
+            spec = ModelSpec.parse(self._models[role]) if self._models is not None else model_for(role)
+        except (KeyError, ValueError):
+            raise LLMError("model configuration unavailable", request_sent=False) from None
+        if spec.provider not in ("openai", "anthropic"):
+            raise LLMError("unsupported provider", request_sent=False)
+        if self._byok and not (self._api_keys or {}).get(spec.provider):
+            raise LLMError("provider credential unavailable", request_sent=False)
+        return spec
 
     @property
     def live(self) -> bool:
@@ -373,13 +404,15 @@ class ProviderClient:
     def structured(
         self, *, role: AgentRole, system: str, user: str, output_type: type[T], prompt_version: str
     ) -> LLMResult[T]:
-        provider = model_for(role).provider
+        provider = self._spec(role).provider
         factories = {"anthropic": AnthropicClient, "openai": OpenAIClient}
         if provider not in factories:
             raise LLMError(f"unsupported provider {provider!r}")
         with self._lock:
             if provider not in self._clients:
-                self._clients[provider] = factories[provider]()
+                self._clients[provider] = (factories[provider](models=self._models, api_key=self._api_keys[provider], byok=True)
+                                           if self._byok else factories[provider](models=self._models) if self._models is not None
+                                           else factories[provider]())
             client = self._clients[provider]
         return client.structured(role=role, system=system, user=user,
                                  output_type=output_type, prompt_version=prompt_version)
@@ -397,14 +430,23 @@ class ProviderClient:
         import sys
         if timeout_seconds <= 0 or max_output_tokens < 1:
             raise LLMError("bounded request has no remaining allowance", request_sent=False)
+        if self._byok or self._models is not None:
+            spec = self._spec(role)
         reservation=request_token_reservation(system=system,user=user,output_type=output_type,
                                                max_output_tokens=max_output_tokens)
         payload = dict(role=role, system=system, user=user, prompt_version=prompt_version,
                        output_module=output_type.__module__, output_name=output_type.__name__,
                        timeout_seconds=timeout_seconds, max_output_tokens=max_output_tokens)
+        if self._models is not None or self._byok:
+            payload["models"] = self.model_settings
+        if self._byok:
+            payload["api_keys"] = {spec.provider: self._api_keys[spec.provider]}
+            env = {k: v for k, v in os.environ.items() if k in ("PATH", "PYTHONPATH", "LANG", "LANGUAGE", "LC_ALL", "LC_CTYPE") or k.startswith("LC_")}
+        else:
+            env = None
         try:
             result = subprocess.run([sys.executable, "-c", "from mira.llm import _bounded_child; _bounded_child()"],
-                input=json.dumps(payload).encode(), capture_output=True, timeout=timeout_seconds, check=True)
+                input=json.dumps(payload).encode(), capture_output=True, timeout=timeout_seconds, check=True, **({"env": env} if env is not None else {}))
             data = json.loads(result.stdout)
         except subprocess.TimeoutExpired as exc:
             sent=b'MIRA_PROVIDER_REQUEST_STARTED' in (exc.stderr or b'')
@@ -543,9 +585,15 @@ def _bounded_child():
     output_type = getattr(importlib.import_module(value["output_module"]), value["output_name"])
     sent=False
     try:
-        spec = model_for(value["role"])
+        router = ProviderClient(models=value.get("models"), api_keys=value.get("api_keys"))
+        spec = router._spec(value["role"])
         factories = {"anthropic": AnthropicClient, "openai": OpenAIClient}
-        client = factories[spec.provider](max_tokens=value["max_output_tokens"])
+        options = {"max_tokens": value["max_output_tokens"]}
+        if router._models is not None:
+            options["models"] = router._models
+        if router.byok:
+            options.update(api_key=router._api_keys[spec.provider], byok=True)
+        client = factories[spec.provider](**options)
         client._client = client._client.with_options(timeout=value["timeout_seconds"], max_retries=0)
         # Written before entering provider code; no request text or credential.
         sent=True
