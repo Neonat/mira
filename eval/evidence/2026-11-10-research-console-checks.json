@@ -14,7 +14,8 @@
     "byok_lifecycle_database": 28,
     "ui": 17,
     "money_and_generation": 61,
-    "pricing": 22
+    "pricing": 22,
+    "ui_after_final_fix": 18
   },
   "local_auth": {
     "actual_isolated_subprocess": true,
@@ -57,5 +58,22 @@
     "source grants",
     "historic report bytes",
     "full permitted evidence"
+  ],
+  "final_runtime_sha": "b1794ad",
+  "final_fix_validation": {
+    "command": "pytest tests/test_research_console.py tests/test_brief_budget.py -q",
+    "passed": 26,
+    "scope": "request-owned rerun payload, fresh credential handoff and original brief/budget compatibility",
+    "independent_scoped_review": "no blockers"
+  },
+  "browser_checks": [
+    "actual local demo sign-in",
+    "custom dates before submission",
+    "selected-market source filtering",
+    "HK/AU/UAE federal comparison views",
+    "report/review navigation",
+    "390px mobile without page overflow",
+    "default viewport restored",
+    "signed-in research tab left open"
   ]
 }

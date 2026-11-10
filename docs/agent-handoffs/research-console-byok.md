@@ -2,7 +2,7 @@
 
 Audience: product owner, developers and the operator rehearsing the competition demo. The README presents the analyst workflow; this handoff records engineering scope and remaining acceptance work.
 
-Base runtime: `96173b6`. Integrated runtime: `f55fa43`; a subsequent UI-only caption change renders price-source links cleanly and has its own focused verification. PR13 remains stacked on PR12, with Ewen/PR6 ancestry preserved.
+Base runtime: `96173b6`. Integrated runtime: `f55fa43`; subsequent UI-only changes render price-source links cleanly and whitelist request-owned settings for fresh reruns (`b1794ad`). The final rerun/brief-budget regression command passed 26 tests after the 1,272-test integrated run; its independent scoped re-review found no blockers. PR13 remains stacked on PR12, with Ewen/PR6 ancestry preserved.
 
 ## Delivered behavior
 
@@ -15,7 +15,7 @@ Base runtime: `96173b6`. Integrated runtime: `f55fa43`; a subsequent UI-only cap
 
 ## Verification
 
-One integrated `pytest tests eval -q -p no:cacheprovider` run passed **1,272 tests +8 subtests, zero skips, 73.82 seconds**, using local PostgreSQL and actual Chromium. Focused regressions preceded integration: 28 lifecycle database checks, 61 money/generation checks, 22 price-parser checks and 17 UI checks. Independent task reviews covered provider isolation, credential broker, monetary accounting/restoration, UI behavior and lifecycle/RLS/race fixes. See [portable checks](../../eval/evidence/2026-11-10-research-console-checks.json).
+One integrated `pytest tests eval -q -p no:cacheprovider` run passed **1,272 tests +8 subtests, zero skips, 73.82 seconds**, using local PostgreSQL and actual Chromium. Focused regressions preceded integration: 28 lifecycle database checks, 61 money/generation checks, 22 price-parser checks and 17 UI checks before the final rerun regression (18 afterward). Independent task reviews covered provider isolation, credential broker, monetary accounting/restoration, UI behavior and lifecycle/RLS/race fixes. See [portable checks](../../eval/evidence/2026-11-10-research-console-checks.json).
 
 The normal worker path was exercised with scripted providers, a fake web, real private broker and real PostgreSQL through plan approval, fresh-key continuation and report generation. It checked durable admission before dispatch, preserved usage, key cleanup and no operator fallback. An actual local Auth subprocess accepted the correct owner and refused a completed-run lease. Public pricing GETs validated both configured role models, embedding and Exa without storing rate values. These are engineering checks, not a new live research measurement.
 

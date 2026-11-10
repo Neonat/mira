@@ -1,6 +1,6 @@
 # Mira research console, temporary BYOK and money budgets
 
-Date: 10 November 2026, Asia/Singapore. Base: `96173b65a0a717a669de2f71e4749c75833bb167`, PR13. **User approved implementation on 10 November 2026**, after explicitly selecting temporary per-request keys. Implementation is in progress.
+Date: 10 November 2026, Asia/Singapore. Base: `96173b65a0a717a669de2f71e4749c75833bb167`, PR13. **User approved implementation on 10 November 2026**, after explicitly selecting temporary per-request keys. Implementation and independent review are complete; see the [validation handoff](../../agent-handoffs/research-console-byok.md).
 
 ## Intent and audience
 
