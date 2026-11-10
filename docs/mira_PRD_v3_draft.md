@@ -13,6 +13,14 @@ Console validation: **1,272 tests +8 subtests, zero skips**, including local Pos
 
 ## Hong Kong quality and demo latency — 10 November 2026
 
+**Proposed next architecture:** scheduled evidence acquisition and machine
+preparation, human checking of completed evidence snapshots, and asynchronous
+report requests using those snapshots. Requests arriving during a refresh wait
+for its completion and may receive a prominently labelled human-review-pending
+draft. Enterprise credentials are assumed provisioned outside the demo workflow.
+This design is not implemented yet; see the [proposed workflow and race/review
+contracts](superpowers/specs/2026-11-10-scheduled-evidence-reporting-design.md).
+
 **User timing clarification:** the demonstration has a maximum wait of five
 minutes; normal research may take substantially longer. Keep the demonstration
 acceptance target separate from user-configurable research time and depth.
