@@ -121,3 +121,7 @@ The subsequent [archive experiment](../eval/evidence/2026-11-10-archive-hybrid-v
 Private Supabase object copies and consistent full-database/object backup recovery are implemented as optional operator paths. See the [storage and recovery runbook](backup-recovery.md) for credential separation, verified publication, complete backup checks and fresh-local-target recovery. The anon key remains app-only. Configure a worker storage credential separately before enabling uploads.
 
 Offline quality-validation preparation is in `eval/quality_preflight.py` and the read-only `eval/quality_export.py` adapter. Historical Hong Kong measurements keep their original Nov4 scope; proposals require a new bounded live-run authorization and do not invoke providers.
+
+## Research console and per-request BYOK
+
+See [the console runbook](research-console.md) for the local in-memory broker, UI/worker environment separation, current-price checks, USD admission and fresh-key approval continuation. Apply migration `20261110160000_mira_byok_resources.sql` before enabling new console runs. Operator CLI credentials remain separate; keys entered for one UI request never fall back to them. The UI loads only its anon/Auth configuration, role-model names and non-secret capability flags/socket path. Never start a research worker merely to inspect the demo.

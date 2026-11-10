@@ -23,7 +23,9 @@ Australia uses Federal Register API metadata and direct publication files, along
 
 Auditors retain ownership of professional judgement, audit actions and sign-off. Mira supplies the sourced developments and contextual risks and trends that support that work.
 
-The current client form offers AML/CFT, controlled market choices, a 12–24-month lookback, an as-of date and document/token allowances. Users sign in through Supabase Auth with workspace access. Research starts from this structured brief; free-text questions and a plan-approval switch are not exposed in the current form.
+The research console lets analysts choose markets, custom dates, approved sources, discovery/browser options, keyword or experimental hybrid retrieval, analysis depth and optional plan approval. A separate review shows the selected request and current price units before masked API-key entry. Temporary per-request keys and a USD allowance support BYOK; provider prices are checked again by the worker and no rate catalogue is stored. Token, time and document limits remain additional safeguards. Users sign in through Supabase Auth with workspace access; a dedicated local demo login needs no hosted paid account. See the [console and BYOK runbook](docs/research-console.md).
+
+The **Country methods** page separates measured results from recommendations and untested comparisons. It distinguishes the synthetic one-fact demo from the historical Hong Kong report’s 19 verified facts, and explains the 153-passage keyword/hybrid experiment. Full permitted evidence stays in PostgreSQL; vectors are an optional search index. No storage or retrieval quality winner is claimed without a comparable labelled evaluation.
 
 ## A report designed for auditors
 
@@ -31,7 +33,7 @@ The report brings together regulatory developments, deadlines, supervisory theme
 
 The writer returns a compact selection and ordering of verified findings. Code renders their complete saved wording and includes omitted findings in their main sections. Bounded analysis uses smaller whole-passage batches and allows one correction of invalid output within the existing time and token allowance.
 
-Corroboration appears in the generated report with its assessment, quotations and origin evidence. Passage analysis tracking and the source coverage checklist give reviewers a clear account of the research performed. Reviewed snapshots preserve the evidence and decisions behind the signed version.
+New console runs also include selected methods, acquisition representation counts and cost/usage estimates in the coverage appendix. Corroboration appears in the generated report with its assessment, quotations and origin evidence. Passage analysis tracking and the source coverage checklist give reviewers a clear account of the research performed. Reviewed snapshots preserve the evidence and decisions behind the signed version.
 
 Source navigation is built for readers: verified SFC API destinations open the corresponding readable publication page, and known PDF passages link to their page. Permitted original files use integrity checks and authenticated workspace access. Optional private object storage and verified backup/recovery support evidence continuity. Optional hybrid retrieval combines keyword and semantic ranking within source and usage controls.
 
@@ -54,7 +56,7 @@ Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External 
 
 ## Validation
 
-The latest integrated engineering validation passed **1,100 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover bounded analysis corrections and compact writer plans, source/document rotation, generation deadlines and usage reservations, frozen coverage and review, authenticated original-file access, source navigation, archive hybrid indexing/retrieval, private publication and backup/recovery. See the [generation follow-up](docs/agent-handoffs/analysis-writer-followup.md) for the tested scope. The report's coverage layout was also inspected at desktop and mobile sizes.
+The latest integrated engineering validation passed **1,272 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover temporary credential handoff, request isolation, USD admission and durable usage, approval continuation, concurrent-run guards, source/method controls, bounded generation, evidence continuity and review. The local console was inspected at desktop and mobile sizes; public price sources and local Auth were checked without paid research requests. See the [console validation](docs/agent-handoffs/research-console-byok.md) for scope and remaining live validation.
 
 The latest scoped Australia/UAE exercise saved a partial draft through the live pipeline, with continuous database availability and exact usage accounting. Its [validation record](eval/evidence/2026-11-10-au-ae-uninterrupted-validation.md) distinguishes acquisition, verified country coverage, bounded analysis and remaining generation limits. The [previous interrupted run and recovered draft](eval/evidence/2026-11-10-generation-reliability-validation.md) remain preserved separately.
 

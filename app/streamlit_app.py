@@ -1,9 +1,9 @@
 """Mira web app: research brief, live run view, report and review (PRD v2 §4; AG01, AG12, AG13).
 
 Everything runs as the signed-in user through Supabase Auth with the anon key, so
-row-level security applies to every read and write. The app never holds the
-worker database URL or the model API key: it queues runs, and the trusted worker
-(``python -m mira worker``) executes them.
+row-level security applies to every read and write. The app has no worker database
+credential or operator provider keys. Masked per-request keys are handed to the
+local broker and cleared; the trusted worker executes the queued run.
 
     streamlit run app/streamlit_app.py
 """
@@ -49,6 +49,12 @@ UI_KEYS = {
 }
 DECISIONS = ("accepted", "amended", "rejected", "needs_evidence")
 ACTIVE = ("queued", "running")
+
+
+def show_price_sources(book) -> None:
+    metadata=book.metadata()
+    links=' · '.join(f'[Provider pricing]({url})' for url in metadata.get('sources',()))
+    st.caption(f"Prices checked {metadata.get('checked_at','unavailable')}"+(f' · {links}' if links else ''))
 
 
 def is_synthetic_demo(slug: str) -> bool:
@@ -267,7 +273,7 @@ def _review_research(workspace_id: str, user_id: str, source_by_id: dict[str, di
     st.write("Public prices are estimates, not an invoice; credits, discounts, taxes and infrastructure costs are not included. Actual variable charges depend on usage and current prices at execution.")
     if valid:
         book = quote[1]
-        st.write(f"Price sources and checked time: {book.metadata()}")
+        show_price_sources(book)
         for model in sorted(set(models.values())):
             provider, name = model.split(":", 1)
             rate = book.token_rate(provider, name)
@@ -367,7 +373,7 @@ def new_brief_page(workspace_id: str, user_id: str) -> None:
     quoted = bool(quote and quote[0] == quote_key)
     if quoted:
         st.success("Current prices checked. Costs are estimates, not a bill.")
-        st.caption(str(quote[1].metadata()))
+        show_price_sources(quote[1])
     else:
         st.info("Check current prices before launching a paid run.")
     enabled = os.environ.get("MIRA_ENABLE_BYOK_RUNS") == "1" and bool(os.environ.get("MIRA_BROKER_SOCKET"))
@@ -481,7 +487,7 @@ def continuation_quote(models: dict[str, str], research: dict[str, Any]) -> bool
     quote = st.session_state.get("console_quote")
     checked = bool(quote and quote[0] == quote_key)
     if checked:
-        st.caption(f"Price sources and checked time: {quote[1].metadata()}")
+        show_price_sources(quote[1])
     else:
         st.info("Check current prices before continuing.")
     return checked and os.environ.get("MIRA_ENABLE_BYOK_RUNS") == "1" and bool(os.environ.get("MIRA_BROKER_SOCKET"))

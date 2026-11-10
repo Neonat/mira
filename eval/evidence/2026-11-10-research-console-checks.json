@@ -1,0 +1,61 @@
+{
+  "date": "2026-11-10",
+  "runtime_sha": "f55fa43",
+  "test_command": "pytest tests eval -q -p no:cacheprovider",
+  "full_suite": {
+    "passed": 1272,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "seconds": 73.82,
+    "postgresql": true,
+    "actual_chromium": true
+  },
+  "component_checks": {
+    "byok_lifecycle_database": 28,
+    "ui": 17,
+    "money_and_generation": 61,
+    "pricing": 22
+  },
+  "local_auth": {
+    "actual_isolated_subprocess": true,
+    "owner_verified": true,
+    "completed_run_lease_refused": true
+  },
+  "public_pricing": {
+    "configured_models": true,
+    "embedding": true,
+    "exa_auto_url_only": true,
+    "rate_catalog_persisted": false
+  },
+  "validation_providers": "scripted models, fake web, real local PostgreSQL and private broker",
+  "workflow": [
+    "queue",
+    "claim",
+    "plan",
+    "discard keys",
+    "approve with fresh keys",
+    "preserve consumption",
+    "research",
+    "verify",
+    "generate report",
+    "discard keys"
+  ],
+  "paid_api_calls": 0,
+  "remote_migrations": 0,
+  "research_worker_left_running": false,
+  "source_restrictions": {
+    "MAS": "disabled",
+    "Malaysia": "disabled",
+    "DIFC_DFSA": "disabled",
+    "hybrid": "experimental",
+    "CBUAE_external_embedding": "disabled"
+  },
+  "quality_claim": "No new live coverage or causal method-quality winner established",
+  "preserved": [
+    "existing role-model profile",
+    "Ewen/PR6 ancestry and guards",
+    "source grants",
+    "historic report bytes",
+    "full permitted evidence"
+  ]
+}
