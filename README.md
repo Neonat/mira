@@ -12,16 +12,11 @@ describes the applied industry-project context.
 
 **Scope:** an AML/CFT research prototype supporting Singapore and Hong Kong, with a demonstrated Hong Kong research case. The current workflow includes expanded ingestion, Exa-assisted discovery, permitted browser acquisition, claim-level corroboration and passage-level analysis tracking.
 
-## Nathaniel's contribution and engineering decisions
+## Engineering highlights
 
 Mira is a collaborative project, with development from
 [@Neonat](https://github.com/Neonat), [@ewvnn](https://github.com/ewvnn) and
 [@SaaiAravindhRaja](https://github.com/SaaiAravindhRaja) in the recorded history.
-Nathaniel Sim's documented contributions include
-[passage-coverage tracking and bounded evidence analysis](https://github.com/Neonat/mira/commit/6fc63b1eb7f1e5cf615a489c822068326c96db53),
-[publication-capacity and corroboration-workload controls](https://github.com/Neonat/mira/commit/43a7b1c1c25003ec63cac8dc27a2aa5ce59ffc10),
-[readable SFC publication links](https://github.com/Neonat/mira/commit/a4148637eab28aac869f1dd2021221ab6e1e487f) and
-[report-table readability](https://github.com/Neonat/mira/commit/42f08a4cc61e7c77bdfb3be04ee4edd1630bda70).
 
 Three choices explain the project's engineering direction:
 
