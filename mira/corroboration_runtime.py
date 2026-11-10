@@ -21,6 +21,8 @@ class ClaimCorroborator:
     def __call__(self, ctx, claim, base_input, budget):
         sources = [s for s in self.ledger.evidence.list_sources(ctx.workspace_id)
                    if s.jurisdiction_code is None or s.jurisdiction_code in ctx.brief.jurisdictions]
+        from mira.research_settings import restrict_sources
+        sources=restrict_sources(sources,ctx.research_settings,ctx.brief.jurisdictions)
         # Bound retrieval before projecting/freeze: the primary verifier must not
         # inherit twenty full passages when the assessor can check only two.
         limits = SearchLimits(max_passages=MAX_ASSESSOR_CANDIDATES,max_seconds=90)

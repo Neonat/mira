@@ -63,11 +63,13 @@ class CorroborationStore:
             return []
         query = ' OR '.join('"' + word + '"' for word in words)
         primary_ids = [e.passage_id for e in claim.evidence]
+        selected=list(ctx.research_settings.source_ids) if ctx.research_settings and ctx.research_settings.source_ids else None
         rows = self.conn.execute('''with eligible as (
             select distinct on (v.document_id) v.id,v.document_id from public.document_versions v
             join public.documents d on d.id=v.document_id and d.workspace_id=%s
             join public.sources s on s.id=d.source_id and s.workspace_id=%s
             where v.workspace_id=%s and s.is_active and s.permitted_operations @> array['fetch','store_text']::text[]
+              and (%s::uuid[] is null or s.id=any(%s::uuid[]))
               and (s.jurisdiction_code is null or btrim(s.jurisdiction_code)=any(%s))
               and (v.published_at is null or v.published_at::date<=%s)
               and d.id not in (select v2.document_id from public.document_passages p2
@@ -82,7 +84,7 @@ class CorroborationStore:
             order by rank desc,document_id limit %s)
         select h.id from hits h join docs d on d.document_id=h.document_id
         order by h.rank desc,h.id limit %s''',
-        (ctx.workspace_id,ctx.workspace_id,ctx.workspace_id,list(ctx.brief.jurisdictions),ctx.brief.as_of_date,
+        (ctx.workspace_id,ctx.workspace_id,ctx.workspace_id,selected,selected,list(ctx.brief.jurisdictions),ctx.brief.as_of_date,
          ctx.workspace_id,primary_ids,query,ctx.workspace_id,query,
          max_documents,max_passages)).fetchall()
         records = self.evidence.get_passages(ctx.workspace_id,[r['id'] for r in rows])

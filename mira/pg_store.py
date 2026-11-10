@@ -24,6 +24,7 @@ from mira.config import REPORTS_DIR
 from mira.contracts import AnalysisCoverageSnapshot, CONTRACT_VERSION, Brief, CoverageRow, ReportSnapshot, RunStatus, StepRecord, Verdict
 from mira.db import acting_as, require_role
 from mira.report import TEMPLATE_VERSION
+from mira.research_settings import ResearchSettings
 from mira.store import (
     AnalysisEvent,
     ExpectedSourceRecord,
@@ -47,10 +48,11 @@ def create_run(
     budget: RunBudget,
     models: dict[str, str],
     previous_run_id: UUID | None = None,
+    *, settings: ResearchSettings | None = None,
 ) -> RunContext:
     """Save the brief as a new Project revision and a queued run; return its context."""
     revision = project_revision_fields(brief, "Research brief")
-    run = analysis_run_fields(brief, budget, models)
+    run = analysis_run_fields(brief, budget, models, settings=settings)
     with acting_as(conn, user_id):
         require_role(conn, workspace_id)
         project_id = conn.execute(
@@ -80,7 +82,8 @@ def create_run(
                values (%s, %s, 1, %s) returning id""",
             (workspace_id, run_id, user_id),
         ).fetchone()["id"]
-    return RunContext(workspace_id, user_id, run_id, analysis_revision_id, brief, budget, previous_run_id)
+    return RunContext(workspace_id, user_id, run_id, analysis_revision_id, brief, budget, previous_run_id,
+                      research_settings=settings,model_settings=dict(models))
 
 
 def create_rerun(
@@ -99,8 +102,10 @@ def create_rerun(
         raise ValueError("the run to re-run is not in this workspace")
     check_rerunnable(previous["status"])
     previous_ctx = load_run(conn, previous_run_id)
+    if previous_ctx.research_settings and previous_ctx.research_settings.credential_mode=='byok':
+        raise ValueError('BYOK reruns require fresh temporary keys in the research console')
     budget = previous_ctx.budget
-    run = analysis_run_fields(previous_ctx.brief, budget, models)
+    run = analysis_run_fields(previous_ctx.brief, budget, models,settings=previous_ctx.research_settings)
     with acting_as(conn, user_id):
         require_role(conn, workspace_id)
         run_id = conn.execute(
@@ -117,7 +122,8 @@ def create_rerun(
                values (%s, %s, 1, %s) returning id""",
             (workspace_id, run_id, user_id),
         ).fetchone()["id"]
-    return RunContext(workspace_id, user_id, run_id, analysis_revision_id, previous_ctx.brief, budget, previous_run_id)
+    return RunContext(workspace_id, user_id, run_id, analysis_revision_id, previous_ctx.brief, budget, previous_run_id,
+                      research_settings=previous_ctx.research_settings,model_settings=dict(models))
 
 
 def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
@@ -142,6 +148,7 @@ def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
         max_llm_tokens=int(limits.get("max_llm_tokens", default.max_llm_tokens)),
         max_run_minutes=float(limits.get("max_run_minutes", default.max_run_minutes)),
         max_gap_rounds=int(limits.get("max_gap_rounds", default.max_gap_rounds)),
+        max_cost_usd=limits.get('max_cost_usd'),
     )
     approved = conn.execute(
         """select approved_at is not null as approved from public.research_plans
@@ -155,7 +162,11 @@ def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
     return RunContext(run["workspace_id"], run["created_by"], run_id, analysis_revision["id"],
                       brief_from_rows(revision, run), budget, run["previous_run_id"],
                       plan_approved=bool(approved and approved["approved"]),
-                      completed_steps=int(steps["last"]))
+                      completed_steps=int(steps["last"]),
+                      research_settings=ResearchSettings.from_dict(run['retrieval_settings']['research'])
+                          if 'research' in (run['retrieval_settings'] or {}) else None,
+                      model_settings=run['model_settings'],
+                      resource_usage=(run['retrieval_settings'] or {}).get('monetary_usage'))
 
 
 def claim_next_run(conn: psycopg.Connection, workspace_id: UUID) -> UUID | None:
@@ -168,6 +179,9 @@ def claim_next_run(conn: psycopg.Connection, workspace_id: UUID) -> UUID | None:
         row = conn.execute(
             """select r.id, r.created_by from public.analysis_runs r
                where r.workspace_id = %s and r.status = 'queued'
+                 and (coalesce(r.retrieval_settings->'research'->>'credential_mode','operator')='operator'
+                      or (r.retrieval_settings->'research'->>'credential_mode'='byok'
+                          and r.retrieval_settings->'research'->>'credential_handle' ~ '^[A-Za-z0-9_-]{32,128}$'))
                  and (
                    -- No approval needed, or not yet planned: the worker must claim it to plan it.
                    not (r.retrieval_settings @> '{"plan_requires_approval": true}')
@@ -186,11 +200,11 @@ def claim_next_run(conn: psycopg.Connection, workspace_id: UUID) -> UUID | None:
         ).fetchone()
         if row is None:
             return None
-    with acting_as(conn, row["created_by"]):
-        conn.execute(
-            "update public.analysis_runs set status = 'running', started_at = now() where id = %s and status = 'queued'",
-            (row["id"],),
-        )
+        with acting_as(conn, row["created_by"]):
+            conn.execute(
+                "update public.analysis_runs set status = 'running', started_at = coalesce(started_at,now()) where id = %s and status = 'queued'",
+                (row["id"],),
+            )
     return row["id"]
 
 
@@ -365,8 +379,8 @@ class PostgresStore:
                    set status = %s, failure_summary = %s,
                        started_at = coalesce(started_at, now()),
                        finished_at = case when %s = any(%s) then now() else finished_at end
-                   where id = %s and workspace_id = %s""",
-                (status, failure_summary, status, list(FINAL_STATUSES), ctx.analysis_run_id, ctx.workspace_id),
+                   where id = %s and workspace_id = %s and (status <> 'cancelled' or %s = 'cancelled')""",
+                (status, failure_summary, status, list(FINAL_STATUSES), ctx.analysis_run_id, ctx.workspace_id,status),
             )
 
     def _step_values(self, record: StepRecord) -> tuple[object, ...]:

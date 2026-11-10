@@ -27,6 +27,7 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from mira.budget import RunBudget
+from mira.research_settings import ResearchSettings
 from mira.contracts import AnalysisCoverageSnapshot, Brief, ClaimDraft, CoverageRow, ReportSnapshot, RunStatus, StepRecord, Verdict
 
 # --- Records (filled by code, carry real IDs) ----------------------------------
@@ -47,6 +48,9 @@ class RunContext:
     # Steps already recorded for this run. A resumed run continues numbering after them, because
     # agent_steps is unique on (analysis_run_id, step_no).
     completed_steps: int = 0
+    research_settings: ResearchSettings | None = None
+    model_settings: Mapping[str, str] | None = None
+    resource_usage: Mapping | None = None
 
 
 @dataclass(frozen=True)

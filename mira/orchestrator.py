@@ -160,6 +160,10 @@ class _Run:
         self.store = orchestrator.store
         self.ctx = ctx
         self.budget = BudgetTracker(ctx.budget, orchestrator.clock)
+        if ctx.resource_usage:
+            old=ctx.resource_usage
+            self.budget.tokens_used=sum(int(old.get(k,0)) for k in ('known_tokens','unknown_reserved_tokens','pending_tokens'))
+            self.budget._started-=float(old.get('elapsed_seconds',0))
         self.step_no = ctx.completed_steps
         self.reasons: list[str] = []
         self.tasks: tuple[ScoutTask, ...] = ()
@@ -292,7 +296,11 @@ class _Run:
     def _plan(self) -> None:
         ctx, brief = self.ctx, self.ctx.brief
         sources = self.store.list_sources(ctx.workspace_id)
+        from mira.research_settings import restrict_sources
+        sources=restrict_sources(sources,ctx.research_settings,brief.jurisdictions)
         expected = self.store.list_expected_sources(ctx.workspace_id, brief.topic, brief.jurisdictions)
+        if ctx.research_settings is not None:
+            expected=[e for e in expected if e.source_id in {s.id for s in sources}]
         self.sources = {source.id: source for source in sources}
         self.expected = list(expected)
         if ctx.plan_approved:
@@ -303,6 +311,8 @@ class _Run:
                 raise RunFailed("the run is marked approved but no approved plan is stored")
             try:
                 self.tasks = planner.tasks_from_stored(approved, brief)
+                if any(not set(t.source_ids)<={s.id for s in sources} for t in self.tasks):
+                    raise ValueError('approved plan includes an unavailable selected source')
             except (ValueError, KeyError) as exc:
                 raise RunFailed(f"approved plan cannot be used: {exc}") from exc
             return
@@ -871,5 +881,34 @@ class _Run:
             f"{status['minutes_used']:g} of {status['max_run_minutes']:g} minutes.",
             *[f"Limitation: {reason}." for reason in self.reasons],
         ]
+        if self.ctx.research_settings is not None:
+            settings=self.ctx.research_settings
+            lines.extend([
+                f"Research methods: {'Experimental hybrid' if settings.retrieval=='hybrid' else 'Keyword'} archive retrieval; "
+                f"Exa discovery {'enabled' if settings.enable_exa else 'disabled'}; permitted browser acquisition "
+                f"{'enabled' if settings.enable_browser else 'disabled'}; {len(self.sources)} selected eligible sources; "
+                f"analysis depth limited to {settings.max_analysis_batches} batches.",
+                'PostgreSQL retains permitted full text and passage references; optional vectors are a rebuildable search index. '
+                'This single configuration does not establish a retrieval or storage quality winner.',
+            ])
+            versions={p.document_version_id:p for p in self.passages.values()}
+            methods={}
+            for passage in versions.values():
+                method=passage.acquisition_provenance.get('acquisition_method','unrecorded')
+                methods[method]=methods.get(method,0)+1
+            lines.append(f"Saved evidence representations selected for analysis: {len(versions)}; "
+                +(', '.join(f'{method}: {count}' for method,count in sorted(methods.items())) or 'none')
+                +'. These counts describe the selected evidence pool, not national publication coverage.')
+            generation=getattr(self.o.client,'budget',None)
+            if generation is not None and generation.spending is not None:
+                snap=generation.snapshot();money=snap['spending']
+                lines.append(f"Cost allowance: USD {money['max_usd']}; known public-price estimate USD {money['known_estimated_usd']}; "
+                    f"unknown reserved USD {money['unknown_reserved_usd']}; pending USD {money['pending_usd']}. "
+                    'These estimates exclude account-specific discounts and credits; they are not an invoice.')
+                lines.append('Prices checked '+money['pricing']['checked_at']+'; sources: '+', '.join(money['pricing']['sources'])+'.')
+                for kind,label in (('search','Exa search'),('embedding','Embedding')):
+                    calls=[c for c in snap['calls'] if c['kind']==kind]
+                    lines.append(f"{label} requests recorded: {sum(c['status']=='complete' for c in calls)} complete, "
+                        f"{sum(c['status']=='failed' for c in calls)} failed or uncertain, {sum(c['status']=='not_sent' for c in calls)} locally refused.")
         sentences = [ReportSentence(text=line, finding_ids=[], structural=True) for line in lines]
         return ReportSection(section="coverage_limitations", sentences=sentences, no_verified_items=False)

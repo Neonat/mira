@@ -625,8 +625,8 @@ def runs_page(workspace_id: str, role: str) -> None:
             usage = run["retrieval_settings"]["monetary_usage"]
             if usage.get("elapsed_seconds") is not None:
                 st.write(f"Elapsed: {usage['elapsed_seconds']} seconds")
-            if usage.get("quote_metadata"):
-                st.write(usage["quote_metadata"])
+            if usage.get("pricing"):
+                st.write(usage["pricing"])
     if run["failure_summary"]:
         (st.error if run["status"] == "failed" else st.warning)(run["failure_summary"])
 

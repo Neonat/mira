@@ -8,6 +8,10 @@ under row-level security and the worker picks them up (PRD v2 §5.1).
 from __future__ import annotations
 
 import os
+import time
+from decimal import Decimal
+from dataclasses import replace
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 from typing import Literal
 from uuid import UUID
@@ -16,6 +20,7 @@ import psycopg
 
 from mira.agents.scout import WebScout
 from mira.analysis_batches import AnalysisLimits
+from mira.budget import RunBudget
 from mira.agents.verifier import LlmVerifier
 from mira.db import NotAuthorisedError, acting_as, require_role
 from mira.fetch import AllowList, Fetcher
@@ -24,10 +29,17 @@ from mira.orchestrator import Orchestrator, RunOutcome
 from mira.corroboration_runtime import ClaimCorroborator
 from mira.pg_store import PostgresStore, load_run
 from mira.single_agent import QuoteOnlyVerifier, code_plan
+from mira.research_settings import ResearchSettings,restrict_sources
+from mira.pricing import load_price_book
 
-def discovery_from_env(sources):
+def discovery_from_env(sources,*,settings=None,api_keys=None,generation_budget=None):
     """Paid discovery is opt-in; credentials alone never activate it."""
-    if os.environ.get("MIRA_ENABLE_EXA_DISCOVERY") != "1" or not os.environ.get("EXA_API_KEY"):
+    if settings is not None and not settings.enable_exa:return None
+    enabled=os.environ.get('MIRA_ENABLE_EXA_DISCOVERY')=='1'
+    key=api_keys.get('exa') if api_keys is not None else os.environ.get('EXA_API_KEY')
+    if settings is not None and (not enabled or not key):
+        raise ValueError('Exa operator capability or request credential unavailable')
+    if not enabled or not key:
         return None
     from mira.discovery import ExaDiscovery, ExaHTTP
     domains = set()
@@ -39,26 +51,34 @@ def discovery_from_env(sources):
         domains.update(host for host in selected if isinstance(host,str) and host in approved)
     if not domains:
         return None
-    return ExaDiscovery(search=ExaHTTP(os.environ["EXA_API_KEY"], domains=sorted(domains)))
+    search=ExaHTTP(key,domains=sorted(domains))
+    if generation_budget is not None:
+        from mira.generation import GenerationSearch
+        search=GenerationSearch(search,generation_budget)
+    return ExaDiscovery(search=search)
 
 
-def browser_from_env():
+def browser_from_env(*,settings=None):
+    if settings is not None and not settings.enable_browser:return None
     if os.environ.get("MIRA_ENABLE_OFFLINE_BROWSER") != "1":
         return None
     from mira.browser_capture import OfflineBrowserCapture
     return OfflineBrowserCapture()
 
 
-def live_browser_from_env(fetcher):
+def live_browser_from_env(fetcher,*,settings=None):
+    if settings is not None and not settings.enable_browser:return None
     if os.environ.get("MIRA_ENABLE_LIVE_BROWSER") != "1":
         return None
     from mira.live_browser import LiveBrowserAcquirer
     return LiveBrowserAcquirer(fetcher)
 
 
-def hybrid_from_env(generation_budget=None):
+def hybrid_from_env(generation_budget=None,*,settings=None,api_keys=None):
     """A flag and explicit vector identity are required; a key alone enables nothing."""
+    if settings is not None and settings.retrieval!='hybrid':return None
     if os.environ.get("MIRA_ENABLE_HYBRID_RETRIEVAL") != "1":
+        if settings is not None:raise ValueError('Hybrid operator capability unavailable')
         return None
     from mira.hybrid import EmbeddingIdentity, HybridLimits, OpenAIEmbedder
     from mira.hybrid_runtime import HybridRetriever
@@ -75,7 +95,11 @@ def hybrid_from_env(generation_budget=None):
         timeout_seconds=float(os.environ.get('MIRA_HYBRID_TIMEOUT_SECONDS','20')),
         result_limit=int(os.environ.get('MIRA_HYBRID_RESULT_LIMIT','20')),
         max_index_batches=int(os.environ.get('MIRA_HYBRID_MAX_INDEX_BATCHES','4')))
-    embedder=OpenAIEmbedder(OpenAI(max_retries=0),identity,reserved_tokens=limits.max_tokens)
+    if api_keys is not None:
+        if not api_keys.get('openai'):raise ValueError('Embedding request credential unavailable')
+        provider=SimpleNamespace(api_key=api_keys['openai'],base_url='https://api.openai.com/v1',organization=None,project=None)
+    else:provider=OpenAI(max_retries=0)
+    embedder=OpenAIEmbedder(provider,identity,reserved_tokens=limits.max_tokens)
     if generation_budget is not None:
         from mira.generation import GenerationEmbedder
         embedder=GenerationEmbedder(embedder,generation_budget)
@@ -103,19 +127,24 @@ def models_from_env() -> dict[str, str]:
     return {role: os.environ.get(var, "") for role, var in ROLE_MODEL_ENV.items()}
 
 
-def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, client: LLMClient | None = None) -> Orchestrator:
+def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, client: LLMClient | None = None,
+                       *,settings=None,api_keys=None,ctx=None) -> Orchestrator:
     client = client or ProviderClient()
     store = PostgresStore(conn)
-    fetcher = Fetcher(AllowList(store.list_sources(workspace)))
-    discovery = discovery_from_env(store.list_sources(workspace))
-    browser = browser_from_env()
-    live_browser = live_browser_from_env(fetcher)
     from mira.generation import GenerationClient
     shared_budget=client.budget if isinstance(client,GenerationClient) else None
+    sources=restrict_sources(store.list_sources(workspace),settings,ctx.brief.jurisdictions if ctx else [])
+    fetcher = Fetcher(AllowList(sources))
+    discovery = discovery_from_env(sources,settings=settings,api_keys=api_keys,generation_budget=shared_budget)
+    browser = browser_from_env(settings=settings)
+    live_browser = live_browser_from_env(fetcher,settings=settings)
+    if settings is not None and settings.enable_browser and browser is None and live_browser is None:
+        raise ValueError('Browser operator capability unavailable')
     scout = WebScout(dsn, client, fetcher, discovery=discovery, browser=browser, live_browser=live_browser,
-                     hybrid=hybrid_from_env(shared_budget))
+                     hybrid=hybrid_from_env(shared_budget,settings=settings,api_keys=api_keys))
     return Orchestrator(store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client),
-                        analysis_limits=AnalysisLimits.from_env(),
+                        analysis_limits=replace(AnalysisLimits.from_env(),max_batches=settings.max_analysis_batches)
+                            if settings else AnalysisLimits.from_env(),
                         corroborator=ClaimCorroborator(conn,client,discovery=discovery,browser=browser,live_browser=live_browser))
 
 
@@ -146,11 +175,119 @@ def execute_run(
     except NotAuthorisedError as exc:
         store.set_run_status(ctx, "failed", f"not run: {exc}")
         return RunOutcome("failed", [str(exc)], None, None)
+    if ctx.research_settings is not None and ctx.research_settings.credential_mode=='byok':
+        return _execute_byok(conn,dsn,ctx,arm=arm,external_client=client)
     build = build_single_agent_orchestrator if arm == "single_agent" else build_orchestrator
     from mira.generation import GenerationBudget,GenerationClient
     if client is None or (not isinstance(client,GenerationClient) and callable(getattr(client,'structured_bounded',None))):
         client=GenerationClient(client or ProviderClient(),GenerationBudget(ctx.budget.max_llm_tokens,ctx.budget.max_run_minutes*60))
+    if ctx.research_settings is not None:
+        if arm!='multi_agent':raise ValueError('Per-request controls require the research console execution path')
+        return build(conn,dsn,ctx.workspace_id,client,settings=ctx.research_settings,ctx=ctx).run(ctx)
     return build(conn, dsn, ctx.workspace_id, client).run(ctx)
+
+
+def _journal_usage(dsn,ctx,snapshot):
+    """Commit admission before dispatch, using an independent worker transaction.
+
+    If a settlement write fails, its previous pending reservation remains durable
+    and is charged as unknown on continuation. No later provider call is admitted.
+    """
+    from mira.db import connect
+    from psycopg.conninfo import make_conninfo
+    from psycopg.types.json import Jsonb
+    value={k:v for k,v in snapshot.items() if k!='spending'}
+    value.update(snapshot['spending'])
+    journal_dsn=make_conninfo(dsn,connect_timeout='5',options='-c statement_timeout=5000 -c lock_timeout=3000')
+    with connect(journal_dsn) as journal,acting_as(journal,ctx.user_id):
+        row=journal.execute("""update public.analysis_runs set retrieval_settings=
+            jsonb_set(retrieval_settings,'{monetary_usage}',%s)
+            where id=%s and workspace_id=%s and created_by=%s
+            returning status,private.has_workspace_role(workspace_id,array['admin','analyst']) allowed""",
+            (Jsonb(value),ctx.analysis_run_id,ctx.workspace_id,ctx.user_id)).fetchone()
+    if row is None:raise ValueError('Usage journal unavailable')
+    if snapshot.get('pending_tokens',0) or any(c['status']=='pending' for c in snapshot['calls']):
+        if row['status']!='running' or not row['allowed']:
+            raise ValueError('Run cancelled or access removed; no further request sent')
+
+
+def _clear_credential_handle(conn,ctx):
+    with acting_as(conn,ctx.user_id):
+        conn.execute("""update public.analysis_runs set retrieval_settings=jsonb_set(retrieval_settings,
+            '{research,credential_handle}','null'::jsonb) where id=%s and workspace_id=%s""",
+            (ctx.analysis_run_id,ctx.workspace_id))
+
+
+def _execute_byok(conn,dsn,ctx,*,arm,external_client=None):
+    from mira.credential_worker import claim_keys
+    from mira.credentials import CredentialError
+    from mira.generation import GenerationBudget,GenerationClient
+    from mira.spending import SpendingLedger
+    store=PostgresStore(conn);keys={};provider=None;budget=None
+    began=time.monotonic()
+    try:
+        settings=ctx.research_settings
+        try:
+            keys=claim_keys(settings.credential_handle,str(ctx.workspace_id),str(ctx.user_id),str(ctx.analysis_run_id),
+                socket_path=os.environ.get('MIRA_BROKER_WORKER_SOCKET',''),
+                capability_path=os.environ.get('MIRA_BROKER_CAPABILITY_PATH',''))
+        except CredentialError:
+            if store.cancel_requested(ctx):return RunOutcome('cancelled',['Run cancelled'],None,None)
+            store.set_run_status(ctx,'queued','Temporary keys expired or unavailable. Attach fresh keys to continue.')
+            return RunOutcome('awaiting_credentials',['Attach fresh temporary keys to continue'],None,None)
+        if store.cancel_requested(ctx):return RunOutcome('cancelled',['Run cancelled'],None,None)
+        if os.environ.get('MIRA_ENABLE_BYOK_RUNS')!='1':raise ValueError('BYOK launch is disabled by the operator')
+        if arm!='multi_agent' or external_client is not None:raise ValueError('Unsupported BYOK execution path')
+        models=models_from_env()
+        if not all(models.values()) or dict(ctx.model_settings or {})!=models:
+            raise ValueError('Queued models differ from the current operator profile; queue a fresh request')
+        required={model.partition(':')[0] for model in models.values()}
+        if settings.enable_exa:required.add('exa')
+        if settings.retrieval=='hybrid':required.add('openai')
+        if not required<=set(keys):raise ValueError('A required temporary provider credential is missing')
+        if ctx.budget.max_cost_usd is None:raise ValueError('A USD cost allowance is required')
+        caps=RunBudget.from_env()
+        if not (1<=ctx.budget.max_fetched_documents<=200 and 0<ctx.budget.max_run_minutes<=240
+                and 0<ctx.budget.max_llm_tokens<=caps.max_llm_tokens
+                and 0<=ctx.budget.max_gap_rounds<=caps.max_gap_rounds):
+            raise ValueError('Requested resource limits exceed worker limits')
+        sources=restrict_sources(store.list_sources(ctx.workspace_id),settings,ctx.brief.jurisdictions)
+        if not sources:raise ValueError('No selected source is currently available')
+        if settings.enable_exa and os.environ.get('MIRA_ENABLE_EXA_DISCOVERY')!='1':raise ValueError('Exa operator capability unavailable')
+        if settings.enable_browser and not any(os.environ.get(k)=='1' for k in ('MIRA_ENABLE_OFFLINE_BROWSER','MIRA_ENABLE_LIVE_BROWSER')):
+            raise ValueError('Browser operator capability unavailable')
+        if settings.retrieval=='hybrid' and os.environ.get('MIRA_ENABLE_HYBRID_RETRIEVAL')!='1':raise ValueError('Hybrid operator capability unavailable')
+        quote=load_price_book(models,embedding_model=os.environ.get('MIRA_EMBEDDING_MODEL') if settings.retrieval=='hybrid' else None,
+                              exa_enabled=settings.enable_exa)
+        old=dict(ctx.resource_usage or {})
+        ledger=SpendingLedger(Decimal(ctx.budget.max_cost_usd),quote,
+            known_usd=Decimal(old.get('known_estimated_usd','0')),
+            unknown_usd=Decimal(old.get('unknown_reserved_usd','0'))+Decimal(old.get('pending_usd','0')))
+        old['elapsed_seconds']=float(old.get('elapsed_seconds',0))+(time.monotonic()-began)
+        budget=GenerationBudget(ctx.budget.max_llm_tokens,ctx.budget.max_run_minutes*60,
+            spending=ledger,models=models,initial_usage=old,on_change=lambda value:_journal_usage(dsn,ctx,value))
+        with acting_as(conn,ctx.user_id):
+            require_role(conn,ctx.workspace_id)
+            started=conn.execute("""update public.analysis_runs set status='running',failure_summary=null,
+                started_at=coalesce(started_at,now()) where id=%s and workspace_id=%s and status in ('queued','running') returning id""",
+                (ctx.analysis_run_id,ctx.workspace_id)).fetchone()
+        if started is None:return RunOutcome('cancelled',['Run no longer available for execution'],None,None)
+        _journal_usage(dsn,ctx,budget.snapshot())
+        provider=ProviderClient(models=models,api_keys=keys)
+        wrapped=GenerationClient(provider,budget)
+        return build_orchestrator(conn,dsn,ctx.workspace_id,wrapped,settings=settings,api_keys=keys,ctx=ctx).run(ctx)
+    except Exception:
+        # Provider/credential exceptions can contain request internals. Persist a safe
+        # operational message rather than exception strings or request bodies.
+        store.set_run_status(ctx,'failed','Request configuration, current prices or usage journal unavailable; no further requests sent.')
+        return RunOutcome('failed',['Request configuration, current prices or usage journal unavailable'],None,None)
+    finally:
+        if budget is not None:
+            try:_journal_usage(dsn,ctx,budget.snapshot())
+            except Exception:pass  # the last durable reservation remains conservative
+        if provider is not None:provider.close()
+        keys.clear()
+        _clear_credential_handle(conn,ctx)
 
 
 def usage_by_role(conn: psycopg.Connection, run_id: UUID) -> list[dict[str, object]]:
@@ -162,5 +299,6 @@ def usage_by_role(conn: psycopg.Connection, run_id: UUID) -> list[dict[str, obje
         (run_id,),
     ).fetchall()
     for row in rows:
-        row["cost_usd"] = round(estimated_cost(row["model"], row["tokens_in"], row["tokens_out"]), 4)
+        cost=estimated_cost(row['model'],row['tokens_in'],row['tokens_out'])
+        row['cost_usd']=round(cost,4) if cost is not None else None
     return rows

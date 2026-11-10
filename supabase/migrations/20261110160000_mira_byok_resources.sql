@@ -1,0 +1,44 @@
+-- Handles are opaque, temporary broker references. Provider credentials never enter PostgreSQL.
+create or replace function public.bind_run_credentials(p_run_id uuid,p_handle text)
+returns void language plpgsql security invoker set search_path = '' as $$
+begin
+ if p_handle is null or p_handle !~ '^[A-Za-z0-9_-]{32,128}$' then
+   raise exception 'invalid credential handle' using errcode='22023';
+ end if;
+ update public.analysis_runs r set retrieval_settings=jsonb_set(r.retrieval_settings,
+   '{research,credential_handle}',to_jsonb(p_handle))
+ where r.id=p_run_id and r.created_by=auth.uid() and r.status='queued'
+   and r.retrieval_settings->'research'->>'credential_mode'='byok'
+   and private.has_workspace_role(r.workspace_id,array['admin','analyst']);
+ if not found then
+   raise exception 'run cannot accept credentials' using errcode='42501';
+ end if;
+end $$;
+revoke all on function public.bind_run_credentials(uuid,text) from public,anon;
+grant execute on function public.bind_run_credentials(uuid,text) to authenticated;
+
+-- The worker journals admission before dispatch. API clients may cancel/approve or bind
+-- fresh leases but cannot forge/refund consumption or enlarge a started allowance.
+create or replace function private.guard_run_resources()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+ if current_setting('role',true) in ('authenticated','anon') then
+   if tg_op='INSERT' then
+     if new.retrieval_settings ? 'monetary_usage' then
+       raise exception 'usage is worker owned' using errcode='42501';
+     end if;
+   else
+     if new.retrieval_settings->'monetary_usage' is distinct from old.retrieval_settings->'monetary_usage' then
+       raise exception 'usage is worker owned' using errcode='42501';
+     end if;
+     if old.retrieval_settings ? 'monetary_usage' and
+       (new.source_limits is distinct from old.source_limits or new.model_settings is distinct from old.model_settings
+        or (new.retrieval_settings->'research')-'credential_handle' is distinct from (old.retrieval_settings->'research')-'credential_handle') then
+       raise exception 'started resource limits are fixed' using errcode='42501';
+     end if;
+   end if;
+ end if;
+ return new;
+end $$;
+create trigger guard_run_resources before insert or update on public.analysis_runs
+for each row execute function private.guard_run_resources();

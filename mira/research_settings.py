@@ -47,3 +47,14 @@ class ResearchSettings:
         value=asdict(self)
         value['source_ids']=list(self.source_ids) if self.source_ids is not None else None
         return value
+
+
+def restrict_sources(sources,settings: ResearchSettings | None,jurisdictions):
+    """Intersect an active workspace allow-list with requested markets and source IDs."""
+    if settings is None:return list(sources)
+    eligible=[s for s in sources if s.jurisdiction_code is None or s.jurisdiction_code in jurisdictions]
+    if settings.source_ids is None:return eligible
+    selected=set(settings.source_ids)
+    if not selected<={str(s.id) for s in eligible}:
+        raise ValueError('Selected source is inactive, unavailable or outside the requested markets')
+    return [s for s in eligible if str(s.id) in selected]
