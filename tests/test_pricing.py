@@ -103,3 +103,52 @@ def test_transport_rejects_arbitrary_urls_and_redirects():
         _fetch('http://127.0.0.1/')
     with pytest.raises(PricingError):
         _NoRedirect().redirect_request(None, None, None, None, None, 'https://example.com')
+
+
+def test_standard_model_cannot_be_taken_from_batch_section():
+    line = '| gpt-5.4-mini | $0.50 | $3.00 | $0.05 |'
+    text = OPENAI.split('Prices per 1M tokens.\nStandard\n### Grouped')[0].replace(line, '') + '\n## Batch\n' + line + '\n'
+    with pytest.raises(PricingError):
+        load_price_book({'a': 'openai:gpt-5.4-mini'}, fetch_text=lambda _: text)
+
+
+def test_model_row_must_belong_to_matching_header_table():
+    line = '| gpt-5.4-mini | $0.50 | $3.00 | $0.05 |'
+    text = OPENAI.replace(line, '| Model | Other | Output | Cached input |\n| --- | --- | --- | --- |\n' + line)
+    with pytest.raises(PricingError):
+        load_price_book({'a': 'openai:gpt-5.4-mini'}, fetch_text=lambda _: text)
+
+
+def test_fetch_slow_drip_has_total_deadline(monkeypatch):
+    import time
+    import mira.pricing as pricing
+
+    # A child which emits bytes forever exercises the real timeout and kill path
+    # without opening a network connection.
+    monkeypatch.setattr(pricing, '_FETCH_WORKER',
+                        "import sys,time\nwhile True:\n sys.stdout.write('x'); sys.stdout.flush(); time.sleep(.01)", raising=False)
+    monkeypatch.setattr(pricing, '_FETCH_DEADLINE_SECONDS', 0.1, raising=False)
+    started = time.monotonic()
+    with pytest.raises(PricingError):
+        pricing._fetch(pricing.OPENAI_URL)
+    assert time.monotonic() - started < 1
+
+
+def test_exa_rows_cannot_cross_html_tables():
+    exa = '''<table><tr><th>Endpoint</th><th>Lite Search</th><th>Auto Search</th><th>Deep Search</th></tr><tr><td>Base price, with up to 10 results (per 1k requests)</td><td>$2</td><td>$6</td><td>$9</td></tr></table><table><tr><td>Cost per additional result above 10 (per 1k requests)</td><td>$1</td><td>$2</td><td>$3</td></tr></table>'''
+    with pytest.raises(PricingError):
+        load_price_book({}, exa_enabled=True, fetch_text=lambda _: exa)
+
+
+def test_fetch_worker_receives_no_secret_environment(monkeypatch):
+    import subprocess
+    import mira.pricing as pricing
+    seen = {}
+    def fake_run(*args, **kwargs):
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(args[0], 0, b'ok')
+    monkeypatch.setenv('MIRA_TEST_SECRET', 'do-not-pass')
+    monkeypatch.setattr(pricing.subprocess, 'run', fake_run)
+    assert pricing._fetch(pricing.EXA_URL) == 'ok'
+    assert set(seen['env']) <= {'PATH'}
+    assert seen['timeout'] == pricing._FETCH_DEADLINE_SECONDS
