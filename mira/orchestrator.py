@@ -24,6 +24,7 @@ re-scouting for unsupported claims (§6.3 step 4), and the re-run diff (M3).
 from __future__ import annotations
 
 import time
+import inspect
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
@@ -111,6 +112,8 @@ class Orchestrator:
         plan_strategy: PlanStrategy | None = None,
         corroborator: Callable | None = None,
         analysis_limits: AnalysisLimits | None = None,
+        max_parallel_analysis: int = 1,
+        max_parallel_checks: int = 1,
     ) -> None:
         self.store = store
         self.analysis_limits = analysis_limits
@@ -121,6 +124,11 @@ class Orchestrator:
         self.clock = clock
         self.now = now
         self.max_parallel_scouts = max_parallel_scouts
+        if any(not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 4
+               for n in (max_parallel_analysis, max_parallel_checks)):
+            raise ValueError('analysis and verification concurrency must be between one and four')
+        self.max_parallel_analysis = max_parallel_analysis
+        self.max_parallel_checks = max_parallel_checks
         # How the first plan is made. The default is the model planner (the multi-agent arm). The single-agent
         # arm passes a code-built plan (mira.single_agent.code_plan), so no planner model is called.
         self.plan_strategy: PlanStrategy = plan_strategy or planner.plan
@@ -263,12 +271,13 @@ class _Run:
         self.store.finish_step(self.ctx, step.id, step.record.model_copy(update={"output_refs": step.output_refs}))
 
     @contextmanager
-    def _step(self, role: AgentRole, *, check_budget: bool = True, **kwargs: object) -> Iterator[_Step]:
+    def _step(self, role: AgentRole, *, check_budget: bool = True, _existing_step: _Step | None = None, **kwargs: object) -> Iterator[_Step]:
         """One recorded step. Checks cancellation and budget first; records failure and re-raises."""
-        self._check_cancel()
-        if check_budget:
-            self.budget.check()
-        step = self._start(role, **kwargs)
+        if _existing_step is None:
+            self._check_cancel()
+            if check_budget:
+                self.budget.check()
+        step = _existing_step or self._start(role, **kwargs)
         try:
             yield step
         except Exception as exc:
@@ -596,78 +605,156 @@ class _Run:
     def _analyse_batches(self) -> None:
         self._load_analysis()
         limits = self.o.analysis_limits
-        plan = plan_batches(list(self.passages.values()), limits)
+        plan = plan_batches(list(self.passages.values()), limits, self.ctx.brief)
         for pid, reason in plan.deferred.items():
             self._defer_analysis([self.passages[pid]], reason)
-        for index, batch in enumerate(plan.batches, 1):
-            self._check_cancel()
-            reservation = analyst.request_reservation(self.ctx.brief, batch, limits.max_output_tokens)
-            if self.budget.remaining_tokens() < reservation + limits.reserve_tokens:
-                self._defer_analysis(list(self.passages.values()), "token_budget")
-                break
-            seconds = self.budget.remaining_minutes()*60 - limits.reserve_seconds
-            if seconds <= 0:
-                self._defer_analysis(list(self.passages.values()), "time_budget")
-                break
-            batch_id = f"B{index}"
-            try:
-                with self._step("analyst", input_refs={"batch_id":batch_id,
-                        "passage_ids":[str(p.id) for p in batch], "reservation_tokens":reservation,
-                        "max_output_tokens":limits.max_output_tokens,
-                        "timeout_seconds":min(seconds,limits.timeout_seconds)}) as step:
-                    self.store.append_analysis_events(self.ctx, [passage_event(p,"attempted",batch_id,step.id) for p in batch])
-                    try:
-                        analysis = analyst.analyse(self.o.client,self.ctx.brief,batch,
+        # Provider work overlaps; starts, dispositions, claims and steps are written
+        # only here, in submission order. All futures join before leaving the phase.
+        with ThreadPoolExecutor(max_workers=self.o.max_parallel_analysis) as pool:
+            index = 0
+            stopped = False
+            while index < len(plan.batches) and not stopped:
+                pending = []
+                reserved = 0
+                stop_reason = None
+                dispatch_error = None
+                try:
+                    for _ in range(self.o.max_parallel_analysis):
+                        if index == len(plan.batches):
+                            break
+                        self._check_cancel()
+                        batch = plan.batches[index]
+                        reservation = analyst.request_reservation(self.ctx.brief, batch, limits.max_output_tokens)
+                        available = self.budget.remaining_tokens() - limits.reserve_tokens - reserved
+                        seconds = self.budget.remaining_minutes()*60 - limits.reserve_seconds
+                        if available < reservation or seconds <= 0:
+                            stopped = True
+                            stop_reason = 'token_budget' if available < reservation else 'time_budget'
+                            break
+                        batch_id = f'B{index+1}'
+                        step = self._start('analyst', input_refs={'batch_id':batch_id,
+                            'passage_ids':[str(p.id) for p in batch], 'reservation_tokens':reservation,
+                            'max_output_tokens':limits.max_output_tokens,
+                            'timeout_seconds':min(seconds,limits.timeout_seconds)})
+                        self.store.append_analysis_events(self.ctx,[passage_event(p,'attempted',batch_id,step.id) for p in batch])
+                        future = pool.submit(analyst.analyse,self.o.client,self.ctx.brief,batch,
                             timeout_seconds=min(seconds,limits.timeout_seconds),max_output_tokens=limits.max_output_tokens,
-                            max_total_tokens=self.budget.remaining_tokens()-limits.reserve_tokens)
-                    except LLMError as exc:
-                        if (not exc.tokens_in and not exc.tokens_out and not exc.reserved_tokens
-                                and exc.request_sent is not False):
-                            self.budget.charge_tokens(reservation,0)
-                            step.output_refs['reserved_tokens'] = reservation
-                        raise
-                    self._used(step,analysis.llm)
-                    claims = namespace_claims(analysis.claims,len(self.claims))
-                    saved = self.store.save_analysis_batch(self.ctx,batch_id,step.id,claims,batch)
-                    self.claims.extend(saved)
-                    self.analysis_terminal.update(p.id for p in batch)
-                    step.output_refs['finding_ids'] = [str(c.finding_id) for c in saved]
-            except (LLMError, ValueError) as exc:
-                self.store.append_analysis_events(self.ctx,[passage_event(p,'failed',batch_id,step.id,type(exc).__name__) for p in batch])
-                self.analysis_terminal.update(p.id for p in batch)
-                self.reasons.append(f"analysis batch {batch_id} failed ({type(exc).__name__}); saved findings were retained")
+                            max_total_tokens=available)
+                        pending.append((batch_id,batch,step,reservation,future))
+                        reserved += reservation
+                        index += 1
+                except Exception as exc:
+                    dispatch_error = exc
+                collection_error = None
+                for batch_id,batch,step,reservation,future in pending:
+                    try:
+                        with self._step('analyst',_existing_step=step):
+                            try:
+                                analysis = future.result()
+                            except LLMError as exc:
+                                if (not exc.tokens_in and not exc.tokens_out and not exc.reserved_tokens
+                                        and exc.request_sent is not False):
+                                    self.budget.charge_tokens(reservation,0)
+                                    step.output_refs['reserved_tokens'] = reservation
+                                raise
+                            self._used(step,analysis.llm)
+                            claims = namespace_claims(analysis.claims,len(self.claims))
+                            saved = self.store.save_analysis_batch(self.ctx,batch_id,step.id,claims,batch)
+                            self.claims.extend(saved)
+                            self.analysis_terminal.update(p.id for p in batch)
+                            step.output_refs['finding_ids'] = [str(c.finding_id) for c in saved]
+                    except (LLMError, ValueError) as exc:
+                        self.store.append_analysis_events(self.ctx,[passage_event(p,'failed',batch_id,step.id,type(exc).__name__) for p in batch])
+                        self.analysis_terminal.update(p.id for p in batch)
+                        self.reasons.append(f'analysis batch {batch_id} failed ({type(exc).__name__}); saved findings were retained')
+                    except Exception as exc:
+                        collection_error = collection_error or exc
+                if dispatch_error or collection_error:
+                    raise dispatch_error or collection_error
+                if stop_reason:
+                    self._defer_analysis(list(self.passages.values()),stop_reason)
+
+    def _verifier_kwargs(self, method, claim, facts=()):
+        kwargs = self._corroboration_kwargs(claim)
+        parameters = inspect.signature(method).parameters
+        if 'brief' in parameters:
+            kwargs['brief'] = self.ctx.brief
+        if 'passages' in parameters and claim.draft.is_inference:
+            ids = {e.passage_id for f in facts for e in f.evidence}
+            kwargs['passages'] = [self.passages[pid] for pid in self.passages if pid in ids]
+        return kwargs
+
+    def _verify_wave(self, claims, *, inference=False):
+        # Checks are independent within a fact wave or an inference dependency
+        # layer. Inputs are captured before dispatch; all persistence is serial.
+        with ThreadPoolExecutor(max_workers=self.o.max_parallel_checks) as pool:
+            for offset in range(0,len(claims),self.o.max_parallel_checks):
+                pending = []
+                wave = claims[offset:offset+self.o.max_parallel_checks]
+                if not inference:
+                    self._corroborate_wave(wave, pool)
+                dispatch_error = None
+                try:
+                    for claim in wave:
+                        self._check_cancel()
+                        self.budget.check()
+                        facts = [self.verified[d] for d in claim.depends_on] if inference else ()
+                        passages = [self.passages[e.passage_id] for e in claim.evidence]
+                        method = self.o.verifier.check_inference if inference else self.o.verifier.check_fact
+                        args = facts if inference else passages
+                        captured = build_verification_input(self.ctx,claim,
+                            {c.finding_id:c for c in self.claims},self.passages,self.corroboration)
+                        kwargs = self._verifier_kwargs(method,claim,facts)
+                        step = self._start('verifier',input_refs={'finding_id':str(claim.finding_id),'attempt':1})
+                        future = pool.submit(method,claim,args,1,**kwargs)
+                        pending.append((claim,passages,step,captured,future))
+                except Exception as exc:
+                    dispatch_error = exc
+                collection_error = None
+                for claim,passages,step,captured,future in pending:
+                    try:
+                        outcome = self._check(claim,1,future.result,started=step,captured=captured)
+                        if not dispatch_error and not collection_error and not inference and outcome is not None and outcome.verdict=='partially_supported':
+                            rewritten = self._rewrite(claim,passages,outcome.checks[-1].reason)
+                            if rewritten is None:
+                                self.unresolved[claim.finding_id]='partially supported; the rewrite failed'
+                                continue
+                            claim = rewritten
+                            self._corroborate(claim)
+                            outcome = self._check(claim,2,lambda:self.o.verifier.check_fact(
+                                claim,passages,2,**self._verifier_kwargs(self.o.verifier.check_fact,claim)))
+                        self._decide(claim,outcome)
+                    except Exception as exc:
+                        collection_error = collection_error or exc
+                if dispatch_error or collection_error:
+                    raise dispatch_error or collection_error
 
     def _verify(self) -> None:
         for claim in self.claims:
-            if claim.draft.finding_type == "audit_question":
-                self.unresolved[claim.finding_id] = "out of scope: audit actions are for the auditor to decide"
-        for claim in self.claims:
-            if not claim.draft.is_inference:
-                self._verify_fact(claim)
-        pending = [claim for claim in self.claims
-                   if claim.draft.is_inference and claim.finding_id not in self.unresolved]
-        progress = True
-        while pending and progress:
-            progress = False
-            for claim in list(pending):
-                if any(dependency in self.unresolved for dependency in claim.depends_on):
-                    self.unresolved[claim.finding_id] = "rests on a claim that was not verified"
-                elif all(dependency in self.verified for dependency in claim.depends_on):
-                    facts = [self.verified[dependency] for dependency in claim.depends_on]
-                    outcome = self._check(claim, 1, lambda: self.o.verifier.check_inference(claim, facts, 1, **self._corroboration_kwargs(claim)))
-                    self._decide(claim, outcome)
-                else:
-                    continue
+            if claim.draft.finding_type == 'audit_question':
+                self.unresolved[claim.finding_id] = 'out of scope: audit actions are for the auditor to decide'
+        facts = [c for c in self.claims if not c.draft.is_inference and c.finding_id not in self.unresolved]
+        self._verify_wave(facts)
+        pending = [c for c in self.claims if c.draft.is_inference and c.finding_id not in self.unresolved]
+        while pending:
+            rejected = [c for c in pending if any(d in self.unresolved for d in c.depends_on)]
+            for claim in rejected:
+                self.unresolved[claim.finding_id]='rests on a claim that was not verified'
                 pending.remove(claim)
-                progress = True
+            ready = [c for c in pending if all(d in self.verified for d in c.depends_on)]
+            if not ready:
+                break
+            self._verify_wave(ready,inference=True)
+            for claim in ready:
+                pending.remove(claim)
         for claim in pending:
-            self.unresolved[claim.finding_id] = "circular dependency between inferences"
+            self.unresolved[claim.finding_id]='circular dependency between inferences'
 
     def _verify_fact(self, claim: StoredClaim) -> None:
         for attempt in (1, 2):
             self._corroborate(claim)
             passages = [self.passages[item.passage_id] for item in claim.evidence]
-            outcome = self._check(claim, attempt, lambda: self.o.verifier.check_fact(claim, passages, attempt, **self._corroboration_kwargs(claim)))
+            outcome = self._check(claim, attempt, lambda: self.o.verifier.check_fact(claim, passages, attempt, **self._verifier_kwargs(self.o.verifier.check_fact,claim)))
             if outcome is None or outcome.verdict != "partially_supported" or attempt == 2:
                 self._decide(claim, outcome)
                 return
@@ -681,6 +768,50 @@ class _Run:
         captured = build_verification_input(self.ctx, claim,
             {c.finding_id:c for c in self.claims}, self.passages, self.corroboration)
         return {"corroboration":captured.corroboration} if captured.corroboration else {}
+
+    def _corroborate_wave(self,claims,pool):
+        prepare = getattr(self.o.corroborator,'prepare_saved',None)
+        if prepare is None or self.o.max_parallel_checks==1:
+            for claim in claims:
+                self._corroborate(claim)
+            return
+        pending=[]
+        dispatch_error=None
+        try:
+            for claim in claims:
+                if any(not e.supporting_quote or e.supporting_quote not in self.passages[e.passage_id].content
+                       for e in claim.evidence):
+                    self._corroborate(claim)
+                    continue
+                self._check_cancel()
+                base=build_verification_input(self.ctx,claim,
+                    {c.finding_id:c for c in self.claims},self.passages).model_dump(mode='json')
+                prepared=prepare(self.ctx,claim,base)
+                if prepared is None:
+                    self._corroborate(claim)
+                    continue
+                step=self._start('verifier',input_refs={'finding_id':str(claim.finding_id),'purpose':'corroboration'})
+                step.tokens_precharged=True
+                pending.append((claim,step,prepared,pool.submit(prepared.evaluate,self.budget)))
+        except Exception as exc:
+            dispatch_error=exc
+        collection_error=None
+        for claim,step,prepared,future in pending:
+            try:
+                with self._step('verifier',_existing_step=step):
+                    result=future.result()
+                    step.tokens_in=result.get('tokens_in',0)
+                    step.tokens_out=result.get('tokens_out',0)
+                    step.model=result.get('model')
+                    step.prompt_version=result.get('prompt_version')
+                    step.output_refs['reserved_tokens']=result.get('reserved_tokens',0)
+                    envelope=prepared.persist(result)
+                    self.corroboration[claim.finding_id]=envelope
+                    step.output_refs.update(assessment_id=envelope['assessment_id'],corroboration_status=result['status'])
+            except Exception as exc:
+                collection_error=collection_error or exc
+        if dispatch_error or collection_error:
+            raise dispatch_error or collection_error
 
     def _corroborate(self, claim):
         if self.o.corroborator is None:
@@ -720,11 +851,11 @@ class _Run:
                                     corroboration_status=assessment["status"],
                                     reserved_tokens=assessment.get("reserved_tokens",0))
 
-    def _check(self, claim: StoredClaim, attempt: int, call: Callable[[], CheckOutcome]) -> CheckOutcome | None:
+    def _check(self, claim: StoredClaim, attempt: int, call: Callable[[], CheckOutcome], *, started=None, captured=None) -> CheckOutcome | None:
         refs = {"finding_id": str(claim.finding_id), "attempt": attempt}
         try:
-            with self._step("verifier", input_refs=refs) as step:
-                checked_input = build_verification_input(
+            with self._step("verifier", input_refs=refs, _existing_step=started) as step:
+                checked_input = captured or build_verification_input(
                     self.ctx, claim, {item.finding_id: item for item in self.claims}, self.passages, self.corroboration,
                 )
                 outcome = call()

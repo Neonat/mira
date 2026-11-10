@@ -192,6 +192,7 @@ class EvidenceWriter:
                         "text_stored": store_text, "links": len(extracted.links), "error": extracted.error,
                         "publication_date_evidence": extracted.published_basis,
                         "extraction_metadata": extraction_metadata, "source_reuse": reuse,
+                        **({"claim_grounding": extraction_metadata["claim_grounding"]} if extraction_metadata.get("claim_grounding") else {}),
                         **(provenance or {}), "acquisition_method": method,
                         "capture_sha256": identity["capture_sha256"], **original_metadata,
                         "extraction_sha256": identity["extraction_sha256"]}),

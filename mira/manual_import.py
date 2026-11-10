@@ -152,6 +152,12 @@ def import_files(
                 extracted.title = item.title
             if item.published:
                 extracted.published = item.published
+                extracted.published_basis = 'manual manifest publication date'
+                grounding = extracted.metadata.setdefault('claim_grounding',{'role':'unknown'})
+                # A date supplied for this imported publication is distinct from
+                # the import timestamp. It still cannot date events on an index.
+                if grounding.get('role') not in ('listing','maintenance'):
+                    grounding.update(date_scope='publication',date_basis=extracted.published_basis)
             saved = writer.save(page, extracted, {"import": "manual", "file_name": item.path.name,
                                                   "ingestion_run_id": str(run_id)})
             error = extracted.error if extracted.status in ("failed", "unsupported") else None

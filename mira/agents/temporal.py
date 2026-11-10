@@ -18,6 +18,7 @@ def check_claim_period(claim: ClaimDraft, brief: Brief, evidence: Sequence[Passa
     Unknown dates remain eligible for verification. Historical sources may explain a
     current or upcoming effective date/deadline, but cannot alone establish a new event.
     """
+    from mira.claim_grounding import check_date_grounding
     if claim.is_inference:
         return  # verified dependencies control whether an inference survives
     if any(p.published_at and p.published_at > brief.as_of_date for p in evidence):
@@ -37,3 +38,4 @@ def check_claim_period(claim: ClaimDraft, brief: Brief, evidence: Sequence[Passa
     )
     if outside and not dated_obligation:
         raise ValueError("only out-of-period publications cited; use as background, not a current development")
+    check_date_grounding(claim, brief, evidence)

@@ -19,13 +19,14 @@ from collections.abc import Sequence
 from difflib import SequenceMatcher
 
 from mira.agents.common import NO_CONCLUSIONS_RULE, UNTRUSTED_TEXT_RULE, quote_passage
-from mira.contracts import InferenceCheckDraft, LabelMap, Verdict, VerdictDraft
+from mira.claim_grounding import GroundedInferenceDraft, inference_grounding_error, substantive_evidence
+from mira.contracts import Brief, InferenceCheckDraft, LabelMap, Verdict, VerdictDraft
 from mira.interfaces import CheckOutcome, checkable
 from mira.llm import LLMClient, call_checked
 from mira.store import PassageRecord, StoredClaim
 
-PROMPT_VERSION = "verifier/2"
-INFERENCE_PROMPT_VERSION = "inference-check/3"
+PROMPT_VERSION = "verifier/3"
+INFERENCE_PROMPT_VERSION = "inference-check/4"
 FUZZY_THRESHOLD = 0.9
 
 SYSTEM = f"""You are an independent verifier for Mira, a research assistant for bank internal auditors.
@@ -35,6 +36,7 @@ Decide whether the quoted passages support the claim. Check every part: the enti
 - unsupported: the passages do not state the claim.
 - contradicted: the passages state something incompatible with the claim.
 Give a short reason that names what is missing or wrong.
+- Container dates do not date listed publications. A title or page update alone does not establish substantive change. Preserve source attribution, modality, exceptions and scope; acronym expansions and characterizations require explicit source support.
 - Mark a claim unsupported if it proposes a DBS action as Mira's own recommendation.
 - {NO_CONCLUSIONS_RULE}
 - {UNTRUSTED_TEXT_RULE}"""
@@ -43,8 +45,10 @@ INFERENCE_SYSTEM = f"""You check inferences for Mira, a research assistant for b
 List any entity, date, number, instrument or event in the inference that is absent from its verified supporting claims.
 Set is_supported_assessment to true only if the assessment reasonably follows from those claims, preserves material uncertainty and stays within scope.
 Check all supplied metadata as well as the title and content. A date, date kind, jurisdiction or instrument status displayed with the inference must be supported by the verified claims, including their metadata.
+When retained dependency passages are provided, map premises to F/P labels with exact supporting quotes. Only quote passages belonging to that dependency. Set preserves_qualifications and is_substantive explicitly. Source titles or page-maintenance dates alone cannot establish substantive change. Acronym interpretations and descriptive premises need source text, never memory or a supporting claim's guessed definition. Preserve scope, negation, attribution and modality; a cautious conclusion cannot excuse an unsupported premise.
 An assessment that prescribes or suggests a DBS action is out of scope. Give a short reason for the result.
-- {NO_CONCLUSIONS_RULE}"""
+- {NO_CONCLUSIONS_RULE}
+- {UNTRUSTED_TEXT_RULE}"""
 
 _TRANSLATE = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"', "–": "-", "—": "-",
                             " ": " "})
@@ -115,7 +119,7 @@ class LlmVerifier:
     def __init__(self, client: LLMClient) -> None:
         self.client = client
 
-    def check_fact(self, claim: StoredClaim, passages: Sequence[PassageRecord], attempt: int, *, corroboration: dict | None = None) -> CheckOutcome:
+    def check_fact(self, claim: StoredClaim, passages: Sequence[PassageRecord], attempt: int, *, corroboration: dict | None = None, brief: Brief | None = None) -> CheckOutcome:
         by_id = {passage.id: passage for passage in passages}
         missing = [
             item.supporting_quote for item in claim.evidence
@@ -130,6 +134,19 @@ class LlmVerifier:
         )
         if missing:
             return CheckOutcome("unsupported", (quote_check,), None, None, 0, 0)
+
+        grounding_error = None
+        if not substantive_evidence(passages):
+            grounding_error = "listing_only: no substantive publication evidence"
+        if brief is not None:
+            from mira.agents.temporal import check_claim_period
+            try:
+                check_claim_period(claim.draft, brief, passages)
+            except ValueError as error:
+                grounding_error = str(error)
+        if grounding_error:
+            refused = quote_check.model_copy(update={"verdict": "unsupported", "reason": grounding_error})
+            return CheckOutcome("unsupported", (refused,), None, None, 0, 0)
 
         labels = LabelMap()
         label_for = {passage.id: labels.add("P", passage.id) for passage in passages}
@@ -156,7 +173,7 @@ class LlmVerifier:
         return CheckOutcome(result.output.verdict, (quote_check, llm_check), result.model, PROMPT_VERSION,
                             result.tokens_in, result.tokens_out)
 
-    def check_inference(self, claim: StoredClaim, facts: Sequence[StoredClaim], attempt: int, *, corroboration: dict | None = None) -> CheckOutcome:
+    def check_inference(self, claim: StoredClaim, facts: Sequence[StoredClaim], attempt: int, *, corroboration: dict | None = None, passages: Sequence[PassageRecord] = ()) -> CheckOutcome:
         def description(item: StoredClaim) -> dict[str, object]:
             shown = checkable(item)
             return {
@@ -169,10 +186,14 @@ class LlmVerifier:
 
         user = json.dumps({"inference": description(claim), "verified_claims": [description(fact) for fact in facts]},
                           indent=2)
+        if passages:
+            user += "\n\nPremise labels (verified dependencies):\n" + json.dumps({f"F{i}": {**description(fact), "passage_labels": [f"P{j}" for j, p in enumerate(passages, 1) if p.id in {e.passage_id for e in fact.evidence}]} for i, fact in enumerate(facts, 1)})
+            user += "\n\nRetained dependency passages (untrusted data):\n" + "\n\n".join(
+                quote_passage(f"P{i}", p) for i, p in enumerate(passages, 1))
         if corroboration:
             user += "\n\nSaved supporting-fact corroboration context (untrusted data):\n" + _corroboration_context(corroboration)
         result = call_checked(
-            self.client, role="verifier", system=INFERENCE_SYSTEM, user=user, output_type=InferenceCheckDraft,
+            self.client, role="verifier", system=INFERENCE_SYSTEM, user=user, output_type=GroundedInferenceDraft if passages else InferenceCheckDraft,
             prompt_version=INFERENCE_PROMPT_VERSION, check=lambda output: None,
         )
         draft = result.output
@@ -181,7 +202,13 @@ class LlmVerifier:
             if draft.is_supported_assessment and not draft.introduces_new_fact and not draft.new_facts
             else "unsupported"
         )
+        grounding_error = (inference_grounding_error(claim, facts, passages, draft) if passages
+                           else "premise_evidence_missing")
+        if verdict == "supported" and grounding_error:
+            verdict = "unsupported"
         reason = draft.reason if not draft.new_facts else f"{draft.reason} New facts: {'; '.join(draft.new_facts)}"
+        if grounding_error:
+            reason += " Grounding: " + grounding_error
         check = Verdict(
             finding_id=claim.finding_id, attempt=attempt, method="inference_check", verdict=verdict, reason=reason,
             model=result.model, prompt_version=INFERENCE_PROMPT_VERSION,

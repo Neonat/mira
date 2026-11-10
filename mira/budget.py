@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import time
+import threading
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from decimal import Decimal,InvalidOperation
@@ -65,12 +66,15 @@ class BudgetTracker:
         self._started = clock()
         self.tokens_used = 0
         self.documents_fetched = 0
+        self._lock = threading.RLock()
 
     def charge_tokens(self, tokens_in: int | None, tokens_out: int | None) -> None:
-        self.tokens_used += (tokens_in or 0) + (tokens_out or 0)
+        with self._lock:
+            self.tokens_used += (tokens_in or 0) + (tokens_out or 0)
 
     def charge_documents(self, count: int) -> None:
-        self.documents_fetched += count
+        with self._lock:
+            self.documents_fetched += count
 
     def remaining_documents(self) -> int:
         return max(0, self.budget.max_fetched_documents - self.documents_fetched)

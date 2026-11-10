@@ -34,7 +34,7 @@ def test_scout_unknown_reservations_are_not_lost():
 
 def test_analysis_defaults_bound_per_call_work():
     limits=AnalysisLimits()
-    assert (limits.max_passages,limits.max_characters,limits.timeout_seconds)==(3,4500,180)
+    assert (limits.max_passages,limits.max_characters,limits.timeout_seconds)==(8,12000,180)
 
 
 def test_scout_selected_passage_precedes_bulk_version_expansion():

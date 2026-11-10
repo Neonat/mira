@@ -143,6 +143,7 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
     scout = WebScout(dsn, client, fetcher, discovery=discovery, browser=browser, live_browser=live_browser,
                      hybrid=hybrid_from_env(shared_budget,settings=settings,api_keys=api_keys))
     return Orchestrator(store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client),
+                        max_parallel_analysis=4,max_parallel_checks=4,
                         analysis_limits=replace(AnalysisLimits.from_env(),max_batches=settings.max_analysis_batches)
                             if settings else AnalysisLimits.from_env(),
                         corroborator=ClaimCorroborator(conn,client,discovery=discovery,browser=browser,live_browser=live_browser))

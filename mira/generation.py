@@ -61,7 +61,7 @@ class GenerationBudget:
         if role=='writer':return 0
         if role in ('planner','regulatory_scout','industry_scout','experimental_hybrid'):
             return min(360,self.max_seconds/3)
-        return min(120,self.max_seconds/5)
+        return min(120,self.max_seconds/10)
 
     def _publish(self):
         if self.on_change is not None:

@@ -1,3 +1,5 @@
+> Current Hong Kong quality/latency repair: [implementation and acceptance](hk-quality-and-latency.md). Older dated checkpoints below remain historical evidence.
+
 # Agent handoffs
 
 This directory coordinates parallel engineering work. It is not a change to Mira's runtime agent architecture. Use a fresh task/fork without chat history; include only the task, ownership boundary, and this checkpoint. Do not ask workers to reread historic chat.

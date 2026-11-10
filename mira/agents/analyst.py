@@ -19,8 +19,8 @@ from mira.contracts import AnalystOutput, Brief, ClaimCitation, ClaimDraft, Labe
 from mira.llm import LLMClient, LLMError, LLMOutputError, LLMResult, call_checked, request_token_reservation
 from mira.store import ClaimEvidence, NewClaim, PassageRecord, StoredClaim
 
-PROMPT_VERSION = "analyst/3"
-REWRITE_PROMPT_VERSION = "analyst-rewrite/3"
+PROMPT_VERSION = "analyst/4"
+REWRITE_PROMPT_VERSION = "analyst-rewrite/4"
 
 FINDING_TYPES = """Factual claims (is_inference false, cite at least one passage, depends_on empty):
 - obligation_summary: plain-language summary of a new, amended or upcoming rule or guideline; set change_type.
@@ -40,6 +40,8 @@ Rules:
 - Each citation's supporting_quote must be copied word for word from the cited passage, and be short.
 - Cover each distinct, relevant development evidenced by the passages. Combine duplicate accounts of the same point.
 - Explain what changed, who issued it or was affected, and the operative details and qualifications when supported. Preserve distinctions between proposed rules, guidance, and binding obligations. Distinguish publication, effective, consultation and event dates.
+- Listing/index/page-maintenance evidence is a discovery lead, not a substantive finding. Prefer the linked publication body. Never use a container update to date its listed events. Unknown dates cannot establish recency.
+- Acronyms keep their source meaning; do not expand or characterize them without explicit source text. Preserve material attribution, modality, exceptions and scope in both facts and inferences.
 - An inference must explain how its cited facts support the assessment and preserve material uncertainty. Describe peer or regulator developments and their relevance without proposing an audit action.
 - Rate the urgency of the external development separately from evidence_confidence (how well the passages support the claim), each with a reason.
 - Cite passages only by the labels given (P1, P2). Label claims C1, C2 and so on.

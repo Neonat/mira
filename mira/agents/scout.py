@@ -497,6 +497,12 @@ class _ScoutRun:
         if extracted.published is None and link is not None and link.published and link.date_source:
             extracted.published = link.published
             extracted.published_basis = link.date_source
+            grounding = extracted.metadata.get("claim_grounding")
+            native_basis = (link.date_source.startswith("publication date in enclosing table/list record at ")
+                            or link.date_source in {"SFC public publication listing", "SFC public conclusions listing"})
+            if (page.kind == "pdf" and isinstance(grounding, dict) and grounding.get("role") == "publication"
+                    and native_basis and document_key(link.url) == document_key(page.requested_url)):
+                grounding.update(date_scope="publication", date_basis=link.date_source)
         saved = (self.writer.save(page,extracted,provenance,deadline=deadline) if deadline is not None
                  else self.writer.save(page,extracted,provenance))
         self.log.append(FetchAttempt(
@@ -737,6 +743,53 @@ class _ScoutRun:
         fresh.sort(key=lambda link: (link.published is None,
                                      -len(terms & _terms(link.text + " " + link.context)),
                                      -(link.published.toordinal() if link.published else 0)))
+        # A dated publisher record with a topic-bearing publication title is a
+        # stronger acquisition candidate than another navigation page. Only
+        # use dates attached by recognised native record extractors; provider
+        # search snippets and inferred page dates do not qualify.
+        native = []
+        topic_terms = _terms(self.task.question)
+        publication_words = {"circular", "notice", "statement", "guideline", "guidance", "enforcement",
+                             "consultation", "policy", "action", "review", "report", "amendment"}
+        navigation_words = {"archive", "index", "navigation", "feed", "search", "faq"}
+        for link in fresh:
+            origin = self.origins.get(id(link), (link, {}))[1]
+            basis = link.date_source or ""
+            native_date = (basis.startswith("publication date in enclosing table/list record at ")
+                           or basis in {"SFC public publication listing", "SFC public conclusions listing"})
+            title_terms = _terms(link.text)
+            if (link.published and brief.period_start <= link.published <= brief.as_of_date
+                    and native_date and origin.get("request_url") not in (None, "discovery")
+                    and len(topic_terms & title_terms) >= 2
+                    and publication_words & title_terms and not navigation_words & title_terms):
+                native.append(link)
+        if native:
+            capacity = min(self.scout.links_per_round, self.allowance)
+            if rounds_left > 1 and self.allowance > 1:
+                capacity = min(capacity, (self.allowance + rounds_left - 1) // rounds_left)
+            chosen = native[:capacity]
+            self.candidates.extend(link for link in fresh if link not in chosen)
+            self.prior_selections.extend(chosen)
+            reserved = self.allowance - capacity
+            diagnostic["deterministic_selected"] = []
+            for index, link in enumerate(chosen):
+                item = {"rank": index + 1, "url": _safe_url(link.url),
+                        "date": link.published.isoformat(), "selected": True,
+                        "selection_method": "publisher_record",
+                        **self.origins.get(id(link), (link, {}))[1]}
+                diagnostic["deterministic_selected"].append(item)
+                self.deferred_alias_pdfs.discard(link.url)
+                start = len(self.log)
+                before = self.allowance
+                self._fetch_document(link.url, link, reserved=reserved + len(chosen) - index - 1)
+                item["fetch_attempts"] = [
+                    {"url": _safe_url(a.url), "outcome": a.outcome,
+                     "document_version_id": str(a.document_version_id) if a.document_version_id else None}
+                    for a in self.log[start:]]
+                item["fetch_status"] = ("attempted" if len(self.log) > start else
+                                        "allowance_exhausted" if before <= 0 else "not_attempted")
+            diagnostic.update(stop_reason="selected", remaining_allowance=self.allowance)
+            return
         # Round-robin hosts so a large feed cannot crowd other sources out of the prompt.
         groups: dict[str, list[Link]] = {}
         for link in fresh:

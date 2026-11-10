@@ -9,14 +9,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass, fields
 from uuid import UUID
 
-from mira.contracts import ClaimDraft
+from mira.contracts import Brief, ClaimDraft
 from mira.store import NewClaim, PassageRecord
 
 
 @dataclass(frozen=True)
 class AnalysisLimits:
-    max_passages: int = 3
-    max_characters: int = 4500
+    max_passages: int = 8
+    max_characters: int = 12000
     max_batches: int = 8
     max_output_tokens: int = 16384
     timeout_seconds: int = 180
@@ -46,7 +46,42 @@ class BatchPlan:
     deferred: dict[UUID, str]
 
 
-def plan_batches(passages: Sequence[PassageRecord], limits: AnalysisLimits) -> BatchPlan:
+def _navigation_title(title: str) -> bool:
+    """Conservative list-page hint, never a support or eligibility decision."""
+    title = " ".join(re.findall(r"[a-z]+", title.lower()))
+    return bool(re.fullmatch(
+        r"(?:search results|publication index|index of publications|resources|"
+        r"publications|guidance papers (?:and )?circulars|circulars (?:and )?guidance papers|"
+        r"ordinances and statutory guidelines|"
+        r"legal and regulatory requirements)", title))
+
+
+def _navigation_passage(passage: PassageRecord) -> bool:
+    classification = passage.acquisition_provenance.get('claim_grounding')
+    if isinstance(classification, dict):
+        role = classification.get('role')
+        if role in ('listing', 'maintenance'):
+            return True
+        if role == 'publication':
+            return False
+    return _navigation_title(passage.title)
+
+
+def _passage_priority(passage: PassageRecord, brief: Brief) -> tuple[int, int]:
+    # Score binary signals rather than frequency so repeated keywords cannot
+    # crowd out a single operative clause. Titles alone cannot make text topical.
+    topical = bool(re.search(
+        r"\b(?:aml|cft|money laundering|terroris[mt] financ\w*|"
+        r"financing of terrorism|customer due diligence|suspicious transactions?)\b",
+        passage.content, re.I)) if brief.topic == "AML/CFT" else False
+    operative = bool(re.search(
+        r"\b(?:must|shall|requir\w*|prohibit\w*|oblig\w*|penalt\w*|"
+        r"sanction\w*|disciplin\w*|effective|commencement)\b", passage.content, re.I))
+    return (int(topical), int(operative))
+
+
+def plan_batches(passages: Sequence[PassageRecord], limits: AnalysisLimits,
+                 brief: Brief | None = None) -> BatchPlan:
     seen: dict[UUID, PassageRecord] = {}
     sources: dict[UUID, dict[UUID, deque[PassageRecord]]] = {}
     for passage in passages:
@@ -58,12 +93,34 @@ def plan_batches(passages: Sequence[PassageRecord], limits: AnalysisLimits) -> B
         documents = sources.setdefault(passage.source_id, {})
         documents.setdefault(passage.document_id, deque()).append(passage)
 
-    source_queue = deque(deque(documents.values()) for documents in sources.values())
+    # Publications and unknown document kinds go first. Affirmative saved roles
+    # and conservative list-page titles
+    # remain candidates and get truthful capacity dispositions, never exclusions.
+    source_queues = deque()
+    for navigation in (False, True):
+        source_queue = deque()
+        for documents in sources.values():
+            ranked_documents = deque()
+            for document in documents.values():
+                if all(_navigation_passage(p) for p in document) != navigation:
+                    continue
+                ordered = list(document)
+                if brief is not None:
+                    ordered.sort(key=lambda p: _passage_priority(p, brief), reverse=True)
+                ranked_documents.append(deque(ordered))
+            if ranked_documents:
+                source_queue.append(ranked_documents)
+        if source_queue:
+            source_queues.append(source_queue)
     batches: list[list[PassageRecord]] = []
     deferred: dict[UUID, str] = {}
     current_chars = 0
     exhausted = False
-    while source_queue:
+    while source_queues:
+        source_queue = source_queues[0]
+        if not source_queue:
+            source_queues.popleft()
+            continue
         documents = source_queue.popleft()
         document = documents.popleft()
         passage = document.popleft()

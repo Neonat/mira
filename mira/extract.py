@@ -107,6 +107,15 @@ class _HtmlText(HTMLParser):
         self._link_pos = 0
         self.records: list[tuple[int, int]] = []
         self._record_starts: list[tuple[str, int]] = []
+        self.article_published: date | None = None
+        self._article_depth = 0
+        self._article_paragraph_depth = 0
+        self.article_paragraphs: list[str] = []
+        self._paragraph_depth = 0
+        self.paragraphs: list[str] = []
+        self._list_depth = 0
+        self._table_depth = 0
+        self.listing_records: set[tuple[int, int]] = set()
 
     @property
     def length(self) -> int:
@@ -114,6 +123,20 @@ class _HtmlText(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
+        if tag in ("ul", "ol"):
+            self._list_depth += 1
+        if tag == "table":
+            self._table_depth += 1
+        if tag == "article":
+            self._article_depth += 1
+        if tag == "p":
+            self._paragraph_depth += 1
+            self.paragraphs.append("")
+        if tag == "p" and self._article_depth:
+            self._article_paragraph_depth += 1
+            self.article_paragraphs.append("")
+        if tag == "meta" and (values.get("property") or "").lower() == "article:published_time":
+            self.article_published = parse_date(values.get("content") or "")
         if tag in ("tr", "li", "article"):
             self._record_starts.append((tag, self.length))
         if tag in SKIP_TAGS:
@@ -136,12 +159,25 @@ class _HtmlText(HTMLParser):
             self.parts.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "p" and self._paragraph_depth:
+            self._paragraph_depth -= 1
+        if tag == "p" and self._article_paragraph_depth:
+            self._article_paragraph_depth -= 1
+        if tag == "article" and self._article_depth:
+            self._article_depth -= 1
         if tag in ("tr", "li", "article"):
             for index in range(len(self._record_starts) - 1, -1, -1):
                 if self._record_starts[index][0] == tag:
                     _, start = self._record_starts.pop(index)
-                    self.records.append((start, self.length))
+                    record = (start, self.length)
+                    self.records.append(record)
+                    if (tag == "li" and self._list_depth) or (tag == "tr" and self._table_depth):
+                        self.listing_records.add(record)
                     break
+        if tag in ("ul", "ol") and self._list_depth:
+            self._list_depth -= 1
+        if tag == "table" and self._table_depth:
+            self._table_depth -= 1
         if tag in SKIP_TAGS:
             self._skip = max(0, self._skip - 1)
         elif tag in CHROME_TAGS:
@@ -162,6 +198,10 @@ class _HtmlText(HTMLParser):
     def handle_data(self, data: str) -> None:
         if self._in_title:
             self.title += data
+        if self._paragraph_depth and self._href is None and not self._skip and not self._chrome:
+            self.paragraphs[-1] += data
+        if self._article_paragraph_depth and self._href is None and not self._skip and not self._chrome:
+            self.article_paragraphs[-1] += data
         if self._skip:
             return
         if self._in_h1:
@@ -184,6 +224,7 @@ def extract_html(body: bytes, url: str) -> Extracted:
     parser.close()
     raw = "".join(parser.parts)
     links = []
+    dated_records: set[tuple[int, int]] = set()
     seen: set[str] = set()
     for link_url, text, position in parser.links:
         if link_url in seen:
@@ -195,6 +236,8 @@ def extract_html(body: bytes, url: str) -> Extracted:
             context = " ".join(raw[start:end].split())
             dates = {find_date(match.group()) for pattern in DATE_PATTERNS for match in pattern.finditer(context)} - {None}
             published = next(iter(dates)) if len(dates) == 1 else None
+            if published and (start, end) in parser.listing_records:
+                dated_records.add((start, end))
         else:
             context = " ".join(raw[max(0, position - 160): position + len(text) + 160].split())
             published = None
@@ -202,9 +245,22 @@ def extract_html(body: bytes, url: str) -> Extracted:
                           f"publication date in enclosing table/list record at {url}" if published else None))
     text = _tidy(raw)
     title = " ".join((parser.h1 or parser.title or url).split())
+    paragraphs = [" ".join(part.split()) for part in parser.article_paragraphs]
+    substantive_article = (parser.article_published is not None and parser.published == parser.article_published
+                           and sum(len(part) >= 40 for part in paragraphs) >= 2)
+    heading = " ".join((parser.h1 or parser.title).split()).lower()
+    index_heading = bool(re.search(r"\b(?:circulars|notices|ordinances|guidelines|consultations|publications|archive|index|disciplinary actions)\b", heading))
+    body_text = " ".join(parser.paragraphs)
+    substantive_body = (any(len(" ".join(p.split())) >= 80 for p in parser.paragraphs)
+                        or bool(re.search(r"\b(?:must|shall|required|requires|should)\b", body_text, re.IGNORECASE)))
+    listing = len(dated_records) >= 2 and index_heading and not substantive_body and not substantive_article
+    basis = f"publication meta tag in {url}" if parser.published else None
+    grounding = {"role": "publication" if substantive_article else "listing" if listing else "unknown",
+                 "date_scope": "publication" if substantive_article else "container" if listing else "unknown",
+                 "date_basis": basis if substantive_article or listing else None}
     return Extracted(title=title, status="complete" if text else "partial", pages=[text] if text else [],
-                     links=links, published=parser.published,
-                     published_basis=f"publication meta tag in {url}" if parser.published else None)
+                     links=links, published=parser.published, published_basis=basis,
+                     metadata={"claim_grounding": grounding})
 
 
 def _decode(body: bytes) -> str:
@@ -246,7 +302,9 @@ def extract_pdf(body: bytes, url: str) -> Extracted:
         if len(set(dates)) == 1:
             published = find_date(dates[0])
             basis = f"HKMA circular header: {dates[0]}" if published else None
-    return Extracted(title=title, status=status, pages=pages, published=published, published_basis=basis)
+    return Extracted(title=title, status=status, pages=pages, published=published, published_basis=basis,
+                     metadata={"claim_grounding": {"role": "publication",
+                         "date_scope": "publication" if published else "unknown", "date_basis": basis}})
 
 
 # --- RSS / Atom ------------------------------------------------------------------
@@ -274,7 +332,8 @@ def extract_feed(body: bytes, url: str) -> Extracted:
             links.append(Link(urljoin(url, link_url), entry_title, "", published,
                               f"Atom published in {url}" if published else None))
     text = "\n".join(f"{link.published or ''} {link.text}".strip() for link in links)
-    return Extracted(title=title, status="complete", pages=[text] if text else [], links=links)
+    return Extracted(title=title, status="complete", pages=[text] if text else [], links=links,
+                     metadata={"claim_grounding": {"role": "listing", "date_scope": "container", "date_basis": None}})
 
 
 # --- Dates and passages ----------------------------------------------------------
@@ -321,7 +380,8 @@ def extract_sfc_json(body: bytes, url: str) -> Extracted:
             query["pageNo"] = str(page_number + 1)
             links.append(Link(parts._replace(query=urlencode(query)).geturl(), "Next SFC publication results", kind))
         # An index supplies discovery links, while claims cite the full publications.
-        return Extracted(title=f"SFC {kind} publication index", status="complete", pages=[], links=links)
+        return Extracted(title=f"SFC {kind} publication index", status="complete", pages=[], links=links,
+                         metadata={"claim_grounding": {"role": "listing", "date_scope": "container", "date_basis": None}})
     title = str(data.get("title") or url)
     html = data.get("html")
     if not isinstance(html, str) or not html.strip():
@@ -330,6 +390,8 @@ def extract_sfc_json(body: bytes, url: str) -> Extracted:
     date_field = "releasedDate" if data.get("releasedDate") else "issueDate"
     result.published = parse_date(data.get(date_field) or "")
     result.published_basis = f"SFC public API {date_field}" if result.published else None
+    result.metadata["claim_grounding"] = {"role": "publication",
+        "date_scope": "publication" if result.published else "unknown", "date_basis": result.published_basis}
     return result
 
 MONTHS = {m: i for i, m in enumerate(
