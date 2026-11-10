@@ -131,8 +131,8 @@ def analyst(prompt):
 
 def writer(prompt):
     cited = re.findall(r"^(C\d+) \[", prompt, re.M)
-    sections = [{"section": "executive_summary", "sentences": [{"text": "HKMA issued guidance.", "claim_labels": cited, "structural": False}], "no_verified_items": False}]
-    sections += [{"section": key, "sentences": [], "no_verified_items": True} for key in (
+    sections = [{"section": "executive_summary", "groups": [cited]}]
+    sections += [{"section": key, "groups": []} for key in (
         "regulatory_developments", "deadlines_timeline", "jurisdiction_comparison", "supervisory_trends",
         "industry_developments", "impact_assessment")]
     return {"sections": sections}

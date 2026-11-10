@@ -259,7 +259,7 @@ def test_normal_factory_enables_batch_coverage_and_keeps_comparison_legacy(conn,
     from mira.runner import build_orchestrator, build_single_agent_orchestrator
     from mira.llm import ScriptedClient
     worker=build_orchestrator(conn,os.environ['MIRA_TEST_DATABASE_URL'],ledger['ws'],ScriptedClient({}))
-    assert worker.analysis_limits.max_passages==6
+    assert worker.analysis_limits.max_passages==3
     worker.corroborator.close()
     comparison=build_single_agent_orchestrator(conn,os.environ['MIRA_TEST_DATABASE_URL'],ledger['ws'],ScriptedClient({}))
     assert comparison.analysis_limits is None

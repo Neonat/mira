@@ -272,6 +272,7 @@ class _Run:
                 step.tokens_in += exc.tokens_in
                 step.tokens_out += exc.tokens_out
                 step.output_refs['provider_request_sent']=exc.request_sent
+                if exc.validation_issues:step.output_refs['validation_issues']=list(exc.validation_issues)
                 if exc.reserved_tokens and not step.tokens_precharged and not step.output_refs.get('reserved_tokens'):
                     self.budget.charge_tokens(exc.reserved_tokens,0)
                     step.output_refs['reserved_tokens']=exc.reserved_tokens
@@ -607,7 +608,8 @@ class _Run:
                     self.store.append_analysis_events(self.ctx, [passage_event(p,"attempted",batch_id,step.id) for p in batch])
                     try:
                         analysis = analyst.analyse(self.o.client,self.ctx.brief,batch,
-                            timeout_seconds=min(seconds,limits.timeout_seconds),max_output_tokens=limits.max_output_tokens)
+                            timeout_seconds=min(seconds,limits.timeout_seconds),max_output_tokens=limits.max_output_tokens,
+                            max_total_tokens=self.budget.remaining_tokens()-limits.reserve_tokens)
                     except LLMError as exc:
                         if (not exc.tokens_in and not exc.tokens_out and not exc.reserved_tokens
                                 and exc.request_sent is not False):

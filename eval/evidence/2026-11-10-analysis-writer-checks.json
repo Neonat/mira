@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-10",
+  "base_sha": "bd6db19fdc06b5ce1d65cb79e5ead6a8728381d1",
+  "kind": "integrated automated validation; no paid API execution",
+  "command": "pytest tests eval -q -p no:cacheprovider --tb=short",
+  "result": {
+    "passed": 1100,
+    "subtests_passed": 8,
+    "skipped": 0,
+    "seconds": 64.94,
+    "exit_code": 0
+  },
+  "services": [
+    "local PostgreSQL",
+    "actual Chromium fixtures"
+  ],
+  "log_sha256": "62c174a279017d47bb822e9ad819366670e097689a92a02e594b43d4ec9badcf",
+  "log_bytes": 1323,
+  "constraints": {
+    "MAS": "disabled",
+    "Malaysia_DFSA": "disabled",
+    "hybrid": "experimental",
+    "role_model_effort_changes": false,
+    "historical_report_changes": false,
+    "live_generation_rechecked": false
+  },
+  "review": "independent focused review; no blockers"
+}

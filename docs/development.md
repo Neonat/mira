@@ -12,6 +12,8 @@ cp .env.example .env
 
 Configure the ignored `.env` with local connection settings, provider credentials and the agreed run allowances. Keep keys out of reports, logs and Git. The authenticated app uses Supabase Auth and workspace-scoped access; provider and worker database credentials stay on the worker side.
 
+The sign-in password belongs to a Supabase Auth user, separately from the Supabase dashboard login, database password and API keys. `MIRA_DEV_EMAIL` only prefills the email field; it does not create a user or password. Provision the user and workspace membership through the operator's existing Auth setup, using an invitation or a configured [password-reset flow](https://supabase.com/docs/guides/auth/passwords). Existing passwords cannot be retrieved. The current app provides sign-in only, so invitations/reset links and their redirect handling must be configured separately for the intended local or hosted Auth instance.
+
 For a new local workspace, initialise the source catalog, then start the worker and app in separate terminals:
 
 ```sh
@@ -23,6 +25,10 @@ For a new local workspace, initialise the source catalog, then start the worker 
 The source curator must retain workspace-specific permissions when refreshing defaults. **Keep MAS inactive for the current demo/validation configuration.** Manual imports require permission to retain the evidence; importing a document does not grant that permission. See [manual ingestion](../data/manual/README.md).
 
 The separate local staging workbench is `streamlit run app.py`; it does not automatically publish evidence to Supabase. `MIRA_WORKSPACE_SLUG` selects the authenticated app's workspace and does not start a worker.
+
+The client form accepts AML/CFT, controlled SG/HK/AU/AE choices (AE federal only), a 12–24-month lookback, an as-of date and document/token limits. It does not expose a free-text question, source/hybrid controls or a plan-approval switch. Queueing creates a run immediately; a trusted worker executes it. Reviewer/admin access remains separate from analyst/admin submission access.
+
+Normal analysis defaults are three whole passages/4,500 content characters per batch, eight batches maximum, 16,384 output tokens and a shared 180-second batch ceiling. One invalid-output correction may fit inside that ceiling and the remaining token allowance; it does not renew either. Explicit environment overrides still apply. A completed empty response means the batch was analysed, not that every fact was extracted. Complete saved text remains intact with explicit deferrals. The writer requests a bounded label plan rather than prose and allows 16,384 output tokens/120 seconds, subject to the shared run ledger. See [follow-up validation](agent-handoffs/analysis-writer-followup.md).
 
 A CLI research run and its usage summary are available when the operator has configured the provider budget:
 

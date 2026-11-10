@@ -65,6 +65,18 @@ def test_verifier_has_bounded_output_headroom_without_changing_model():
     assert result.model=='unchanged'
 
 
+def test_writer_plan_keeps_output_headroom_within_the_shared_budget():
+    from mira.generation import GenerationClient,GenerationBudget
+    from mira.agents.writer import WriterPlan
+    calls=[]
+    def complete(**kw):calls.append(kw);return SimpleNamespace(tokens_in=4,tokens_out=3,model='unchanged')
+    budget=GenerationBudget(600000,1500)
+    GenerationClient(SimpleNamespace(structured_bounded=complete),budget).structured(
+        role='writer',system='s',user='u',output_type=WriterPlan,prompt_version='test')
+    assert calls[0]['max_output_tokens']==16384 and calls[0]['timeout_seconds']==120
+    assert budget.snapshot()['known_tokens']==7
+
+
 def test_error_journal_keeps_split_usage_when_step_persistence_is_lost():
     from mira.generation import GenerationClient,GenerationBudget
     from mira.contracts import LinkSelection

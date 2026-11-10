@@ -30,8 +30,8 @@ def claim(label, *, depends=(), evidence=()):
 
 def test_limits_defaults_and_validation(monkeypatch):
     limits = AnalysisLimits()
-    assert (limits.max_passages, limits.max_characters, limits.max_batches) == (6, 9000, 8)
-    assert (limits.max_output_tokens, limits.timeout_seconds, limits.reserve_tokens, limits.reserve_seconds) == (16384, 120, 32000, 120)
+    assert (limits.max_passages, limits.max_characters, limits.max_batches) == (3, 4500, 8)
+    assert (limits.max_output_tokens, limits.timeout_seconds, limits.reserve_tokens, limits.reserve_seconds) == (16384, 180, 32000, 120)
     with pytest.raises(FrozenInstanceError):
         limits.max_batches = 2
     for field in ("max_passages", "max_characters", "max_batches", "max_output_tokens", "timeout_seconds"):

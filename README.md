@@ -23,9 +23,13 @@ Australia uses Federal Register API metadata and direct publication files, along
 
 Auditors retain ownership of professional judgement, audit actions and sign-off. Mira supplies the sourced developments and contextual risks and trends that support that work.
 
+The current client form offers AML/CFT, controlled market choices, a 12–24-month lookback, an as-of date and document/token allowances. Users sign in through Supabase Auth with workspace access. Research starts from this structured brief; free-text questions and a plan-approval switch are not exposed in the current form.
+
 ## A report designed for auditors
 
 The report brings together regulatory developments, deadlines, supervisory themes, industry developments, contextual insights and an evidence appendix. Each finding carries its saved wording, fact/inference label, supported date and source references.
+
+The writer returns a compact selection and ordering of verified findings. Code renders their complete saved wording and includes omitted findings in their main sections. Bounded analysis uses smaller whole-passage batches and allows one correction of invalid output within the existing time and token allowance.
 
 Corroboration appears in the generated report with its assessment, quotations and origin evidence. Passage analysis tracking and the source coverage checklist give reviewers a clear account of the research performed. Reviewed snapshots preserve the evidence and decisions behind the signed version.
 
@@ -50,7 +54,7 @@ Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External 
 
 ## Validation
 
-The latest integrated engineering validation passed **1,075 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover source/document rotation in bounded analysis, generation deadlines and usage reservations, frozen coverage and review, authenticated original-file access, source navigation, archive hybrid indexing/retrieval, private publication and backup/recovery. The report's coverage layout was also inspected at desktop and mobile sizes.
+The latest integrated engineering validation passed **1,100 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover bounded analysis corrections and compact writer plans, source/document rotation, generation deadlines and usage reservations, frozen coverage and review, authenticated original-file access, source navigation, archive hybrid indexing/retrieval, private publication and backup/recovery. See the [generation follow-up](docs/agent-handoffs/analysis-writer-followup.md) for the tested scope. The report's coverage layout was also inspected at desktop and mobile sizes.
 
 The latest scoped Australia/UAE exercise saved a partial draft through the live pipeline, with continuous database availability and exact usage accounting. Its [validation record](eval/evidence/2026-11-10-au-ae-uninterrupted-validation.md) distinguishes acquisition, verified country coverage, bounded analysis and remaining generation limits. The [previous interrupted run and recovered draft](eval/evidence/2026-11-10-generation-reliability-validation.md) remain preserved separately.
 

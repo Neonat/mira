@@ -85,7 +85,8 @@ class GenerationClient:
     def __init__(self,base,budget:GenerationBudget):self.base=base;self.budget=budget
 
     def structured(self,**kwargs):
-        return self.structured_bounded(timeout_seconds=120,max_output_tokens=8192,**kwargs)
+        return self.structured_bounded(timeout_seconds=120,
+            max_output_tokens=16384 if kwargs['role']=='writer' else 8192,**kwargs)
 
     def structured_bounded(self,*,timeout_seconds,max_output_tokens,**kwargs):
         if not callable(getattr(self.base,'structured_bounded',None)):
