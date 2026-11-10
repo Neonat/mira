@@ -30,3 +30,5 @@ Implement within the approved research-console scope, based on saved run
 Five minutes remains an aspirational demo target: the saved acquisition and
 slowest analysis call alone exceeded it. Ten minutes is the next validation cap,
 not a claim of established performance. No additional paid preflight calls.
+
+Post-observation correction: the one10-minute run failed acceptance. Restored3/4500 defaults and added a120-second useful-window floor plus180-second downstream reserve; native automatic selection now needs subject relevance. Final checks1,360 +8 subtests passed; no paid replacement and no live acceptance claim.

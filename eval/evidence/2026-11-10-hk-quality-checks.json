@@ -3,12 +3,12 @@
   "base_sha": "cece3939941c0b7b016e88f0d066a4655639e2e6",
   "final_integrated_suite": {
     "command": "python -m pytest tests eval -q -p no:cacheprovider",
-    "passed": 1353,
+    "passed": 1360,
     "subtests_passed": 8,
     "failed": 0,
     "errors": 0,
     "skipped": 0,
-    "seconds": 75.32,
+    "seconds": 78.0,
     "local_postgresql": true,
     "actual_chromium": true
   },
@@ -36,5 +36,26 @@
     "Scripted guards and concurrency controls do not establish live semantic accuracy or throughput.",
     "Conservative vocabulary grounding may reject supported paraphrases.",
     "One separately authorized USD10 Hong Kong observation follows offline acceptance; no paid replacement run."
-  ]
+  ],
+  "before_live_integrated_suite": {
+    "command": "python -m pytest tests eval -q -p no:cacheprovider",
+    "passed": 1353,
+    "subtests_passed": 8,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 75.32,
+    "local_postgresql": true,
+    "actual_chromium": true
+  },
+  "post_run_corrections": {
+    "paid_calls": 0,
+    "live_validated": false,
+    "changes": [
+      "Restore 3 passages/4500 content characters while retaining priority and four lanes",
+      "Minimum useful analysis window120 seconds, clamped to explicit shorter request timeout;180 seconds protected for verification/writer",
+      "Native automatic selection requires subject overlap; publisher/document-kind words and years alone cannot qualify"
+    ],
+    "focused_review": "No blockers; lexical relevance and live throughput remain unvalidated."
+  }
 }

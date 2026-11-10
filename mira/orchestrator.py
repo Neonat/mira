@@ -627,7 +627,7 @@ class _Run:
                         reservation = analyst.request_reservation(self.ctx.brief, batch, limits.max_output_tokens)
                         available = self.budget.remaining_tokens() - limits.reserve_tokens - reserved
                         seconds = self.budget.remaining_minutes()*60 - limits.reserve_seconds
-                        if available < reservation or seconds <= 0:
+                        if available < reservation or seconds < min(limits.minimum_seconds,limits.timeout_seconds):
                             stopped = True
                             stop_reason = 'token_budget' if available < reservation else 'time_budget'
                             break

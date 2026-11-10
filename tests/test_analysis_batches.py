@@ -30,11 +30,11 @@ def claim(label, *, depends=(), evidence=()):
 
 def test_limits_defaults_and_validation(monkeypatch):
     limits = AnalysisLimits()
-    assert (limits.max_passages, limits.max_characters, limits.max_batches) == (8, 12000, 8)
-    assert (limits.max_output_tokens, limits.timeout_seconds, limits.reserve_tokens, limits.reserve_seconds) == (16384, 180, 32000, 120)
+    assert (limits.max_passages, limits.max_characters, limits.max_batches) == (3, 4500, 8)
+    assert (limits.max_output_tokens, limits.timeout_seconds, limits.minimum_seconds, limits.reserve_tokens, limits.reserve_seconds) == (16384, 180, 120, 32000, 180)
     with pytest.raises(FrozenInstanceError):
         limits.max_batches = 2
-    for field in ("max_passages", "max_characters", "max_batches", "max_output_tokens", "timeout_seconds"):
+    for field in ("max_passages", "max_characters", "max_batches", "max_output_tokens", "timeout_seconds", "minimum_seconds"):
         with pytest.raises(ValueError):
             AnalysisLimits(**{field: 0})
     for field in ("reserve_tokens", "reserve_seconds"):
@@ -155,9 +155,9 @@ def test_substantive_index_report_is_not_mistaken_for_navigation():
     assert plan_batches([report, notice], AnalysisLimits(max_passages=1, max_batches=1)).batches == ((report,),)
 
 
-def test_larger_default_batch_keeps_more_whole_passages_with_a_hard_character_bound():
+def test_explicit_larger_batch_keeps_more_whole_passages_with_a_hard_character_bound():
     passages = [passage(n, 'x' * 1400, n) for n in range(1, 10)]
-    plan = plan_batches(passages, AnalysisLimits(max_batches=1))
+    plan = plan_batches(passages, AnalysisLimits(max_passages=8, max_characters=12000, max_batches=1))
     assert len(plan.batches[0]) == 8
     assert sum(len(p.content) for p in plan.batches[0]) == 11200
     assert plan.deferred == {passages[-1].id: 'batch_limit'}
@@ -188,9 +188,9 @@ def test_brief_ranking_is_stable_on_ties_and_does_not_change_whole_passages():
     assert plan_batches([cover, a, b], limits).batches == ((cover, a),)
 
 
-def test_default_character_limit_still_bounds_batches_with_eight_passage_allowance():
+def test_explicit_character_limit_still_bounds_batches_with_eight_passage_allowance():
     items = [passage(n, 'x' * 2000, n) for n in range(1, 9)]
-    plan = plan_batches(items, AnalysisLimits(max_batches=1))
+    plan = plan_batches(items, AnalysisLimits(max_passages=8, max_characters=12000, max_batches=1))
     assert plan.batches == (tuple(items[:6]),)
     assert plan.deferred == {p.id: 'batch_limit' for p in items[6:]}
 
@@ -227,3 +227,25 @@ def test_affirmative_publication_role_takes_precedence_over_title_fallback():
                           acquisition_provenance={'claim_grounding': {'role': 'publication'}})
     other = passage(2, 'Other publication', 2)
     assert plan_batches([publication, other], AnalysisLimits(max_passages=1, max_batches=1)).batches == ((publication,),)
+
+
+def test_minimum_analysis_window_validates_positive_integer_and_accepts_short_operator_ceiling(monkeypatch):
+    # Admission policy (owned by orchestration) clamps this floor to an explicit
+    # shorter timeout; configuration must preserve both values independently.
+    limits = AnalysisLimits(minimum_seconds=120, timeout_seconds=30)
+    assert limits.minimum_seconds == 120
+    assert limits.timeout_seconds == 30
+    for invalid in (0, -1, True, 1.5, '120'):
+        with pytest.raises(ValueError, match='minimum_seconds'):
+            AnalysisLimits(minimum_seconds=invalid)
+    monkeypatch.setenv('MIRA_ANALYSIS_MINIMUM_SECONDS', '75')
+    assert AnalysisLimits.from_env().minimum_seconds == 75
+
+
+def test_default_stable_work_unit_defers_excess_without_dropping_priority():
+    hub = replace(passage(1, 'Links'), title='Unusual category',
+                  acquisition_provenance={'claim_grounding': {'role': 'listing'}})
+    publications = [passage(n, 'x' * 1400, n) for n in range(2, 6)]
+    plan = plan_batches([hub, *publications], AnalysisLimits(max_batches=1))
+    assert plan.batches == (tuple(publications[:3]),)
+    assert plan.deferred == {publications[3].id: 'batch_limit', hub.id: 'batch_limit'}

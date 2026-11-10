@@ -15,13 +15,14 @@ from mira.store import NewClaim, PassageRecord
 
 @dataclass(frozen=True)
 class AnalysisLimits:
-    max_passages: int = 8
-    max_characters: int = 12000
+    max_passages: int = 3
+    max_characters: int = 4500
     max_batches: int = 8
     max_output_tokens: int = 16384
     timeout_seconds: int = 180
+    minimum_seconds: int = 120
     reserve_tokens: int = 32000
-    reserve_seconds: int = 120
+    reserve_seconds: int = 180
 
     def __post_init__(self) -> None:
         for item in fields(self):

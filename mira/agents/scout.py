@@ -752,6 +752,15 @@ class _ScoutRun:
         publication_words = {"circular", "notice", "statement", "guideline", "guidance", "enforcement",
                              "consultation", "policy", "action", "review", "report", "amendment"}
         navigation_words = {"archive", "index", "navigation", "feed", "search", "faq"}
+        # Generic publisher and document-kind vocabulary cannot establish
+        # subject relevance, even if several such words match the task.
+        generic_terms = publication_words | navigation_words | {
+            "sfc", "hkma", "regulator", "regulatory", "authority", "commission",
+            "circulars", "notices", "statements", "guidelines", "actions", "reports",
+            "consultations", "papers", "paper", "news", "releases", "release",
+            "find", "published", "issued", "involving", "including", "licensed",
+            "corporations", "cases", "case", "fine", "fines", "reprimands", "disciplinary",
+        }
         for link in fresh:
             origin = self.origins.get(id(link), (link, {}))[1]
             basis = link.date_source or ""
@@ -761,6 +770,7 @@ class _ScoutRun:
             if (link.published and brief.period_start <= link.published <= brief.as_of_date
                     and native_date and origin.get("request_url") not in (None, "discovery")
                     and len(topic_terms & title_terms) >= 2
+                    and any(not word.isdigit() for word in (topic_terms & title_terms) - generic_terms)
                     and publication_words & title_terms and not navigation_words & title_terms):
                 native.append(link)
         if native:

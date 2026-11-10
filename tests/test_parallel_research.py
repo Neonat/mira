@@ -134,3 +134,35 @@ def test_ten_minute_run_preserves_one_minute_for_writer():
     from mira.generation import GenerationBudget
     budget=GenerationBudget(600000,600)
     assert budget.protected_seconds('verifier')==60
+
+
+def test_analysis_does_not_spend_with_only_a_short_followup_window(monkeypatch):
+    from mira.budget import BudgetTracker
+    run=setup_run(analysis_limits=AnalysisLimits(max_passages=1),max_parallel_analysis=2)
+    run.ctx=replace(run.ctx,budget=replace(run.ctx.budget,max_run_minutes=200/60))
+    run.budget=BudgetTracker(run.ctx.budget,clock=lambda:0)
+    run.passages={p.id:p for p in PASSAGES[:2]}
+    run.store.append_analysis_events(run.ctx,[passage_event(p,'candidate') for p in run.passages.values()])
+    def refuse(*args,**kwargs):
+        pytest.fail('a 20-second analysis window must not dispatch provider work')
+    monkeypatch.setattr('mira.orchestrator.analyst.analyse',refuse)
+    run._analyse_batches()
+    assert run.store.steps=={}
+    assert run.analysis_terminal==set(run.passages)
+    assert {e.reason for e in run.store.analysis_events if e.status=='deferred'}=={'time_budget'}
+
+
+def test_analysis_respects_a_deliberately_shorter_operator_timeout(monkeypatch):
+    from mira.budget import BudgetTracker
+    run=setup_run(analysis_limits=AnalysisLimits(max_passages=1,timeout_seconds=10),max_parallel_analysis=2)
+    run.ctx=replace(run.ctx,budget=replace(run.ctx.budget,max_run_minutes=200/60))
+    run.budget=BudgetTracker(run.ctx.budget,clock=lambda:0)
+    run.passages={p.id:p for p in PASSAGES[:2]}
+    run.store.append_analysis_events(run.ctx,[passage_event(p,'candidate') for p in run.passages.values()])
+    def analyse(*args,**kwargs):
+        assert kwargs['timeout_seconds']==10
+        return SimpleNamespace(claims=[],llm=SimpleNamespace(model='scripted',prompt_version='parallel/test',tokens_in=3,tokens_out=2))
+    monkeypatch.setattr('mira.orchestrator.analyst.analyse',analyse)
+    run._analyse_batches()
+    assert len(run.analysis_terminal)==2
+    assert all(s.status=='succeeded' for s in run.store.steps.values())

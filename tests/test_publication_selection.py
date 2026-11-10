@@ -191,3 +191,55 @@ def test_reviewers_original_screening_notice_is_not_listing():
       <li>2 May 2025 <a href="/b">Other notice</a></li></ul>''', 'https://example.org/notice')
     assert page.metadata['claim_grounding']['role'] == 'unknown'
     assert page.metadata['claim_grounding']['date_scope'] == 'unknown'
+
+
+def test_enforcement_format_and_publisher_words_alone_cannot_trigger_auto_selection(monkeypatch):
+    from mira.extract import Link
+    scout = WebScout('unused', None, SimpleNamespace(allow=SimpleNamespace(allows=lambda url: True)))
+    task = SimpleNamespace(max_documents=1, max_llm_tokens=None, source_ids=(),
+        question='Find SFC enforcement action and notices involving AML and transaction monitoring', role='regulatory_scout')
+    run = _ScoutRun(scout, None, context(), uuid4(), task)
+    unrelated = Link('https://example.org/unrelated', 'SFC takes action on market manipulation', '',
+                     date(2025, 12, 1), 'SFC public publication listing')
+    run.candidates = [unrelated]
+    run._record_discovery(run.candidates, 'https://example.org/list', uuid4())
+    fetched = []
+    monkeypatch.setattr(run, '_fetch_document', lambda url, link, **kw: fetched.append(url))
+    monkeypatch.setattr(module, 'call_checked', lambda *a, **kw: SimpleNamespace(
+        output=LinkSelection(link_labels=[], notes=None), tokens_in=0, tokens_out=0, model='test'))
+    run._select_and_fetch()
+    assert fetched == []
+    assert not run.selection_diagnostics[-1].get('deterministic_selected')
+
+
+def test_enforcement_action_with_explicit_shared_subject_can_be_auto_selected(monkeypatch):
+    from mira.extract import Link
+    scout = WebScout('unused', None, SimpleNamespace(allow=SimpleNamespace(allows=lambda url: True)))
+    task = SimpleNamespace(max_documents=1, max_llm_tokens=None, source_ids=(),
+        question='Find SFC enforcement action involving AML and transaction monitoring', role='regulatory_scout')
+    run = _ScoutRun(scout, None, context(), uuid4(), task)
+    relevant = Link('https://example.org/relevant', 'SFC enforcement action on transaction monitoring', '',
+                    date(2025, 12, 1), 'SFC public publication listing')
+    run.candidates = [relevant]
+    run._record_discovery(run.candidates, 'https://example.org/list', uuid4())
+    fetched = []
+    monkeypatch.setattr(run, '_fetch_document', lambda url, link, **kw: fetched.append(url))
+    run._select_and_fetch()
+    assert fetched == ['https://example.org/relevant']
+    assert run.selection_diagnostics[-1]['deterministic_selected'][0]['selection_method'] == 'publisher_record'
+
+
+def test_year_overlap_is_not_a_subject_for_auto_selection(monkeypatch):
+    from mira.extract import Link
+    scout = WebScout('unused', None, SimpleNamespace(allow=SimpleNamespace(allows=lambda url: True)))
+    task = SimpleNamespace(max_documents=1, max_llm_tokens=None, source_ids=(),
+        question='Find SFC action involving AML in 2026', role='regulatory_scout')
+    run = _ScoutRun(scout, None, context(), uuid4(), task)
+    run.candidates = [Link('https://example.org/unrelated', 'SFC action in 2026', '', date(2025, 12, 1), 'SFC public publication listing')]
+    run._record_discovery(run.candidates, 'https://example.org/list', uuid4())
+    fetched = []
+    monkeypatch.setattr(run, '_fetch_document', lambda url, link, **kw: fetched.append(url))
+    monkeypatch.setattr(module, 'call_checked', lambda *a, **kw: SimpleNamespace(
+        output=LinkSelection(link_labels=[], notes=None), tokens_in=0, tokens_out=0, model='test'))
+    run._select_and_fetch()
+    assert fetched == []
