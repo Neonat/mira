@@ -52,7 +52,7 @@ Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External 
 
 The latest integrated engineering validation passed **1,075 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover source/document rotation in bounded analysis, generation deadlines and usage reservations, frozen coverage and review, authenticated original-file access, source navigation, archive hybrid indexing/retrieval, private publication and backup/recovery. The report's coverage layout was also inspected at desktop and mobile sizes.
 
-The latest scoped Australia/UAE exercise retained complete extracted evidence and supported findings for both markets. Its [validation record](eval/evidence/2026-11-10-generation-reliability-validation.md) distinguishes the interrupted live run, the recovered peer-review draft and the subsequent offline-tested generation bounds.
+The latest scoped Australia/UAE exercise saved a partial draft through the live pipeline, with continuous database availability and exact usage accounting. Its [validation record](eval/evidence/2026-11-10-au-ae-uninterrupted-validation.md) distinguishes acquisition, verified country coverage, bounded analysis and remaining generation limits. The [previous interrupted run and recovered draft](eval/evidence/2026-11-10-generation-reliability-validation.md) remain preserved separately.
 
 Research evaluation uses scoped publication-recall scoring and human-labelled citation checks. The [evaluation record](docs/mira_PRD_v3_draft.md#7-evaluation-and-release-evidence) documents the measurement method and dated results; the [implementation handoff](docs/agent-handoffs/evidence-completeness.md) records engineering verification.
 
