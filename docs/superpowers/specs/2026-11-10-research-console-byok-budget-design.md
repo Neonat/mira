@@ -1,6 +1,6 @@
 # Mira research console, temporary BYOK and money budgets
 
-Date: 10 November 2026, Asia/Singapore. Base: `96173b65a0a717a669de2f71e4749c75833bb167`, PR13. **Proposed design; not implemented or approved yet.**
+Date: 10 November 2026, Asia/Singapore. Base: `96173b65a0a717a669de2f71e4749c75833bb167`, PR13. **User approved implementation on 10 November 2026**, after explicitly selecting temporary per-request keys. Implementation is in progress.
 
 ## Intent and audience
 
@@ -95,4 +95,4 @@ Evaluate country summaries against their source artifacts and reject mismatched/
 
 Builder may choose small module boundaries, component layout, spacing, labels, pure parsers, defensive message framing and exact internal caps, provided these contracts and source/credential/cost boundaries hold. No new framework, paid subscription, remote deployment, global Codex setting, global role-model/effort change, source grant or historical rewrite. Local SQL migrations, if required for frozen new-report provenance, belong to the coordinator and must pass RLS/evidence tests.
 
-Next step: independent read-only builder check, then user review of this design. Product implementation has not started.
+Independent read-only builder check found no blocking questions. The user approved this design. Next: execute the linked implementation plan with focused checks and final integrated verification.
