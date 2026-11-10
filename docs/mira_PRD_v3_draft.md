@@ -13,6 +13,17 @@ Console validation: **1,272 tests +8 subtests, zero skips**, including local Pos
 
 ## Hong Kong quality and demo latency — 10 November 2026
 
+**User timing clarification:** the demonstration has a maximum wait of five
+minutes; normal research may take substantially longer. Keep the demonstration
+acceptance target separate from user-configurable research time and depth.
+Normal requests already allow 1–240 minutes and 1–64 analysis batches; the default
+time ceiling remains 15 minutes unless configured otherwise. Preserve the USD
+allowance and evidence checks while allowing adequate time for substantive
+coverage. The earlier ten-minute validation was a coordinator-selected test
+bound, not a normal-run product requirement. Five-minute useful fresh generation
+is still an acceptance target, not a measured capability. No new paid run is
+authorized by this clarification.
+
 New report generation distinguishes operative publication dates from container revisions, checks exact inference premises against retained dependency context, and prioritizes dated native publications and substantive passages. Conservative guards cover new captures and recognizable legacy category indexes without changing historical reviewed reports. Independent analysis/checks use at most four lanes under one dollar/token/time allowance; three-passage/4,500-character batches retain explicit deferred coverage. Saved corroboration evaluation can overlap; fresh acquisition remains serial. Role models and source grants stay unchanged. The authorized ten-minute/USD10 observation ended partial at9.1minutes with5/18 acquired and1/18 cited; it failed demo acceptance. The latest smaller-batch and scheduling corrections pass1,360 tests +8 subtests but remain live-unvalidated; no replacement paid run occurred. [Implementation, acceptance and measured follow-up](agent-handoffs/hk-quality-and-latency.md).
 
 ## Generation reliability — 10 November 2026

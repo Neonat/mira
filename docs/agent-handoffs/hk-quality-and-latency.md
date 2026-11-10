@@ -70,3 +70,14 @@ Final post-run integrated checks: **1,360 tests +8 subtests, zero skips,78.00sec
 focused review found no blockers. These latest corrections remain live-unvalidated.
 Five-minute fresh report generation and adequate country/report coverage remain
 unproven; do not use this result as a clean competition demonstration.
+
+## User timing clarification
+
+After this observation, the user specified **five minutes maximum for the demo**,
+while actual research may take substantially longer. Do not apply the demo
+ceiling to normal full-scope research. The existing console supports 1–240 minutes
+and separately 1–64 analysis batches; retain adequate time/depth alongside the
+USD allowance and source restrictions. The ten-minute cap above was the
+coordinator's validation choice, not the user's normal-run requirement. No new
+paid validation follows from this clarification, and a useful five-minute fresh
+report remains unproven.

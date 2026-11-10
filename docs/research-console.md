@@ -2,6 +2,26 @@
 
 Audience: pilot analysts and reviewers using Mira, and the developer operating a local demonstration.
 
+## Demo timing and normal research
+
+The user clarified on 10 November that the demonstration must finish within five
+minutes, while normal research may take substantially longer. These are separate
+acceptance targets. The demo target must not become a blanket timeout for full
+acquisition, passage analysis or verification.
+
+Normal requests already expose **Advanced limits → Maximum run time (minutes)**,
+from 1 to 240 minutes, with a 15-minute default unless configured otherwise.
+Analysis depth is separately selectable from 1 to 64 batches. Choose time and
+depth for the requested scope while preserving the USD allowance, source
+restrictions and truthful coverage. A longer ceiling does not guarantee complete
+coverage. The previous ten-minute HK validation ceiling was a test-specific
+coordinator choice, not a user requirement for normal research.
+
+Useful fresh report generation within five minutes remains unproven. A demo must
+state its source/date scope and whether acquisition or an existing archive was
+used; previously generated output must be identified as such. This timing
+clarification does not authorize another paid validation.
+
 Analysts sign in, choose **Research**, set markets and dates, restrict the approved source set, choose discovery/browser and archive-search options, and set a USD allowance. Advanced controls set documents, active run time and whole-passage analysis batches. **Review research** shows the submitted request and current price units before temporary masked keys are entered. The configured model profile is unchanged. Plan approval is optional; when selected, acquisition waits for review and fresh keys.
 
 **Runs** shows steps, source and passage coverage, known estimated charges, unknown reservations and pending admissions. **Reports & review** retains evidence navigation and finding-level sign-off. New console reports include methods and cost estimates in the coverage appendix. **Country methods** shows approved engineering comparisons separately from workspace evidence. The dedicated local sample is visibly synthetic; its one fact is not a measured Hong Kong result.
