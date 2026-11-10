@@ -106,12 +106,17 @@ def test_research_controls_use_usd_and_approved_sources(monkeypatch):
                 'workspaces': [{'id': 'w', 'name': 'Audit'}],
                 'workspace_members': [{'role': 'analyst'}],
                 'expected_sources': [],
-                'sources': [{'id': 's', 'name': 'Regulator', 'source_type': 'regulator', 'is_active': True}],
+                'sources': [
+                    {'id': 's', 'name': 'HK regulator', 'source_type': 'regulator', 'is_active': True, 'jurisdiction_code': 'HK'},
+                    {'id': 'au', 'name': 'AU regulator', 'source_type': 'regulator', 'is_active': True, 'jurisdiction_code': 'AU'},
+                    {'id': 'ae', 'name': 'AE regulator', 'source_type': 'regulator', 'is_active': True, 'jurisdiction_code': 'AE'},
+                    {'id': 'global', 'name': 'International', 'source_type': 'website', 'is_active': True, 'jurisdiction_code': None}],
             }
             return SimpleNamespace(data=data[self.name])
     class SB:
         def table(self, name): return Query(name)
     monkeypatch.setenv('MIRA_WORKSPACE_SLUG', 'workspace')
+    monkeypatch.setenv('MIRA_ENABLE_HYBRID_RETRIEVAL', '0')
     screen = AppTest.from_file(Path('app/streamlit_app.py').resolve())
     screen.session_state.user_id = 'user'
     screen.session_state.email = 'user@example.test'
@@ -123,6 +128,14 @@ def test_research_controls_use_usd_and_approved_sources(monkeypatch):
     assert 'Max model tokens' not in [x.label for x in screen.number_input]
     assert 'Approved active sources' in [x.label for x in screen.multiselect]
     assert screen.button(key='FormSubmitter:brief-Review research').disabled
+    sources = next(x for x in screen.multiselect if x.label == 'Approved active sources')
+    assert set(sources.value) == {'s', 'global'}
+    assert set(sources.options) == {'HK regulator', 'International'}
+    next(x for x in screen.multiselect if x.label == 'Jurisdictions').set_value(['AU']).run()
+    sources = next(x for x in screen.multiselect if x.label == 'Approved active sources')
+    assert set(sources.value) == {'au', 'global'}
+    assert set(sources.options) == {'AU regulator', 'International'}
+    assert next(x for x in screen.radio if x.label == 'Archive retrieval').disabled
 
 
 def test_cost_details_preserve_unknown_and_pending_estimates():
@@ -226,8 +239,13 @@ def test_country_methods_is_public_and_discloses_unmeasured_comparisons(monkeypa
     screen.run()
     screen.sidebar.radio[0].set_value('Country methods').run()
     assert not screen.exception
-    assert any('Not available' in text.value for text in screen.markdown)
-    assert any('Not tested' in text.value for text in screen.markdown)
+    assert any('Not established' in text.value for text in screen.markdown)
+    assert any(m.label == 'Verified facts' and m.value == '19' for m in screen.metric)
+    archive = screen.dataframe[1].value
+    assert set(archive['Method']) == {'Keyword', 'Hybrid'}
+    assert set(archive['Passages']) == {153}
+    assert set(archive['Indexed']) == {153}
+    assert set(archive['Questions']) == {6}
 
 
 def test_cancel_run_revokes_bound_pending_credentials(monkeypatch):

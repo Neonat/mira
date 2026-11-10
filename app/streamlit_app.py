@@ -73,6 +73,11 @@ def eligible_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [s for s in sources if s.get("is_active") is True]
 
 
+def sources_for_markets(sources: dict[str, dict[str, Any]], markets: list[str]) -> dict[str, dict[str, Any]]:
+    return {source_id: source for source_id, source in sources.items()
+            if not source.get("jurisdiction_code") or str(source["jurisdiction_code"]).strip() in markets}
+
+
 def source_groups(source_ids: list[str], records: list[dict[str, Any]], markets: list[str]) -> dict[str, set[str]]:
     selected = [r for r in records if r.get("is_active") is True and str(r.get("jurisdiction_code", "")).strip() in markets]
     latest = {}
@@ -241,6 +246,7 @@ def queue_rerun(workspace_id: str, user_id: str, previous: dict[str, Any],
 def _review_research(workspace_id: str, user_id: str, source_by_id: dict[str, dict[str, Any]],
                      models: dict[str, str], defaults: RunBudget) -> None:
     pending = st.session_state.pending_research
+    source_by_id = sources_for_markets(source_by_id, pending["jurisdictions"])
     settings = pending["settings"]
     quote_key = (tuple(sorted(models.items())), settings["retrieval"], settings["enable_exa"])
     quote = st.session_state.get("console_quote")
@@ -336,9 +342,10 @@ def new_brief_page(workspace_id: str, user_id: str) -> None:
     browser = st.checkbox("Permitted browser access", disabled=not any(os.environ.get(k) == "1" for k in
                           ("MIRA_ENABLE_LIVE_BROWSER", "MIRA_ENABLE_OFFLINE_BROWSER")),
                           help="Only sources with an existing browser permission can use this method.")
-    retrieval = st.radio("Archive retrieval", ["keyword", "hybrid"], horizontal=True,
+    hybrid_enabled = os.environ.get("MIRA_ENABLE_HYBRID_RETRIEVAL") == "1"
+    retrieval = st.radio("Archive retrieval", ["keyword", "hybrid"] if hybrid_enabled else ["keyword"], horizontal=True,
                          format_func=lambda v: "Hybrid (experimental)" if v == "hybrid" else "Keyword",
-                         disabled=os.environ.get("MIRA_ENABLE_HYBRID_RETRIEVAL") != "1")
+                         disabled=not hybrid_enabled)
     quote_key = (tuple(sorted(models.items())), retrieval, exa)
     if st.button("Check current prices"):
         try:
@@ -370,6 +377,7 @@ def new_brief_page(workspace_id: str, user_id: str) -> None:
                                    format_func=lambda code: MARKET_NAMES.get(code, code))
     categories = rows(client().table("expected_sources").select(
         "source_id,jurisdiction_code,category,list_version,is_active").eq("is_active", True))
+    source_by_id = sources_for_markets(source_by_id, jurisdictions)
     groups = source_groups(list(source_by_id), categories, jurisdictions)
     focus = st.multiselect("Source focus", ["Regulatory", "Industry", "Other"],
                            default=["Regulatory", "Industry", "Other"])
@@ -943,29 +951,48 @@ def country_methods_page() -> None:
     result = country_method_results(country)
     st.subheader(result.get("country_name", country))
     st.write(result.get("recommendation") or "Not available")
-    for key in ("storage", "acquisition", "archive", "research", "quality_winner", "cost_comparison", "storage_size_comparison", "references"):
-        value = result.get(key)
-        with st.expander(key.replace("_", " ").title()):
-            if value is None:
-                st.write("Not available")
-            elif isinstance(value, list):
-                for entry in value:
-                    if isinstance(entry, dict) and "method" in entry:
-                        status = str(entry.get("status", "not_tested")).replace("_", " ").capitalize()
-                        st.markdown(f"**{entry['method'].replace('_', ' ').title()} · {status}**")
-                        st.write(entry.get("observation") or "Not available")
-                        details = {k.replace("_", " "): v for k, v in entry.items()
-                                   if k not in {"method", "status", "observation"}}
-                        if details:
-                            st.json(details)
-                    elif isinstance(entry, dict):
-                        st.write(entry.get("label", "Reference"), entry.get("path", ""))
-                    else:
-                        st.write(entry)
-            elif isinstance(value, dict):
-                st.json(value)
-            else:
-                st.write(value)
+    st.subheader("Acquisition")
+    acquisition = []
+    for entry in result.get("acquisition") or []:
+        metrics = []
+        if entry.get("pages") is not None:
+            metrics.append(f"{entry['pages']} pages")
+        if entry.get("sample_prefix_total") is not None:
+            metrics.append(f"{entry['sample_prefix_hits']}/{entry['sample_prefix_total']} sample prefixes")
+        if entry.get("acquired_benchmark") is not None:
+            benchmark = entry["acquired_benchmark"]
+            metrics.append(f"{benchmark['found']}/{benchmark['total']} benchmark items acquired")
+        acquisition.append({"Method": entry["method"].replace("_", " ").title(),
+                            "Status": entry["status"].replace("_", " ").title(),
+                            "Observation": entry["observation"], "Measurement": "; ".join(metrics) or "Not measured"})
+    st.dataframe(acquisition, hide_index=True, use_container_width=True)
+    st.subheader("Archive retrieval")
+    archive = [{"Method": entry["method"].replace("_", " ").title(),
+                "Status": entry["status"].replace("_", " ").title(), "Observation": entry["observation"],
+                "Median latency (seconds)": entry.get("latency_seconds"),
+                "Passages": entry.get("eligible_passages", entry.get("sample_passages")),
+                "Indexed": entry.get("indexed_passages"), "Questions": entry.get("questions")}
+               for entry in result.get("archive") or []]
+    st.dataframe(archive, hide_index=True, use_container_width=True)
+    st.subheader("Research measurement")
+    research = result.get("research") or {}
+    st.write(research.get("scope") or "Not measured")
+    if research.get("verified_facts") is not None:
+        st.metric("Verified facts", research["verified_facts"])
+    for key, label in (("acquired_benchmark", "Acquired benchmark"), ("cited_benchmark", "Cited benchmark")):
+        if research.get(key) is not None:
+            item = research[key]
+            st.write(f"{label}: {item['found']}/{item['total']}")
+    if research.get("run_id"):
+        st.caption(f"Historical run: {research['run_id']}")
+    st.subheader("Storage and comparisons")
+    st.write(result.get("storage") or "Not measured")
+    st.write(f"Quality winner: {result.get('quality_winner') or 'Not established'}")
+    st.write(f"Cost comparison: {result.get('cost_comparison') or 'Not measured'}")
+    st.write(f"Storage-size comparison: {result.get('storage_size_comparison') or 'Not measured'}")
+    st.subheader("References")
+    for reference in result.get("references") or []:
+        st.write(f"{reference.get('label', 'Reference')} · {reference.get('path', '')}")
 
 
 # --- Page ----------------------------------------------------------------------

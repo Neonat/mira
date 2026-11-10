@@ -131,3 +131,68 @@ def test_cancelled_run_does_not_reenter_running_state(setup):
     assert outcome.status=='cancelled'
     assert conn.execute('select status from public.analysis_runs where id=%s',(ctx.analysis_run_id,)).fetchone()['status']=='cancelled'
 
+
+def test_stale_worker_cannot_clear_replaced_handle(setup):
+    from test_byok_resources_db import bind
+    conn,ctx=setup
+    bind(conn,ctx,'a'*40)
+    old=load_run(conn,ctx.analysis_run_id)
+    bind(conn,ctx,'b'*40)
+    runner._clear_credential_handle(conn,old)
+    assert load_run(conn,ctx.analysis_run_id).research_settings.credential_handle=='b'*40
+
+def test_busy_worker_does_not_consume_or_clear_lease(setup):
+    from test_byok_resources_db import bind
+    conn,ctx=setup
+    bind(conn,ctx)
+    with connect(DSN) as other:
+        other.execute("select pg_advisory_lock(hashtextextended(%s,0))",(str(ctx.analysis_run_id),))
+        result=runner.execute_run(conn,DSN,ctx.analysis_run_id)
+        assert result.status=='busy'
+        assert load_run(conn,ctx.analysis_run_id).research_settings.credential_handle=='a'*40
+        other.execute("select pg_advisory_unlock(hashtextextended(%s,0))",(str(ctx.analysis_run_id),))
+
+def test_stale_invocation_cannot_overwrite_journal(setup):
+    conn,ctx=setup
+    conn.execute("""update public.analysis_runs set retrieval_settings=jsonb_set(
+        jsonb_set(retrieval_settings,'{worker_invocation}','\"new\"'),
+        '{monetary_usage}','{\"known_estimated_usd\":\"2\"}') where id=%s""",(ctx.analysis_run_id,))
+    with pytest.raises(ValueError,match='journal unavailable'):
+        runner._journal_usage(DSN,ctx,{'spending':{},'calls':[],'pending_tokens':0},'old')
+    assert load_run(conn,ctx.analysis_run_id).resource_usage['known_estimated_usd']=='2'
+
+def test_expired_key_cleanup_preserves_lease_attached_during_broker_call(setup,monkeypatch):
+    from test_byok_resources_db import bind
+    from mira.credentials import CredentialError
+    import mira.credential_worker
+    conn,ctx=setup
+    bind(conn,ctx,'a'*40)
+    def expire(*args,**kwargs):
+        bind(conn,ctx,'b'*40)
+        raise CredentialError('expired')
+    monkeypatch.setattr(mira.credential_worker,'claim_keys',expire)
+    assert runner.execute_run(conn,DSN,ctx.analysis_run_id).status=='awaiting_credentials'
+    assert load_run(conn,ctx.analysis_run_id).research_settings.credential_handle=='b'*40
+
+def test_invocation_audit_records_run_actor(setup,monkeypatch):
+    import mira.credential_worker
+    from mira.credentials import CredentialError
+    conn,ctx=setup
+    def expire(*args,**kwargs):
+        raise CredentialError('expired')
+    monkeypatch.setattr(mira.credential_worker,'claim_keys',expire)
+    runner.execute_run(conn,DSN,ctx.analysis_run_id)
+    events=conn.execute("""select actor_id from public.audit_events where entity_type='analysis_runs'
+        and entity_id=%s and action='update' and details->'changed_fields' ? 'retrieval_settings'
+        order by created_at,id""",(ctx.analysis_run_id,)).fetchall()
+    assert events and all(event['actor_id']==ctx.user_id for event in events)
+
+def test_failed_preflight_records_completion_time(setup,monkeypatch):
+    import mira.credential_worker
+    conn,ctx=setup
+    monkeypatch.setenv('MIRA_ENABLE_BYOK_RUNS','1')
+    monkeypatch.setattr(mira.credential_worker,'claim_keys',lambda *a,**k:{'openai':'fixture'})
+    monkeypatch.setattr(runner,'models_from_env',lambda:{'planner':'openai:different-profile'})
+    assert runner.execute_run(conn,DSN,ctx.analysis_run_id).status=='failed'
+    row=conn.execute('select status,finished_at from public.analysis_runs where id=%s',(ctx.analysis_run_id,)).fetchone()
+    assert row['status']=='failed' and row['finished_at'] is not None

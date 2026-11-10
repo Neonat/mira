@@ -24,10 +24,22 @@ returns trigger language plpgsql security definer set search_path = '' as $$
 begin
  if current_setting('role',true) in ('authenticated','anon') then
    if tg_op='INSERT' then
-     if new.retrieval_settings ? 'monetary_usage' then
+     if new.retrieval_settings ?| array['monetary_usage','worker_invocation'] then
        raise exception 'usage is worker owned' using errcode='42501';
      end if;
+     if new.status in ('queued','running') and (coalesce(new.retrieval_settings->'research'->>'credential_mode','') <> 'byok' or coalesce(new.source_limits->>'max_cost_usd','') !~ '^[0-9]+([.][0-9]+)?$' or (new.source_limits->>'max_cost_usd')::numeric <= 0) then
+       raise exception 'runnable client runs require BYOK and a positive allowance' using errcode='42501';
+     end if;
    else
+     if new.retrieval_settings->'worker_invocation' is distinct from old.retrieval_settings->'worker_invocation' then
+       raise exception 'invocation is worker owned' using errcode='42501';
+     end if;
+     if old.retrieval_settings->'research'->>'credential_mode' = 'byok' and new.retrieval_settings->'research'->>'credential_mode' is distinct from 'byok' then
+       raise exception 'credential mode is fixed' using errcode='42501';
+     end if;
+     if new.status is distinct from old.status and new.status in ('queued','running') then
+       raise exception 'execution transitions are worker owned' using errcode='42501';
+     end if;
      if new.retrieval_settings->'monetary_usage' is distinct from old.retrieval_settings->'monetary_usage' then
        raise exception 'usage is worker owned' using errcode='42501';
      end if;

@@ -101,3 +101,37 @@ def test_operator_cli_cannot_silently_rerun_byok_with_ambient_keys(setup):
     conn.execute("update public.analysis_runs set status='draft' where id=%s",(ctx.analysis_run_id,))
     with pytest.raises(ValueError,match='fresh'):
         create_rerun(conn,ctx.workspace_id,ctx.user_id,ctx.analysis_run_id,dict(ctx.model_settings))
+
+@pytest.mark.parametrize('statement',[
+    "retrieval_settings=retrieval_settings-'research'",
+    "retrieval_settings=jsonb_set(retrieval_settings,'{research,credential_mode}', '\"operator\"')",
+    "status='running'",
+])
+def test_client_cannot_change_queued_execution_controls(setup,statement):
+    conn,ctx=setup
+    with pytest.raises(psycopg.errors.InsufficientPrivilege),conn.transaction():
+        as_app_user(conn,ctx.user_id)
+        conn.execute(f'update public.analysis_runs set {statement} where id=%s',(ctx.analysis_run_id,))
+
+def test_client_cannot_requeue_running_run(setup):
+    conn,ctx=setup
+    conn.execute("update public.analysis_runs set status='running' where id=%s",(ctx.analysis_run_id,))
+    with pytest.raises(psycopg.errors.InsufficientPrivilege),conn.transaction():
+        as_app_user(conn,ctx.user_id)
+        conn.execute("update public.analysis_runs set status='queued' where id=%s",(ctx.analysis_run_id,))
+
+@pytest.mark.parametrize('settings,limits', [
+    ({}, {'max_cost_usd':'5'}),
+    ({'research':{'credential_mode':'byok'}}, {}),
+    ({'research':{'credential_mode':'byok'}}, {'max_cost_usd':'0'}),
+])
+def test_client_cannot_insert_unbounded_or_operator_run(setup,settings,limits):
+    conn,ctx=setup
+    with pytest.raises(psycopg.errors.InsufficientPrivilege),conn.transaction():
+        as_app_user(conn,ctx.user_id)
+        conn.execute('''insert into public.analysis_runs
+            (workspace_id,project_revision_id,idempotency_key,query_mode,as_of_date,resolved_markets,
+             source_limits,model_settings,retrieval_settings,created_by)
+            select workspace_id,project_revision_id,%s,query_mode,as_of_date,resolved_markets,
+                   %s,model_settings,%s,created_by from public.analysis_runs where id=%s''',
+            (str(uuid.uuid4()),Jsonb(limits),Jsonb(settings),ctx.analysis_run_id))

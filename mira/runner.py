@@ -167,7 +167,20 @@ def execute_run(
     conn: psycopg.Connection, dsn: str, run_id: UUID, client: LLMClient | None = None, arm: Arm = "multi_agent",
 ) -> RunOutcome:
     """Run a saved run, after checking the user who queued it still holds a run role (§5.1)."""
+    # A session lock spans journal commits and the whole invocation, including cleanup.
+    locked=conn.execute("select pg_try_advisory_lock(hashtextextended(%s,0)) locked",(str(run_id),)).fetchone()['locked']
+    if not locked:return RunOutcome('busy',['Run already executing'],None,None)
+    try:
+        return _execute_locked(conn,dsn,run_id,client,arm)
+    finally:
+        conn.execute("select pg_advisory_unlock(hashtextextended(%s,0))",(str(run_id),))
+
+
+def _execute_locked(conn,dsn,run_id,client,arm):
     ctx = load_run(conn, run_id)
+    status=conn.execute("select status from public.analysis_runs where id=%s",(run_id,)).fetchone()['status']
+    if status not in ('queued','running'):
+        return RunOutcome(status,['Run no longer available for execution'],None,None)
     store = PostgresStore(conn)
     try:
         with acting_as(conn, ctx.user_id):
@@ -176,7 +189,13 @@ def execute_run(
         store.set_run_status(ctx, "failed", f"not run: {exc}")
         return RunOutcome("failed", [str(exc)], None, None)
     if ctx.research_settings is not None and ctx.research_settings.credential_mode=='byok':
-        return _execute_byok(conn,dsn,ctx,arm=arm,external_client=client)
+        from uuid import uuid4
+        invocation=str(uuid4())
+        with acting_as(conn,ctx.user_id):
+            conn.execute("""update public.analysis_runs set retrieval_settings=jsonb_set(retrieval_settings,
+                '{worker_invocation}',to_jsonb(%s::text)) where id=%s and workspace_id=%s
+                and status in ('queued','running')""",(invocation,run_id,ctx.workspace_id))
+        return _execute_byok(conn,dsn,ctx,arm=arm,external_client=client,invocation=invocation)
     build = build_single_agent_orchestrator if arm == "single_agent" else build_orchestrator
     from mira.generation import GenerationBudget,GenerationClient
     if client is None or (not isinstance(client,GenerationClient) and callable(getattr(client,'structured_bounded',None))):
@@ -187,7 +206,7 @@ def execute_run(
     return build(conn, dsn, ctx.workspace_id, client).run(ctx)
 
 
-def _journal_usage(dsn,ctx,snapshot):
+def _journal_usage(dsn,ctx,snapshot,invocation):
     """Commit admission before dispatch, using an independent worker transaction.
 
     If a settlement write fails, its previous pending reservation remains durable
@@ -203,8 +222,9 @@ def _journal_usage(dsn,ctx,snapshot):
         row=journal.execute("""update public.analysis_runs set retrieval_settings=
             jsonb_set(retrieval_settings,'{monetary_usage}',%s)
             where id=%s and workspace_id=%s and created_by=%s
+              and retrieval_settings->>'worker_invocation'=%s
             returning status,private.has_workspace_role(workspace_id,array['admin','analyst']) allowed""",
-            (Jsonb(value),ctx.analysis_run_id,ctx.workspace_id,ctx.user_id)).fetchone()
+            (Jsonb(value),ctx.analysis_run_id,ctx.workspace_id,ctx.user_id,invocation)).fetchone()
     if row is None:raise ValueError('Usage journal unavailable')
     if snapshot.get('pending_tokens',0) or any(c['status']=='pending' for c in snapshot['calls']):
         if row['status']!='running' or not row['allowed']:
@@ -214,11 +234,12 @@ def _journal_usage(dsn,ctx,snapshot):
 def _clear_credential_handle(conn,ctx):
     with acting_as(conn,ctx.user_id):
         conn.execute("""update public.analysis_runs set retrieval_settings=jsonb_set(retrieval_settings,
-            '{research,credential_handle}','null'::jsonb) where id=%s and workspace_id=%s""",
-            (ctx.analysis_run_id,ctx.workspace_id))
+            '{research,credential_handle}','null'::jsonb) where id=%s and workspace_id=%s
+            and retrieval_settings->'research'->>'credential_handle' is not distinct from %s""",
+            (ctx.analysis_run_id,ctx.workspace_id,ctx.research_settings.credential_handle))
 
 
-def _execute_byok(conn,dsn,ctx,*,arm,external_client=None):
+def _execute_byok(conn,dsn,ctx,*,arm,external_client=None,invocation):
     from mira.credential_worker import claim_keys
     from mira.credentials import CredentialError
     from mira.generation import GenerationBudget,GenerationClient
@@ -233,7 +254,12 @@ def _execute_byok(conn,dsn,ctx,*,arm,external_client=None):
                 capability_path=os.environ.get('MIRA_BROKER_CAPABILITY_PATH',''))
         except CredentialError:
             if store.cancel_requested(ctx):return RunOutcome('cancelled',['Run cancelled'],None,None)
-            store.set_run_status(ctx,'queued','Temporary keys expired or unavailable. Attach fresh keys to continue.')
+            with acting_as(conn,ctx.user_id):
+                conn.execute("""update public.analysis_runs set status='queued', failure_summary=%s,
+                    retrieval_settings=case when retrieval_settings->'research'->>'credential_handle' is not distinct from %s
+                        then jsonb_set(retrieval_settings,'{research,credential_handle}','null'::jsonb) else retrieval_settings end
+                    where id=%s and status in ('queued','running') and retrieval_settings->>'worker_invocation'=%s""",
+                    ('Temporary keys expired or unavailable. Attach fresh keys to continue.',settings.credential_handle,ctx.analysis_run_id,invocation))
             return RunOutcome('awaiting_credentials',['Attach fresh temporary keys to continue'],None,None)
         if store.cancel_requested(ctx):return RunOutcome('cancelled',['Run cancelled'],None,None)
         if os.environ.get('MIRA_ENABLE_BYOK_RUNS')!='1':raise ValueError('BYOK launch is disabled by the operator')
@@ -265,25 +291,28 @@ def _execute_byok(conn,dsn,ctx,*,arm,external_client=None):
             unknown_usd=Decimal(old.get('unknown_reserved_usd','0'))+Decimal(old.get('pending_usd','0')))
         old['elapsed_seconds']=float(old.get('elapsed_seconds',0))+(time.monotonic()-began)
         budget=GenerationBudget(ctx.budget.max_llm_tokens,ctx.budget.max_run_minutes*60,
-            spending=ledger,models=models,initial_usage=old,on_change=lambda value:_journal_usage(dsn,ctx,value))
+            spending=ledger,models=models,initial_usage=old,on_change=lambda value:_journal_usage(dsn,ctx,value,invocation))
         with acting_as(conn,ctx.user_id):
             require_role(conn,ctx.workspace_id)
             started=conn.execute("""update public.analysis_runs set status='running',failure_summary=null,
                 started_at=coalesce(started_at,now()) where id=%s and workspace_id=%s and status in ('queued','running') returning id""",
                 (ctx.analysis_run_id,ctx.workspace_id)).fetchone()
         if started is None:return RunOutcome('cancelled',['Run no longer available for execution'],None,None)
-        _journal_usage(dsn,ctx,budget.snapshot())
+        _journal_usage(dsn,ctx,budget.snapshot(),invocation)
         provider=ProviderClient(models=models,api_keys=keys)
         wrapped=GenerationClient(provider,budget)
         return build_orchestrator(conn,dsn,ctx.workspace_id,wrapped,settings=settings,api_keys=keys,ctx=ctx).run(ctx)
     except Exception:
         # Provider/credential exceptions can contain request internals. Persist a safe
         # operational message rather than exception strings or request bodies.
-        store.set_run_status(ctx,'failed','Request configuration, current prices or usage journal unavailable; no further requests sent.')
+        with acting_as(conn,ctx.user_id):
+            conn.execute("""update public.analysis_runs set status='failed',failure_summary=%s,finished_at=now() where id=%s
+                and status in ('queued','running') and retrieval_settings->>'worker_invocation'=%s""",
+                ('Request configuration, current prices or usage journal unavailable; no further requests sent.',ctx.analysis_run_id,invocation))
         return RunOutcome('failed',['Request configuration, current prices or usage journal unavailable'],None,None)
     finally:
         if budget is not None:
-            try:_journal_usage(dsn,ctx,budget.snapshot())
+            try:_journal_usage(dsn,ctx,budget.snapshot(),invocation)
             except Exception:pass  # the last durable reservation remains conservative
         if provider is not None:provider.close()
         keys.clear()
