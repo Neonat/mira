@@ -213,10 +213,14 @@ def queue_rerun(workspace_id: str, user_id: str, previous: dict[str, Any],
         raise ValueError("A new run cannot reuse a credential handle.")
     sb = client()
     models = {role: os.environ.get(var, "") for role, var in ROLE_MODEL_ENV.items()}
-    retrieval_settings = dict(previous["retrieval_settings"])
-    retrieval_settings.pop("monetary_usage", None)
+    previous_settings = previous.get("retrieval_settings") or {}
+    retrieval_settings = {}
+    if "plan_requires_approval" in previous_settings:
+        retrieval_settings["plan_requires_approval"] = previous_settings["plan_requires_approval"]
     if settings is not None:
         retrieval_settings["research"] = settings.as_dict()
+    elif "research" in previous_settings:
+        retrieval_settings["research"] = ResearchSettings.from_dict(previous_settings["research"]).as_dict()
     run = sb.table("analysis_runs").insert(jsonable({
         "workspace_id": workspace_id, "project_revision_id": previous["project_revision_id"],
         "idempotency_key": str(uuid.uuid4()), "created_by": user_id, "previous_run_id": previous["id"],

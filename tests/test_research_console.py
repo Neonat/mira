@@ -361,3 +361,45 @@ def test_cancel_reports_revocation_failure(monkeypatch):
     monkeypatch.setenv('MIRA_BROKER_SOCKET', '/socket')
     monkeypatch.setattr(mira.credentials, 'BrokerClient', Broker)
     assert not app().cancel_run(SB(), {'id': 'r', 'status': 'queued'})
+
+
+def test_rerun_strips_worker_metadata_and_binds_fresh_credentials(monkeypatch):
+    from types import SimpleNamespace
+    from mira.research_settings import ResearchSettings
+    import mira.credentials
+    console = app()
+    writes, handoffs = [], []
+    class Query:
+        def __init__(self, name): self.name = name
+        def insert(self, payload):
+            writes.append((self.name, payload))
+            if self.name == 'analysis_runs' and 'worker_invocation' in payload['retrieval_settings']:
+                raise ValueError('worker metadata rejected')
+            return self
+        def execute(self): return SimpleNamespace(data=[{'id': 'new-run'}])
+    class SB:
+        auth = SimpleNamespace(get_session=lambda: SimpleNamespace(access_token='access'))
+        def table(self, name): return Query(name)
+        def rpc(self, name, payload): writes.append((name, payload)); return Query(name)
+    class Broker:
+        def __init__(self, path): pass
+        def put(self, token, workspace, run, keys):
+            handoffs.append((workspace, run, dict(keys)))
+            return 'opaque'
+    monkeypatch.setattr(console, 'client', lambda: SB())
+    monkeypatch.setattr(mira.credentials, 'BrokerClient', Broker)
+    monkeypatch.setenv('MIRA_BROKER_SOCKET', '/socket')
+    settings = ResearchSettings(credential_mode='byok')
+    previous = {'id': 'old', 'status': 'draft', 'project_revision_id': 'revision',
+                'query_mode': 'research', 'as_of_date': '2026-11-10', 'resolved_markets': ['HK'],
+                'source_limits': {'max_cost_usd': '10'}, 'retrieval_settings': {
+                    'plan_requires_approval': True, 'research': settings.as_dict(),
+                    'worker_invocation': {'id': 'worker-1'}, 'monetary_usage': {'known_estimated_usd': '1'},
+                    'unexpected_worker_metadata': 'internal'}}
+    run_id = console.queue_rerun('workspace', 'user', previous, settings=settings, provider_keys={'openai': 'private-key'})
+    assert run_id == 'new-run'
+    payload = next(value for name, value in writes if name == 'analysis_runs')
+    assert payload['retrieval_settings'] == {'plan_requires_approval': True, 'research': settings.as_dict()}
+    assert 'private-key' not in repr(writes)
+    assert handoffs == [('workspace', 'new-run', {'openai': 'private-key'})]
+    assert ('bind_run_credentials', {'p_run_id': 'new-run', 'p_handle': 'opaque'}) in writes
