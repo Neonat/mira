@@ -44,6 +44,26 @@ For new acquisition, choose **Research → Full research**. Set markets and date
 
 Keep the existing Supabase database, Auth, REST and gateway running. Apply all local migrations, including `20261110180000_mira_prepared_evidence.sql`; do not reset an evidence database. Existing local Auth accounts work without buying a hosted Supabase plan. The worker-only database credential remains separate from the anon key and must never be passed to Streamlit.
 
+## Guest report demo
+
+Apply `20261111120000_mira_guest_demo.sql` to the demo database. Serve the three
+files in `app/guest/` from a public HTTPS static origin, with a sibling
+`config.json` containing `url` (the Supabase project URL) and `key` (its
+publishable key). Set `MIRA_GUEST_DEMO_URL` to that origin on the private
+operator console. Run `python -m mira prepared-report-worker --poll-seconds 1`
+against the same workspace with a server-side report worker connection.
+
+In **Guest demo**, a workspace admin selects a saved report and clicks
+**Open guest access for one hour**. Share the generated link with participants.
+**Close guest access** revokes the link immediately. The next opening creates
+a new link and starts a fresh hour. Generated drafts remain in **Prepared
+reports** after closing. Any HTML a guest downloaded remains on their device.
+
+Guest requests reuse the selected report's evidence snapshot and scope. The
+report-only worker assembles a fresh draft and preserves its citations and
+review status. The guest page has one report per browser tab and a 100-request
+limit per window. It needs neither a guest account nor a provider key.
+
 ## Prepared report and preparation services
 
 Run the report worker with only the trusted database connection and workspace

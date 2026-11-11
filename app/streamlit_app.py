@@ -46,6 +46,7 @@ UI_KEYS = {
     "MIRA_ORIGINALS_DIR", "MIRA_ORIGINAL_MAX_BYTES", "MIRA_DEMO_MODE",
     "MIRA_ENABLE_EXA_DISCOVERY", "MIRA_ENABLE_LIVE_BROWSER", "MIRA_ENABLE_OFFLINE_BROWSER",
     "MIRA_ENABLE_HYBRID_RETRIEVAL", "MIRA_BROKER_SOCKET", "MIRA_ENABLE_BYOK_RUNS",
+    "MIRA_GUEST_DEMO_URL",
 }
 DECISIONS = ("accepted", "amended", "rejected", "needs_evidence")
 ACTIVE = ("queued", "running")
@@ -1032,7 +1033,11 @@ def main() -> None:
     role = member[0]["role"] if member else "none"
     with st.sidebar:
         st.markdown(f"**Mira** · {workspace[0]['name']}  \n{st.session_state.email} · {role}")
-        page = st.radio("Page", ["Research", "Prepared reports", "Prepared evidence", "Runs", "Reports & review", "Country methods"], label_visibility="collapsed")
+        pages = ["Research", "Prepared reports", "Prepared evidence", "Runs", "Reports & review", "Country methods"]
+        guest_url = os.environ.get("MIRA_GUEST_DEMO_URL")
+        if role == "admin" and guest_url:
+            pages.insert(2, "Guest demo")
+        page = st.radio("Page", pages, label_visibility="collapsed")
         if st.button("Sign out"):
             sb.auth.sign_out()
             st.session_state.clear()
@@ -1055,6 +1060,9 @@ def main() -> None:
     elif page == "Prepared reports":
         from mira.prepared_console import reports_page
         reports_page(sb, workspace_id, role)
+    elif page == "Guest demo":
+        from mira.prepared_console import guest_demo_page
+        guest_demo_page(sb, workspace_id, guest_url)
     elif page == "Prepared evidence":
         from mira.prepared_console import evidence_page
         evidence_page(sb, workspace_id, role)

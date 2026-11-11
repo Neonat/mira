@@ -6,6 +6,7 @@ manifest atomically and enforces workspace membership, source policy and roles.
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
+from secrets import token_hex
 from typing import Any
 import uuid
 
@@ -154,6 +155,59 @@ def reports_page(sb, workspace_id: str, role: str) -> None:
                     .eq("request_id", request_id).order("created_at", desc=True))
     for report in reports:
         _report(sb, workspace_id, report, role, request)
+
+
+def guest_demo_page(sb, workspace_id: str, guest_url: str) -> None:
+    st.header("Guest demo")
+    st.write("Open a one-hour link for visitors to generate a draft from a saved report's evidence.")
+    try:
+        active = sb.rpc("guest_demo_admin_status", {"p_workspace": workspace_id}).execute().data
+    except Exception:
+        st.error("Could not check guest access. Try refreshing this page.")
+        return
+    if active:
+        st.success(f"Guest access is open until {_time(active['expires_at'])}.")
+        shared = st.session_state.get("guest_demo_link") or {}
+        if shared.get("id") == active["id"]:
+            st.code(shared["url"], language=None, wrap_lines=True)
+            st.link_button("Try guest link", shared["url"])
+        else:
+            st.caption("To get a new shareable link, close this window and open another.")
+        if st.button("Close guest access"):
+            try:
+                sb.rpc("close_guest_demo", {"p_workspace": workspace_id}).execute()
+            except Exception:
+                st.error("Could not close guest access. Try again.")
+            else:
+                st.session_state.pop("guest_demo_link", None)
+                st.rerun()
+        if st.button("Refresh guest status"):
+            st.rerun()
+        return
+
+    st.info("Guest access is closed.")
+    requests = _rows(sb.table("prepared_report_requests").select("id,brief,finished_at")
+        .eq("workspace_id", workspace_id).eq("status", "ready")
+        .not_.like("idempotency_key", "guest-demo:%").order("finished_at", desc=True).limit(25))
+    if not requests:
+        st.caption("Generate a prepared report to use as the demo template.")
+        return
+    request = st.selectbox("Saved report to use", requests, format_func=lambda item:
+        f"{item['brief']['topic']} · {', '.join(item['brief']['jurisdictions'])} · {_time(item['finished_at'])}")
+    if st.button("Open guest access for one hour", type="primary"):
+        link = token_hex(32)
+        try:
+            reports = _rows(sb.table("prepared_reports").select("id").eq("workspace_id", workspace_id)
+                .eq("request_id", request["id"]).limit(1))
+            if not reports:
+                st.error("The saved report is unavailable.")
+                return
+            opened = sb.rpc("open_guest_demo", {"p_report": reports[0]["id"], "p_link": link}).execute().data
+        except Exception:
+            st.error("Could not open guest access. Check that the report's evidence is still available.")
+        else:
+            st.session_state.guest_demo_link = {"id": opened["id"], "url": f"{guest_url.rstrip('/')}/#{link}"}
+            st.rerun()
 
 
 def _timing(request: dict) -> None:
