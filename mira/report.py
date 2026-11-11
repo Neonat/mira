@@ -111,11 +111,24 @@ th { background: #edf3f7; }
 .passage-coverage th:first-child { width: 42%; }
 .passage-coverage th:nth-child(2) { width: 18%; }
 .passage-coverage th:last-child { width: 40%; }
+.prepared-fact-reviews table { width: 100%; table-layout: fixed; }
+.prepared-fact-reviews th:nth-child(1) { width: 19%; }
+.prepared-fact-reviews th:nth-child(2) { width: 24%; }
+.prepared-fact-reviews th:nth-child(3) { width: 16%; }
+.prepared-fact-reviews td { overflow-wrap: anywhere; }
+.prepared-fact-reviews blockquote { margin: .35rem 0 .8rem; padding-left: .7rem; border-left: 2px solid #cad9e2; }
 @media screen and (max-width: 36rem) {
   .contents ol { columns: 1; }
   .overview { grid-template-columns: repeat(2, 1fr); }
 }
 @media screen and (max-width: 48rem) {
+  .prepared-fact-reviews table, .prepared-fact-reviews tbody { display: block; }
+  .prepared-fact-reviews thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .prepared-fact-reviews tr { display: flex; flex-direction: column; padding: .7rem 0; border-bottom: 1px solid #dbe4ea; }
+  .prepared-fact-reviews td { border: 0; padding: .25rem 0; min-width: 0; }
+  .prepared-fact-reviews td:first-child { order: 1; font-size: .85rem; color: #466071; }
+  .prepared-fact-reviews td:nth-child(2) { font-weight: 650; }
+  .prepared-fact-reviews td[data-label]::before { content: attr(data-label) ": "; font-weight: 650; }
   .passage-coverage, .passage-coverage tbody { display: block; }
   .passage-coverage thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .passage-coverage tr { display: block; padding: .9rem 0; border-bottom: 1px solid #dbe4ea; }
@@ -155,6 +168,7 @@ class ReportContext:
     reviewer: str | None = None
     decided_at: datetime | None = None
     corroboration: Mapping[UUID, dict] = field(default_factory=dict)
+    timeline_dates: Mapping[UUID, tuple[str, date]] | None = None
 
 
 def _link(url: str, label: str) -> str:
@@ -337,8 +351,14 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
                 for sentence in section.sentences:
                     finding_id = sentence.finding_ids[0] if len(sentence.finding_ids) == 1 else None
                     claim = context.claims.get(finding_id)
-                    if claim and claim.draft.key_date:
-                        dated.append((claim.draft.key_date, sentence, claim))
+                    when = None
+                    if context.timeline_dates is not None:
+                        when = context.timeline_dates.get(finding_id)
+                    elif claim and claim.draft.key_date:
+                        when = (claim.draft.key_date_kind, claim.draft.key_date)
+                    if claim and when:
+                        kind, day = when
+                        dated.append((day, kind, sentence, claim))
                     else:
                         remaining.append(sentence)
                 if dated:
@@ -347,7 +367,7 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
                                  '<thead><tr><th scope="col">Date</th><th scope="col">Development</th>'
                                  '<th scope="col">Publisher</th><th scope="col">Reference</th>'
                                  '</tr></thead><tbody>')
-                    for _, sentence, claim in sorted(dated, key=lambda row: row[0]):
+                    for day, kind, sentence, claim in sorted(dated, key=lambda row: row[0]):
                         reference = next_paragraph()
                         publishers = sorted({context.passages[pid].source_name
                                              for pid in passages_for(claim.finding_id, set())
@@ -358,7 +378,7 @@ def render_html(snapshot: ReportSnapshot, context: ReportContext) -> str:
                             index += 1
                             development = sentence_html(sentence.text, sentence.finding_ids, index)
                         parts.append(f'<tr{paragraph_anchor(reference)}><td>'
-                                     f'{_date_html(claim.draft.key_date_kind, claim.draft.key_date)}</td>'
+                                     f'{_date_html(kind, day)}</td>'
                                      f'<td>{development}</td>'
                                      f'<td>{escape(", ".join(publishers))}</td>'
                                      f'<td>{paragraph_link(reference)}</td></tr>')

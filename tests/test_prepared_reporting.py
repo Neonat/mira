@@ -43,6 +43,41 @@ def test_ready_report_is_newly_assembled_from_exact_frozen_facts():
     assert capture['snapshots'][str(snap)]['verifications'][str(fid)]['check_id']==row['payload']['verifications'][str(fid)]['check_id']
 
 
+@pytest.mark.parametrize(('content', 'quote', 'date_kind', 'timeline_date'), [
+    ('The authority requires banks to complete training by 15 December 2026.',
+     'The authority requires banks to complete training by 15 December 2026.', 'published', '2026-12-15'),
+    ('Banks must submit the form by 3 February 2026.',
+     'Banks must submit the form by 3 February 2026.', 'deadline', '2026-02-03'),
+    ('Banks must submit the form by 15 December 2026.',
+     'Banks must submit the form.', 'published', None),
+    ('Banks can use the transition only for contracts signed before 1 September 2026.',
+     'Banks can use the transition only for contracts signed before 1 September 2026.', 'published', None),
+])
+def test_prepared_timeline_keeps_supported_deadlines_distinct_from_publication_dates(
+    content, quote, date_kind, timeline_date,
+):
+    from mira.prepared_reporting import compose_prepared_report, select_prepared_facts
+
+    row, brief, sid, snap, fid = sample()
+    evidence = row['payload']['evidence_input']
+    fact = evidence['findings'][str(fid)]
+    fact.update(content=content, finding_type='obligation_summary',
+                key_date='2026-02-03', key_date_kind=date_kind)
+    fact['evidence'][0]['supporting_quote'] = quote
+    next(iter(evidence['passages'].values()))['content'] = quote
+    selection = select_prepared_facts([row], brief, {sid: snap}, {sid}, {})
+    html, capture = compose_prepared_report(uuid4(), brief, selection)
+    timeline = html.split('<h2 id="section-deadlines_timeline">', 1)[1].split('</section>', 1)[0]
+    if timeline_date:
+        assert f'<time datetime="{timeline_date}">' in timeline
+        assert f'href="#finding-{fid}"' in timeline
+    else:
+        assert 'No verified items.' in timeline
+    assert capture['selected_findings'][str(fid)] == fact
+    assert html.index('<h1>') < html.index('{{PREPARED_REVIEW_WARNING}}')
+    assert html.index('id="section-evidence"') < html.index('{{PREPARED_FACT_REVIEWS}}')
+
+
 @pytest.mark.parametrize('case',['rejected','correction_requested','future','unselected','newer_snapshot'])
 def test_ineligible_evidence_never_enters_prepared_report(case):
     from mira.prepared_reporting import select_prepared_facts

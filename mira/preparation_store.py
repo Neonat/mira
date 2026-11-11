@@ -348,12 +348,17 @@ class PreparationStore:
                 quote=escape(citation.get('supporting_quote') or '')
                 citations.append(f'<div>{title}<blockquote>{quote}</blockquote></div>')
             state='Accepted' if review['decision']=='accepted' else 'Pending'
-            rows.append(f'<tr><td>{escape(str(sid))}</td><td>{escape(fact["title"])}</td><td>{state}</td><td>{"".join(citations)}</td></tr>')
-        return ('<section class="prepared-fact-reviews"><h2>Captured human evidence decisions</h2>'
+            rows.append(f'<tr role="row"><td role="cell" data-label="Snapshot">{escape(str(sid))}</td>'
+                        f'<td role="cell">{escape(fact["title"])}</td>'
+                        f'<td role="cell" data-label="Human decision">{state}</td>'
+                        f'<td role="cell">{"".join(citations)}</td></tr>')
+        return ('<section id="prepared-fact-reviews" class="prepared-fact-reviews"><h2>Captured human evidence decisions</h2>'
                 '<p>Decisions apply to the included facts and their dependencies. They do not certify publication coverage, '
                 'analysis of every retained passage, or final report approval.</p>'
-                '<table><thead><tr><th>Snapshot</th><th>Fact</th><th>Human decision</th><th>Citations and exact quotations</th></tr></thead>'
-                '<tbody>'+''.join(rows)+'</tbody></table></section>')
+                '<table role="table"><thead><tr><th scope="col">Snapshot</th><th scope="col">Fact</th>'
+                '<th scope="col">Human decision</th><th scope="col">Citations and exact quotations</th></tr></thead>'
+                '<tbody role="rowgroup">'+''.join(rows)+'</tbody></table>'
+                '<p class="back"><a href="#contents">Back to contents</a></p></section>')
 
     def fail_report_request(self, request, reason):
         with acting_as(self.conn,request['actor_id']):

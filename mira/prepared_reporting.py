@@ -9,13 +9,13 @@ from dataclasses import dataclass,field
 from datetime import UTC,date,datetime
 from dataclasses import asdict
 from html import escape
-import json,time
+import json,re,time
 from uuid import UUID,uuid4
 
 from mira.agents import writer
 from mira.agents.temporal import check_claim_period
 from mira.contracts import (Brief,ClaimCitation,ClaimDraft,CoverageRow,EvidenceInput,
-    FrozenExpectedSource,FrozenVerification,ReportSection,ReportSentence,ReportSnapshot)
+    FrozenExpectedSource,FrozenVerification,KeyDateKind,ReportSection,ReportSentence,ReportSnapshot)
 from mira.db import acting_as,require_role
 from mira.evidence_snapshot import build_verification_input
 from mira.pg_store import PostgresStore,load_run
@@ -207,12 +207,55 @@ def select_prepared_facts(snapshots,brief,source_snapshots,allowed_source_ids,re
     return selected
 
 
+_OPERATIVE_DATES = {'effective', 'deadline', 'consultation_close'}
+_EXPLICIT_DEADLINE = re.compile(
+    r'\b(?:must (?!not\b)|requires? [^.;]+? to )'
+    r'(?:(?!\b(?:if|unless|only|before|after)\b)[^.;])+?\s+(?:by|no later than)\s+'
+    r'(\d{4}-\d{2}-\d{2}|\d{1,2} [A-Za-z]+ \d{4})(?=\s|[.,;)]|$)', re.I,
+)
+
+
+def _timeline_date(claim: StoredClaim) -> tuple[KeyDateKind, date] | None:
+    draft = claim.draft
+    if draft.is_inference:
+        return None
+    if draft.key_date_kind in _OPERATIVE_DATES and draft.key_date is not None:
+        return draft.key_date_kind, draft.key_date
+    # Older facts may record their publication date even when the checked
+    # statement gives a deadline. Recover only one explicit date from a
+    # sentence already quoted verbatim, without changing the frozen finding.
+    content = ' '.join(draft.content.split())
+    if not any(content in ' '.join(c.supporting_quote.split()) for c in claim.evidence):
+        return None
+    matches = _EXPLICIT_DEADLINE.findall(content)
+    if len(matches) != 1:
+        return None
+    for fmt in ('%Y-%m-%d', '%d %B %Y', '%d %b %Y'):
+        try:
+            return 'deadline', datetime.strptime(matches[0], fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
 def compose_prepared_report(request_id,brief,selected,*,manifest=None):
     request_id=UUID(str(request_id));now=datetime.now(UTC)
     sections=writer.claim_sections(selected.claims)
     summary=ReportSection(section='executive_summary',sentences=[ReportSentence(text=c.draft.content,
         finding_ids=[c.finding_id],structural=False) for c in selected.claims[:5]],no_verified_items=not selected.claims)
-    sections=[summary,*sections[1:]]
+    timeline_dates = {}
+    timeline_sentences = []
+    for claim in selected.claims:
+        when = _timeline_date(claim)
+        if when:
+            timeline_dates[claim.finding_id] = when
+        if when or claim.draft.finding_type == 'deadline':
+            timeline_sentences.append(ReportSentence(
+                text=claim.draft.content, finding_ids=[claim.finding_id], structural=False,
+            ))
+    timeline = ReportSection(section='deadlines_timeline', sentences=timeline_sentences,
+                             no_verified_items=not timeline_sentences)
+    sections = [summary, *(timeline if s.section == 'deadlines_timeline' else s for s in sections[1:])]
     notes=['This fresh report uses completed prepared evidence; no source acquisition or new factual wording was generated for this request.',
            'Human evidence checking, machine support, publication coverage and final report approval are separate.']
     if selected.omissions:notes.append(f'{len(selected.omissions)} prepared items were omitted by source/date/review/dependency or report limits.')
@@ -224,16 +267,20 @@ def compose_prepared_report(request_id,brief,selected,*,manifest=None):
     snap=ReportSnapshot(contract_version='prepared/1',analysis_run_id=request_id,analysis_revision_id=request_id,
         sections=sections,coverage=selected.coverage,unresolved_finding_ids=[])
     ctx=ReportContext(brief=brief,run_status='draft',claims={c.finding_id:c for c in selected.claims},
-        passages=selected.passages,unresolved={},generated_at=now,corroboration=selected.corroboration,expected=selected.expected)
+        passages=selected.passages,unresolved={},generated_at=now,corroboration=selected.corroboration,
+        expected=selected.expected,timeline_dates=timeline_dates)
     html=render_html(snap,ctx)
     scopes=(manifest or {}).get('scopes',[])
     freshness=''.join('<li>'+escape(str(s.get('source_name') or s.get('scope_id')))+': '+escape(str(s.get('published_at') or 'unknown'))+'</li>' for s in scopes)
     banner='<aside role="status" style="border:2px solid #ae7029;background:#fff5e6;padding:1rem;margin:1rem 0"><strong>{{PREPARED_REVIEW_WARNING}}</strong><p>Evidence snapshot freshness by source:</p><ul>'+freshness+'</ul></aside>'
-    html=html.replace('<body>','<body>'+banner+'{{PREPARED_FACT_REVIEWS}}',1)
+    html=html.replace('</h1>','</h1>'+banner,1)
+    html=html.replace('</ol></nav>','<li><a href="#prepared-fact-reviews">Human evidence decisions</a></li></ol></nav>',1)
+    html=html.replace('</body>','{{PREPARED_FACT_REVIEWS}}</body>',1)
     capture={'schema_version':1,'kind':'prepared_report','request_id':str(request_id),'brief':brief.model_dump(mode='json'),
         'generated_at':now.isoformat(),'selected_findings':selected.findings,'bindings':selected.bindings,
         'snapshots':selected.snapshots,'report_snapshot':snap.model_dump(mode='json'),'omissions':selected.omissions,
-        'manifest':manifest or {},'generation_method':'deterministic assembly of immutable machine-supported claims'}
+        'manifest':manifest or {},'generation_method':'deterministic assembly of immutable machine-supported claims',
+        'timeline_dates':{str(fid): {'kind':kind,'date':day.isoformat()} for fid,(kind,day) in timeline_dates.items()}}
     return html,capture
 
 
