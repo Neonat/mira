@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "workspace_id": "78c61096-1753-4c05-9435-21050db1404f",
+  "source_keys": [
+    "hkma",
+    "sfc"
+  ],
+  "scopes": {
+    "S01": {
+      "jurisdiction": "HK",
+      "brief_jurisdictions": [
+        "HK"
+      ],
+      "as_of": "2026-11-04",
+      "eligible_passages": 153,
+      "eligible_versions": 23,
+      "matching_indexed_passages": 153,
+      "corpus_sha256": "ae8b0d3f36a09ff98ed8216eb433aafc32b3c50097c201ab24044ee1c990f2b6",
+      "index_sha256": "1734ccb7034439db3b6e5861debf8271b9fddb83c49dd10d04a62f3b1b2d5748"
+    },
+    "S02": {
+      "jurisdiction": "HK",
+      "brief_jurisdictions": [
+        "HK",
+        "AU"
+      ],
+      "as_of": "2026-11-04",
+      "eligible_passages": 153,
+      "eligible_versions": 23,
+      "matching_indexed_passages": 153,
+      "corpus_sha256": "ae8b0d3f36a09ff98ed8216eb433aafc32b3c50097c201ab24044ee1c990f2b6",
+      "index_sha256": "1734ccb7034439db3b6e5861debf8271b9fddb83c49dd10d04a62f3b1b2d5748"
+    },
+    "S03": {
+      "jurisdiction": "AU",
+      "brief_jurisdictions": [
+        "HK",
+        "AU"
+      ],
+      "as_of": "2026-11-04",
+      "eligible_passages": 0,
+      "eligible_versions": 0,
+      "matching_indexed_passages": 0,
+      "corpus_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "index_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "S04": {
+      "jurisdiction": "HK",
+      "brief_jurisdictions": [
+        "HK"
+      ],
+      "as_of": "2026-01-25",
+      "eligible_passages": 105,
+      "eligible_versions": 16,
+      "matching_indexed_passages": 105,
+      "corpus_sha256": "2f3e64b96c6057ad9314c1c294f69030509a2857153cee7e83119bd02dbbdbb5",
+      "index_sha256": "f2c8de714cc7dc07d794fa724ff4c683a0f78f705c81e101540f8b5f93f0692f"
+    },
+    "S05": {
+      "jurisdiction": "HK",
+      "brief_jurisdictions": [
+        "HK"
+      ],
+      "as_of": "2026-01-26",
+      "eligible_passages": 109,
+      "eligible_versions": 17,
+      "matching_indexed_passages": 109,
+      "corpus_sha256": "a477751b1e4aeed4ea824f0384716a2c7e099c8f54c506f5c412e5f1d58cf3c6",
+      "index_sha256": "73b55cc191d80fe38c66c968d17e0eda27656352a152cfbedba4b40152a7eee5"
+    },
+    "S06": {
+      "jurisdiction": "HK",
+      "brief_jurisdictions": [
+        "HK"
+      ],
+      "as_of": "2026-08-27",
+      "eligible_passages": 125,
+      "eligible_versions": 20,
+      "matching_indexed_passages": 125,
+      "corpus_sha256": "d17cca48e5574647b7e3ad027d6cc94852f3139f4300632b2daa14a3dbb45c25",
+      "index_sha256": "d2244aed61700da117cb282c9ec820a27f36f4aa2c6cb05eefdf7a3a21431d86"
+    },
+    "S07": {
+      "jurisdiction": "HK",
+      "brief_jurisdictions": [
+        "HK"
+      ],
+      "as_of": "2026-08-28",
+      "eligible_passages": 128,
+      "eligible_versions": 21,
+      "matching_indexed_passages": 128,
+      "corpus_sha256": "70f5a3dee92830939fa1eb2ea85d75d530fbda545d5dc6938c4d9c2c5d3f45b2",
+      "index_sha256": "a849350243af922e772bc1a2454d454c249e80a930350921943cd42bfb45891a"
+    }
+  },
+  "cases": [
+    {
+      "id": "R01",
+      "question": "What minimum share of customer records did the HKMA require an external firm to retest each month when validating a bank’s sanctions name matching?",
+      "scope": "S01"
+    },
+    {
+      "id": "R02",
+      "question": "What penalty did the securities regulator announce for China Industrial Securities International Asset Management for failures involving a private fund?",
+      "scope": "S03"
+    },
+    {
+      "id": "R03",
+      "question": "How did banks move beyond fixed rules to spot suspicious payments, and did they all make the switch in one step?",
+      "scope": "S01"
+    },
+    {
+      "id": "R04",
+      "question": "What per-report filing fee did the SFC set for suspicious transaction reports submitted through STREAMS 2?",
+      "scope": "S01"
+    },
+    {
+      "id": "R05",
+      "question": "Which three additional practices did the HKMA include in version 2.0 of its Smart Tips on the Treatment of Politically Exposed Persons?",
+      "scope": "S06"
+    },
+    {
+      "id": "R06",
+      "question": "What three filing methods did the SFC say licensed firms could use once the replacement suspicious transaction reporting platform went live?",
+      "scope": "S05"
+    },
+    {
+      "id": "R07",
+      "question": "What is the full name of the platform announced in SFC circular 26EC2?",
+      "scope": "S01"
+    },
+    {
+      "id": "R08",
+      "question": "What fine did the SFC announce in notice 26PR117?",
+      "scope": "S01"
+    },
+    {
+      "id": "R09",
+      "question": "What ordinance does the SFC list under Cap. 575?",
+      "scope": "S01"
+    },
+    {
+      "id": "R10",
+      "question": "When should a bank rerun checks that its software catches restricted names, and who should sign off on the schedule?",
+      "scope": "S01"
+    },
+    {
+      "id": "R11",
+      "question": "What penalty did the securities regulator announce for China Industrial Securities International Asset Management for failures involving a private fund?",
+      "scope": "S02"
+    },
+    {
+      "id": "R12",
+      "question": "Which three additional practices did the HKMA include in version 2.0 of its Smart Tips on the Treatment of Politically Exposed Persons?",
+      "scope": "S07"
+    },
+    {
+      "id": "R13",
+      "question": "What issue date does the HKMA repository list for the current AML-2 guideline for Authorized Institutions?",
+      "scope": "S01"
+    },
+    {
+      "id": "R14",
+      "question": "Who should a broker contact if an urgent tip about suspicious activity cannot be filed while the old reporting portal is down?",
+      "scope": "S01"
+    },
+    {
+      "id": "R15",
+      "question": "What three filing methods did the SFC say licensed firms could use once the replacement suspicious transaction reporting platform went live?",
+      "scope": "S04"
+    },
+    {
+      "id": "R16",
+      "question": "What did Zheng Da fail to check about the order-entry software its clients connected to its brokerage system?",
+      "scope": "S01"
+    }
+  ]
+}
