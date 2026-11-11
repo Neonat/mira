@@ -16,6 +16,7 @@ class ResearchSettings:
     max_analysis_batches: int=8
     credential_mode: str='operator'
     credential_handle: str | None=None
+    archive_only: bool=False
 
     def __post_init__(self):
         if self.source_ids is not None:
@@ -28,6 +29,10 @@ class ResearchSettings:
         if type(self.enable_exa) is not bool or type(self.enable_browser) is not bool:
             raise ValueError('Invalid acquisition options')
         if self.retrieval not in ('keyword','hybrid'):raise ValueError('Invalid retrieval method')
+        if type(self.archive_only) is not bool:
+            raise ValueError('Invalid archive-only option')
+        if self.archive_only and (self.enable_exa or self.enable_browser or self.retrieval!='keyword'):
+            raise ValueError('Archive-only research requires saved keyword retrieval')
         if type(self.max_analysis_batches) is not int or not 1<=self.max_analysis_batches<=64:
             raise ValueError('Analysis depth must be between 1 and 64 batches')
         if self.credential_mode not in ('operator','byok'):raise ValueError('Invalid credential mode')
@@ -46,6 +51,8 @@ class ResearchSettings:
     def as_dict(self) -> dict:
         value=asdict(self)
         value['source_ids']=list(self.source_ids) if self.source_ids is not None else None
+        if not self.archive_only:
+            value.pop('archive_only')
         return value
 
 

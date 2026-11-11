@@ -142,3 +142,55 @@ def test_due_preparation_scout_reads_frontier_and_releases_waiting_report(conn, 
     assert outcome['status'] == 'ready', outcome
     assert outcome['review_state'] == 'human_review_pending'
     assert outcome['facts'] > 0
+
+
+def test_archive_only_preparation_uses_saved_versions_without_live_adapters(conn, workspace, tmp_path, monkeypatch):
+    from mira import runner
+    from mira.fetch import Fetcher
+    from mira.llm import ScriptedClient
+    from mira.preparation_runtime import run_claimed_job
+    from mira.preparation_store import PreparationStore
+    from test_pipeline_db import DSN, analyst, grounded_inference, planner_for, run_hk, scout
+
+    ctx, _ = run_hk(conn, workspace, tmp_path, analyst)
+    source = conn.execute("select id from public.sources where workspace_id=%s and source_key='hkma'",
+                          (ctx.workspace_id,)).fetchone()["id"]
+    count_versions = "select count(*) as n from public.document_versions where workspace_id=%s"
+    before = conn.execute(count_versions, (ctx.workspace_id,)).fetchone()["n"]
+
+    def no_live_access(*args, **kwargs):
+        pytest.fail("archive-only preparation touched live acquisition")
+
+    for adapter in ("discovery_from_env", "browser_from_env", "live_browser_from_env",
+                    "hybrid_from_env", "ClaimCorroborator"):
+        monkeypatch.setattr(runner, adapter, no_live_access)
+    monkeypatch.setattr(Fetcher, "fetch", no_live_access)
+    models = {"planner": "test:scripted"}
+    monkeypatch.setattr(runner, "models_from_env", lambda: models)
+    client = ScriptedClient({
+        "planner": [planner_for("HK")],
+        "regulatory_scout": [scout],
+        "analyst": [analyst] * 4,
+        "verifier": [{"verdict": "supported", "reason": "stated in the passage"}, grounded_inference] * 4,
+    })
+    execute = runner.execute_run
+    monkeypatch.setattr(runner, "execute_run", lambda *a, **kw: execute(*a, **kw, client=client))
+    store = PreparationStore(conn)
+    job = store.enqueue_job(
+        ctx.workspace_id, ctx.user_id, [source], ctx.brief,
+        RunBudget(max_gap_rounds=0, max_cost_usd="10").as_source_limits(), models,
+        {"source_ids": [str(source)], "archive_only": True, "max_analysis_batches": 4}, "saved-only",
+    )
+    job = store.claim_job(ctx.workspace_id, uuid4())
+    assert run_claimed_job(conn, DSN, store, job) == "published"
+    step = conn.execute("""select a.status,a.output_refs from public.agent_steps a
+        join public.preparation_jobs j on j.analysis_run_id=a.analysis_run_id
+        where j.id=%s and a.role='regulatory_scout'""", (job["id"],)).fetchone()
+    assert step["status"] == "succeeded"
+    log = step["output_refs"]["fetch_log"]
+    assert log and all(entry["outcome"] == "reused" and not entry["request_sent"] for entry in log)
+    snapshot = conn.execute("select payload from public.prepared_snapshots where job_id=%s",
+                            (job["id"],)).fetchone()["payload"]
+    assert snapshot["verifications"]
+    assert snapshot["analysis_coverage"]["analysed_passages"] > 0
+    assert before == conn.execute(count_versions, (ctx.workspace_id,)).fetchone()["n"]

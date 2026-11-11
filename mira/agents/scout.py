@@ -204,7 +204,8 @@ def distinct_links(links: list[Link]) -> list[Link]:
 
 class WebScout:
     def __init__(self, dsn: str, client: LLMClient, fetcher: Fetcher, *, max_rounds: int = 2,
-                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None, hybrid=None, frontier=None) -> None:
+                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None, hybrid=None, frontier=None,
+                 archive_only: bool = False) -> None:
         self.dsn = dsn
         self.client = client
         self.fetcher = fetcher
@@ -215,6 +216,7 @@ class WebScout:
         self.live_browser_adapter = live_browser
         self.hybrid = hybrid
         self.frontier = frontier
+        self.archive_only = archive_only
         self._fetch_lock = threading.Lock()
         # Futures let concurrent tasks share one fetch/save, scoped to workspace and run.
         self._pages: dict[tuple[UUID, UUID, str], Future] = {}
@@ -238,6 +240,8 @@ class WebScout:
 
 
 class _ScoutRun:
+    archive_versions: list[UUID] | None = None
+
     def __init__(self, scout: WebScout, conn, ctx: RunContext, step_id: UUID, task: ScoutTask) -> None:  # noqa: ANN001
         self._started = time.monotonic()
         self.scout = scout
@@ -601,7 +605,7 @@ class _ScoutRun:
 
     # --- Steps ----------------------------------------------------------------
 
-    def execute(self) -> ScoutOutcome:
+    def _acquire(self) -> str:
         sources = {source.id: source for source in self.store.list_sources(self.ctx.workspace_id)}
         expected = self.store.list_expected_sources(self.ctx.workspace_id, self.ctx.brief.topic, self.ctx.brief.jurisdictions)
         categories = list(dict.fromkeys(item.category for item in expected if item.id in self.task.expected_source_ids))
@@ -692,6 +696,35 @@ class _ScoutRun:
                 stop_reason = "no_candidates"
             elif self.scout.max_rounds and not self._within_tokens():
                 stop_reason = "token_limit"
+        return stop_reason
+
+    def _reuse_archive(self) -> None:
+        rows = self.conn.execute("""
+            select v.id, v.source_url
+            from public.document_versions v
+            join public.documents d on d.id = v.document_id and d.workspace_id = v.workspace_id
+            join public.sources s on s.id = d.source_id and s.workspace_id = d.workspace_id
+            where v.workspace_id = %s and d.source_id = any(%s)
+              and s.permitted_operations @> array['quote']::text[]
+              and private.analysis_coverage_document_reason(%s, %s, %s, v.id) is null
+            order by v.published_at desc nulls last, v.retrieved_at desc, v.id
+            limit %s
+        """, (self.ctx.workspace_id, list(self.task.source_ids), self.ctx.workspace_id,
+              self.ctx.analysis_run_id, self.ctx.analysis_revision_id, self.allowance)).fetchall()
+        self.archive_versions = [row["id"] for row in rows]
+        now = datetime.now(UTC)
+        self.log.extend(
+            FetchAttempt(url=row["source_url"], outcome="reused", document_version_id=row["id"],
+                         error=None, attempted_at=now, request_sent=False)
+            for row in rows
+        )
+
+    def execute(self) -> ScoutOutcome:
+        if self.scout.archive_only:
+            self._reuse_archive()
+            stop_reason = "saved_archive_only"
+        else:
+            stop_reason = self._acquire()
         report, labels = self._report()
         result = ScoutResult(
             analysis_run_id=self.ctx.analysis_run_id, agent_step_id=self.step_id, role=self.task.role,
@@ -961,11 +994,12 @@ class _ScoutRun:
               and d.workspace_id = %s and v.workspace_id = %s
               and d.source_id = any(%s)
               and (v.published_at is null or v.published_at::date <= %s)
+              and (%s::uuid[] is null or v.id = any(%s::uuid[]))
             order by v.document_id, v.version_number desc
         ) """
         scope = (self.task.jurisdiction_code, self.task.jurisdiction_code, self.task.jurisdiction_code,
                  self.task.jurisdiction_code, self.task.jurisdiction_code, list(brief.jurisdictions), self.ctx.workspace_id, self.ctx.workspace_id,
-                 list(self.task.source_ids), brief.as_of_date)
+                 list(self.task.source_ids), brief.as_of_date, self.archive_versions, self.archive_versions)
         # Match the public search function's ranking, but only after version
         # and source eligibility, so obsolete passages cannot consume its cap.
         words = sorted(_terms(self.task.question))[:12]

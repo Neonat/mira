@@ -102,6 +102,14 @@ catch up on discovered links and retain prior eligible facts when an incremental
 refresh finds nothing new. They do not automatically revisit every acquired
 publication for silent edits.
 
+For a one-off preparation from saved publications, set
+`settings.archive_only` to `true`, use keyword retrieval and set
+`budget.max_gap_rounds` to `0`. The worker selects eligible stored versions
+in the approved scope and records them as reused. The run skips publisher
+fetches, Exa, browser acquisition, embeddings and corroboration search.
+It still uses the configured models for planning, passage analysis and
+verification under the supplied allowance.
+
 ## Full research service
 
 Start the explicit local broker on the same trusted machine as the UI and worker:

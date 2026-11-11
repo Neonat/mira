@@ -135,6 +135,13 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
     shared_budget=client.budget if isinstance(client,GenerationClient) else None
     sources=restrict_sources(store.list_sources(workspace),settings,ctx.brief.jurisdictions if ctx else [])
     fetcher = Fetcher(AllowList(sources))
+    if settings is not None and settings.archive_only:
+        scout = WebScout(dsn, client, fetcher, archive_only=True)
+        return Orchestrator(
+            store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client),
+            max_parallel_analysis=4, max_parallel_checks=4,
+            analysis_limits=replace(AnalysisLimits.from_env(), max_batches=settings.max_analysis_batches),
+        )
     discovery = discovery_from_env(sources,settings=settings,api_keys=api_keys,generation_budget=shared_budget)
     browser = browser_from_env(settings=settings)
     live_browser = live_browser_from_env(fetcher,settings=settings)
