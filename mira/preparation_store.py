@@ -414,6 +414,9 @@ class PreparationStore:
         return True
 
     def pending_frontier(self, job, source_ids, limit, start_date=None, as_of_date=None):
+        # ScoutTask carries a tuple. Psycopg adapts lists to SQL arrays and
+        # tuples to records, which cannot be cast to uuid[] by this query.
+        source_ids = list(source_ids)
         with acting_as(self.conn,job['actor_id']):
             self._fence(job)
             if not set(map(str,source_ids))<=set(map(str,job['source_ids'])): raise ValueError('frontier source outside job')
