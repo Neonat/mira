@@ -92,15 +92,15 @@ def writer_output(extra_labels=(), uncited_fact=False):
 
     def respond(prompt):
         labels = re.findall(r"^(C\d+) \[", prompt, flags=re.MULTILINE) + list(extra_labels)
-        developments = [{"text": "MAS amended Notice 626.", "claim_labels": labels[:1], "structural": False}]
+        developments = [labels[:1]]
         if uncited_fact:
-            developments.append({"text": "MAS fined Bank Y S$5m.", "claim_labels": [], "structural": True})
+            developments.append([])  # An uncited group is invalid; code supplies structural text.
         sections = [
-            {"section": "executive_summary", "sentences": [{"text": "Summary.", "claim_labels": labels, "structural": False}], "no_verified_items": False},
-            {"section": "regulatory_developments", "sentences": developments, "no_verified_items": False},
+            {"section": "executive_summary", "groups": [labels]},
+            {"section": "regulatory_developments", "groups": developments},
         ]
         for key in ("deadlines_timeline", "jurisdiction_comparison", "supervisory_trends", "industry_developments", "impact_assessment"):
-            sections.append({"section": key, "sentences": [], "no_verified_items": True})
+            sections.append({"section": key, "groups": []})
         return {"sections": sections}
 
     return respond

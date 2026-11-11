@@ -1,0 +1,284 @@
+{
+  "tested_commit": "9b201b864e03ab78c0f0c20f6032ce8d8ab63b42",
+  "run_id": "8dcdcc8b-0e26-4af3-ad0d-d60e6924d83d",
+  "job_id": "f8a1cc9d-e18c-46d1-a703-f73c473f803d",
+  "preparation_brief": {
+    "topic": "AML/CFT",
+    "as_of_date": "2026-11-11",
+    "period_end": "2026-11-04",
+    "period_start": "2025-11-04",
+    "jurisdictions": [
+      "HK"
+    ],
+    "plan_requires_approval": false
+  },
+  "report_brief": {
+    "topic": "AML/CFT",
+    "jurisdictions": [
+      "HK"
+    ],
+    "period_start": "2025-11-04",
+    "period_end": "2026-11-04",
+    "as_of_date": "2026-11-04",
+    "plan_requires_approval": false
+  },
+  "scope": [
+    "hk-elegislation",
+    "hkma",
+    "sfc"
+  ],
+  "limits": {
+    "max_fetched_documents": 30,
+    "max_llm_tokens": 600000,
+    "max_run_minutes": 25,
+    "max_gap_rounds": 2,
+    "max_cost_usd": "10",
+    "max_exa_searches": 6
+  },
+  "preparation_status": "partial",
+  "job_status": "succeeded",
+  "preparation_seconds": 1146.5021856250241,
+  "wall_seconds": 1146.6986250421032,
+  "preparation_summary": "task T2 (regulatory scout) failed: bounded request failed (output_limit); gap round 2 stopped: document budget used; analysis batch B1 failed (LLMError); saved findings were retained; verifier failed on claim C11: generation admission refused: downstream reserve or deadline; verifier failed on claim C17: generation admission refused: downstream reserve or deadline; verifier failed on claim C19: generation admission refused: downstream reserve or deadline; verifier failed on claim C24: generation admission refused: downstream reserve or deadline; Preparation analysis is incomplete; passage dispositions were retained.",
+  "initial_request_status": "waiting",
+  "final_request_status": "ready",
+  "report_generation_seconds": 0.19571508304215968,
+  "report_error": null,
+  "acquisition": {
+    "distinct_publications": 29,
+    "recall": {
+      "all": {
+        "found": 5,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 5,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 5,
+        "total": 14
+      }
+    },
+    "benchmark_ids": [
+      "GT03",
+      "GT04",
+      "GT05",
+      "GT06",
+      "GT21"
+    ]
+  },
+  "stored_text": {
+    "distinct_publications": 25,
+    "recall": {
+      "all": {
+        "found": 5,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 5,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 5,
+        "total": 14
+      }
+    },
+    "benchmark_ids": [
+      "GT03",
+      "GT04",
+      "GT05",
+      "GT06",
+      "GT21"
+    ]
+  },
+  "report": {
+    "report_id": "f64e4637-7632-409f-865d-15f6c6417c81",
+    "facts": 14,
+    "inferences": 0,
+    "citations": {
+      "distinct_publications": 9,
+      "recall": {
+        "all": {
+          "found": 5,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 5,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 5,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT03",
+        "GT04",
+        "GT05",
+        "GT06",
+        "GT21"
+      ]
+    },
+    "review_state": "human_review_pending",
+    "review_counts": {
+      "pending": 14,
+      "accepted": 0
+    },
+    "support_records_checked": 14,
+    "support_record_mismatches": 0,
+    "quotes_checked": 44,
+    "quote_mismatches": 1,
+    "timeline_dates": 0,
+    "omission_reasons": {},
+    "html_sha256": "b7d5d59aaa5ac9f28caddb3afd831f33067c8260e48f8337c86ab8e881b23ee9",
+    "human_review_pending_warning_present": true,
+    "quotes_passing_verifier_rule": 44,
+    "quote_mismatch_detail": "One extracted PDF passage has a space after a line-break hyphen. The quote preserves the same wording.",
+    "browser_checks": [
+      {
+        "viewport_width": 390,
+        "page_width": 390,
+        "table_width": 358,
+        "broken_internal_targets": [],
+        "review_rows": 14
+      },
+      {
+        "viewport_width": 1440,
+        "page_width": 1440,
+        "table_width": 864,
+        "broken_internal_targets": [],
+        "review_rows": 14
+      }
+    ]
+  },
+  "record_counts": {
+    "analysis_runs": 1,
+    "preparation_jobs": 1,
+    "prepared_snapshots": 1,
+    "prepared_reports": 1,
+    "analysis_findings": 24,
+    "document_passages": 382,
+    "document_versions": 30
+  },
+  "representations_by_source": {
+    "sfc": 15,
+    "hkma": 15
+  },
+  "extraction_statuses": {
+    "complete": 29,
+    "unsupported": 1
+  },
+  "passage_coverage": {
+    "failed_passages": 3,
+    "pending_passages": 0,
+    "analysed_passages": 21,
+    "deferred_passages": 358,
+    "attempted_passages": 24,
+    "candidate_passages": 382
+  },
+  "prepared_fact_count": 14,
+  "scouts": {
+    "succeeded": 7,
+    "failed": 1
+  },
+  "database_array_failures": 0,
+  "step_statuses": {
+    "planner:succeeded": 2,
+    "regulatory_scout:succeeded": 7,
+    "regulatory_scout:failed": 1,
+    "completeness_checker:succeeded": 2,
+    "analyst:failed": 1,
+    "analyst:succeeded": 8,
+    "verifier:succeeded": 36,
+    "verifier:failed": 4
+  },
+  "corroboration": {
+    "inconclusive": 10
+  },
+  "durable_machine_supported": {
+    "facts": 14
+  },
+  "corroboration_timestamps": {
+    "persisted": 11,
+    "valid_at_insert": 11
+  },
+  "model_errors": {
+    "regulatory_scout:output_limit": 1,
+    "analyst:request_timeout": 1,
+    "verifier:request_timeout": 1
+  },
+  "events": {
+    "preparation_started": 1,
+    "step_started": 61,
+    "model_started": 61,
+    "model_completed": 58,
+    "exa_started": 6,
+    "exa_completed": 6,
+    "model_failed": 3,
+    "preparation_finished": 1
+  },
+  "usage_usd": {
+    "known_estimated_usd": "2.983450",
+    "unknown_reserved_usd": "0.425358",
+    "pending_usd": "0.000000",
+    "allowance_used_usd": "3.408808"
+  },
+  "tokens": {
+    "known_tokens": 473156,
+    "unknown_reserved_tokens": 47263,
+    "pending_tokens": 0,
+    "allowance_used": 520419
+  },
+  "cleanup": {
+    "enabled_schedules": 0,
+    "mas_active": false,
+    "temporary_hkma_browser_grant_removed": true
+  },
+  "comparison": {
+    "prior_scheduled_run": {
+      "run_id": "2dbaed02-228b-4011-a7d0-419233e1bac0",
+      "acquisition": {
+        "found": 4,
+        "total": 18
+      },
+      "citations": null
+    },
+    "before_timestamp_fix": {
+      "run_id": "4aadb257-d7d8-4c2d-9544-e1dba41859d5",
+      "acquisition": {
+        "found": 6,
+        "total": 18
+      },
+      "citations": null
+    },
+    "failed_scheduled_run": {
+      "run_id": "52f87456-6b22-49d6-81f2-4ffc6565a8ef",
+      "acquisition": {
+        "found": 0,
+        "total": 18
+      },
+      "citations": null
+    },
+    "earlier_end_to_end": {
+      "run_id": "489c2889-40f0-4ba9-b87c-5e592bbbabfa",
+      "acquisition": {
+        "found": 5,
+        "total": 18
+      },
+      "citations": {
+        "found": 1,
+        "total": 18
+      }
+    }
+  },
+  "timing": {
+    "start_utc": "2026-11-11T05:53:11.398166+00:00",
+    "end_utc": "2026-11-11T06:12:17.912065+00:00",
+    "elapsed_utc_seconds": 1146.513899,
+    "idle_sleep_prevention": "caffeinate -i attached to worker for command lifetime",
+    "observed_idle_sleep_events_during_run": 0
+  },
+  "timestamp_fix_exercised": true,
+  "live_resume_or_replacement": false
+}

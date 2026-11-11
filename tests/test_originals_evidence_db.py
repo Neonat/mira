@@ -134,3 +134,17 @@ def test_malformed_retention_configuration_cannot_discard_text(conn, setup_origi
     assert saved.passage_ids
     assert row['metadata']['original_retained'] is False
     assert row['metadata']['original_retention_status'] in {'not_permitted', 'failed'}
+
+
+def test_invalid_remote_client_configuration_preserves_all_extracted_text(conn,setup_original,monkeypatch):
+    ws,user,page,extracted,store=setup_original
+    monkeypatch.setenv('MIRA_ARTIFACT_STORAGE','supabase')
+    monkeypatch.setenv('MIRA_RETAIN_ORIGINALS','1')
+    monkeypatch.setenv('SUPABASE_URL','https://fixture.supabase.co')
+    monkeypatch.setenv('MIRA_STORAGE_SERVICE_ROLE_KEY','fixture-never-sent')
+    def invalid(*args,**kwargs):raise RuntimeError('provider client configuration failed')
+    monkeypatch.setattr('supabase.create_client',invalid)
+    saved=EvidenceWriter(conn,ws,user).save(page,extracted)
+    row=version(conn,saved)
+    assert row['extracted_text']==extracted.text and saved.passage_ids
+    assert row['metadata']['original_retention_status']=='failed'

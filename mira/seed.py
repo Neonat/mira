@@ -22,7 +22,7 @@ from psycopg.types.json import Jsonb
 ALL_OPERATIONS = ("metadata", "fetch", "store_text", "quote", "embed")
 FETCH_ONLY = ("metadata", "fetch")
 MANUAL = ("metadata",)
-EXPECTED_LIST_VERSION = 2
+EXPECTED_LIST_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,8 @@ class SourceSeed:
     block_markers: tuple[str, ...] = ()
     notes: str = ""
     category_urls: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    is_active: bool = True
+    profile: dict[str, object] = field(default_factory=dict)
 
     def connector_config(self) -> dict[str, object]:
         return {
@@ -50,6 +52,7 @@ class SourceSeed:
             "crawl_delay_seconds": self.crawl_delay_seconds,
             "block_markers": list(self.block_markers),
             "category_urls": {key: list(urls) for key, urls in self.category_urls.items()},
+            **self.profile,
         }
 
 
@@ -69,6 +72,7 @@ SOURCES: tuple[SourceSeed, ...] = (
         ),
         crawl_delay_seconds=2.0,
         block_markers=("Sorry, this service is currently unavailable",),
+        is_active=False,
         notes=("robots.txt crawl delay 2 s. From 26 Oct 2026 the site serves a block page to automated "
                "requests (pages, sitemap and PDFs); import MAS documents by hand until access is agreed"),
     ),
@@ -131,6 +135,38 @@ SOURCES: tuple[SourceSeed, ...] = (
     SourceSeed("basel-institute", "Basel Institute on Governance", "Basel Institute on Governance", "website",
                "https://baselgovernance.org", None, FETCH_ONLY,
                start_urls=("https://baselgovernance.org/resources/basel-aml-index/",)),
+    SourceSeed(
+        "au-register", "Federal Register of Legislation", "Office of Parliamentary Counsel", "regulator",
+        "https://www.legislation.gov.au", "AU", ALL_OPERATIONS,
+        start_urls=("https://api.prod.legislation.gov.au/v1/Versions?$filter=titleId%20eq%20'C2006A00169'&$orderby=registeredAt%20desc&$top=12",),
+        extra_hosts=("api.prod.legislation.gov.au",), crawl_delay_seconds=10,
+        notes="CC BY 4.0 licensed prose with attribution, excluding marked/third-party material. API discovery and fixed dated files; no blanket grant for originals. https://www.legislation.gov.au/terms-of-use",
+        profile={"acquisition_profile":"register_api_files", "allow_live_browser":False,
+                 "allow_browser":False,"discovery_hosts":["www.legislation.gov.au"],
+                 "source_reuse":{"notice":"Based on content from the Federal Register of Legislation, downloaded {retrieved_date}. CC BY 4.0. Changes: text extracted; formatting changed. No endorsement.",
+                                 "reference":"https://www.legislation.gov.au/terms-of-use",
+                                 "licence":"https://creativecommons.org/licenses/by/4.0/"}},
+    ),
+    SourceSeed(
+        "austrac", "AUSTRAC", "Australian Transaction Reports and Analysis Centre", "regulator",
+        "https://www.austrac.gov.au", "AU", ALL_OPERATIONS,
+        start_urls=("https://www.austrac.gov.au/industry-and-business/obligations-and-guidance/your-amlctf-program/develop-your-amlctf-programs/step-3-manage-and-mitigate-your-risks-amlctf-policies",),
+        notes="Public guidance only; live robots must permit each request. AUSTRAC Online and excluded logos/third-party material are outside this grant. https://www.austrac.gov.au/austrac-copyright-attribution-and-third-party-guidelines",
+        profile={"acquisition_profile":"public_guidance_files","allow_live_browser":False,"allow_browser":False,
+                 "source_reuse":{"notice":"© Commonwealth of Australia (AUSTRAC). CC BY 4.0 for licensed material. Downloaded {retrieved_date}; text extracted and formatting changed. No endorsement.",
+                                 "reference":"https://www.austrac.gov.au/austrac-copyright-attribution-and-third-party-guidelines",
+                                 "licence":"https://creativecommons.org/licenses/by/4.0/"}},
+    ),
+    SourceSeed(
+        "cbuae", "CBUAE (federal)", "Central Bank of the UAE", "regulator", "https://centralbank.ae", "AE",
+        ("metadata","fetch","store_text","quote"),
+        start_urls=("https://centralbank.ae/en/our-operations/anti-money-laundering-aml/offsite-supervision/",),
+        category_urls={"guideline":("https://centralbank.ae/en/our-operations/anti-money-laundering-aml/offsite-supervision/",)},
+        notes="Federal public pages and same-host PDFs; internal organisational use under §2.3 with copyright notice. No external embedding or browser-block fallback; no rulebook subdomain, DIFC/DFSA or VARA approval. https://centralbank.ae/en/footer/terms-and-conditions/",
+        profile={"acquisition_profile":"federal_hub_pdf","allow_live_browser":False,"allow_browser":False,
+                 "source_reuse":{"notice":"© Central Bank of the UAE. Private organisational-use extract, downloaded {retrieved_date}. Formatting changed. No endorsement.",
+                                 "reference":"https://centralbank.ae/en/footer/terms-and-conditions/"}},
+    ),
 )
 
 
@@ -163,6 +199,9 @@ EXPECTED: tuple[ExpectedSeed, ...] = (
     ExpectedSeed("HK", "enforcement", "SFC enforcement actions involving AML", "sfc"),
     ExpectedSeed("HK", "consultation", "SFC consultations on AML/CFT", "sfc"),
     ExpectedSeed("HK", "circular", "FSTB AML/CFT policy and risk assessment updates", "fstb"),
+    ExpectedSeed("AU", "legislation", "Federal AML/CTF Act registered compilations", "au-register"),
+    ExpectedSeed("AU", "guideline", "AUSTRAC public AML/CTF program policies guidance", "austrac"),
+    ExpectedSeed("AE", "guideline", "CBUAE federal AML/CFT thematic reviews and guidance publications", "cbuae"),
     *(ExpectedSeed(code, "industry", hint, key) for code in ("SG", "HK") for hint, key in (
         ("FATF plenary outcomes and high-risk jurisdiction lists", "fatf"),
         ("APG mutual evaluation and follow-up reports", "apg"),
@@ -186,16 +225,18 @@ def seed(conn: psycopg.Connection, workspace_id: UUID, topic: str = "AML/CFT") -
             row = conn.execute(
                 """insert into public.sources
                      (workspace_id, source_key, name, publisher, source_type, base_url, jurisdiction_code,
-                      permitted_operations, access_conditions, connector_config)
-                   values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                      permitted_operations, access_conditions, connector_config, is_active)
+                   values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    on conflict (workspace_id, source_key) do update set
                      name = excluded.name, publisher = excluded.publisher, source_type = excluded.source_type,
                      base_url = excluded.base_url, jurisdiction_code = excluded.jurisdiction_code,
-                     permitted_operations = excluded.permitted_operations,
-                     access_conditions = excluded.access_conditions, connector_config = excluded.connector_config
+                     permitted_operations = case when excluded.source_key in ('au-register','austrac','cbuae')
+                       then public.sources.permitted_operations else excluded.permitted_operations end,
+                     access_conditions = excluded.access_conditions, connector_config = excluded.connector_config,
+                     is_active = case when excluded.source_key = 'mas' then false else public.sources.is_active end
                    returning id""",
                 (workspace_id, source.key, source.name, source.publisher, source.source_type, source.base_url,
-                 source.jurisdiction, list(source.operations), source.notes or None, Jsonb(source.connector_config())),
+                 source.jurisdiction, list(source.operations), source.notes or None, Jsonb(source.connector_config()), source.is_active),
             ).fetchone()
             result.source_ids[source.key] = row["id"]
             result.sources += 1

@@ -14,21 +14,18 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import time as time_module
 from dataclasses import dataclass
 from datetime import UTC, datetime, time
-from pathlib import Path
 from uuid import UUID
 
 import psycopg
 from psycopg.types.json import Jsonb
 
-from mira.config import REPO_ROOT
 from mira.db import acting_as
 from mira.extract import EXTRACTION_VERSION, Extracted, split_passages
 from mira.fetch import FetchedPage
-from mira.originals import PrivateOriginalStore, RetentionPolicy
+from mira.originals import PrivateOriginalStore
 from mira.store import SourceRecord
 
 DOCUMENT_TYPES = {"regulator": "regulation", "website": "guidance", "rss": "news"}
@@ -61,9 +58,8 @@ class EvidenceWriter:
         self.originals = originals
         if originals is None:
             try:
-                self.originals = PrivateOriginalStore(
-                    Path(os.environ.get("MIRA_ORIGINALS_DIR", str(REPO_ROOT / "private-originals"))),
-                    RetentionPolicy.from_env())
+                from mira.artifact_storage import original_store_from_env
+                self.originals = original_store_from_env()
             except (ValueError, OSError):
                 # Retention configuration cannot prevent saving extracted text.
                 self._original_config_failed = True
@@ -113,6 +109,11 @@ class EvidenceWriter:
         ws, user = self.workspace_id, self.user_id
         source = page.source
         store_text = "store_text" in source.permitted_operations and extracted.status in ("complete", "partial")
+        extraction_metadata = extracted.metadata if store_text else {}
+        reuse = source.connector_config.get("source_reuse", {})
+        reuse = dict(reuse) if isinstance(reuse, dict) else {}
+        if isinstance(reuse.get("notice"), str):
+            reuse["notice"] = reuse["notice"].replace("{retrieved_date}", page.fetched_at.date().isoformat())
         supplied_method = (provenance or {}).get("acquisition_method")
         method = (supplied_method if supplied_method in ("live_browser", "offline_browser") else
                   "manual_import" if (provenance or {}).get("import") == "manual" else "http_fetch")
@@ -150,7 +151,7 @@ class EvidenceWriter:
                 ).fetchone()
             document_id = document["id"]
             existing = execute(
-                "select id from public.document_versions where document_id = %s and content_sha256 = %s",
+                "select id, extracted_text from public.document_versions where document_id = %s and content_sha256 = %s",
                 (document_id, digest),
             ).fetchone()
             if existing:
@@ -172,7 +173,8 @@ class EvidenceWriter:
                     "select id from public.document_passages where document_version_id = %s order by passage_number",
                     (existing["id"],),
                 ).fetchall()
-                return SavedPage(document_id, existing["id"], [row["id"] for row in passages], True, bool(passages))
+                return SavedPage(document_id, existing["id"], [row["id"] for row in passages], True,
+                                 existing["extracted_text"] is not None)
             latest = execute(
                 "select id, version_number from public.document_versions where document_id = %s order by version_number desc limit 1",
                 (document_id,),
@@ -189,13 +191,15 @@ class EvidenceWriter:
                  Jsonb({"content_type": page.content_type, "requested_url": page.requested_url, "kind": page.kind,
                         "text_stored": store_text, "links": len(extracted.links), "error": extracted.error,
                         "publication_date_evidence": extracted.published_basis,
+                        "extraction_metadata": extraction_metadata, "source_reuse": reuse,
+                        **({"claim_grounding": extraction_metadata["claim_grounding"]} if extraction_metadata.get("claim_grounding") else {}),
                         **(provenance or {}), "acquisition_method": method,
                         "capture_sha256": identity["capture_sha256"], **original_metadata,
                         "extraction_sha256": identity["extraction_sha256"]}),
                  latest["id"] if latest else None),
             ).fetchone()["id"]
             passage_ids: list[UUID] = []
-            if store_text:
+            if store_text and extraction_metadata.get("role") != "discovery_metadata":
                 for span in split_passages(extracted):
                     passage_ids.append(execute(
                         """insert into public.document_passages

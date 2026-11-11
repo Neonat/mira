@@ -43,7 +43,7 @@ from mira.pg_store import PostgresStore
 from mira.store import PassageRecord, RunContext
 from mira.sfc import search_payload
 
-PROMPT_VERSION = "scout/6"
+PROMPT_VERSION = "scout/7"
 MAX_LINKS_SHOWN = 120
 MAX_DIAGNOSTIC_RECORDS = 300
 
@@ -55,12 +55,12 @@ def _safe_url(url: str) -> str:
     return urlunsplit((parts.scheme, parts.hostname or "", parts.path[:1000], query, ""))
 
 MAX_PASSAGES_SHOWN = 40
-MAX_PASSAGE_CHARS = 60_000
+MAX_PASSAGE_CHARS = 16_000
 # Token-cap enforcement. A task's max_llm_tokens is checked before each call using a
 # size estimate, so the cap holds approximately rather than only between calls.
 CHARS_PER_TOKEN = 4
 SELECTION_OUTPUT_TOKENS = 500
-REPORT_OUTPUT_TOKENS = 2_000
+REPORT_OUTPUT_TOKENS = 16_384
 # The report call always runs, so pages already fetched are not wasted. Below this
 # many passage characters it would have too little evidence to be useful.
 MIN_PASSAGE_CHARS = 8_000
@@ -87,10 +87,51 @@ From the saved passages, list the documents that answer the research question wi
 For each document give its instrument type or industry category, title, dates and whether it is new, amended or upcoming, using only what the passages state; use null when unknown.
 For each expected source, say found (a relevant development in the period), no_change (the relevant publication or category was inspected and shows nothing new in the period) or missing (it could not be checked).
 For no_change, list the inspected_passage_labels that show the relevant publication, index or category you actually checked for this specific checklist item. A page from the same publisher on another subject is insufficient. If that evidence is unavailable, use missing. You may list inspection evidence even when there are no relevant developments to put in documents.
+The passages are a bounded selection and do not represent all saved evidence. Do not infer found or no_change from omitted evidence; use missing when the shown passages do not establish the status.
 Listing nothing is a valid answer. Never fill gaps from memory.
 - {TEMPORAL_RULE}
 - {NO_CONCLUSIONS_RULE}
 - {UNTRUSTED_TEXT_RULE}"""
+
+
+class _SummaryClient:
+    """Keep report generation bounded without changing the shared client contract."""
+
+    def __init__(self, run):
+        self.run = run
+
+    def structured(self, **kwargs):
+        client = self.run.scout.client
+        try:
+            if not hasattr(client, "structured_bounded"):
+                return client.structured(**kwargs)
+            remaining = self.run._remaining_seconds()
+            timeout = 120 if remaining is None else min(120, remaining)
+            if timeout <= 0:
+                error = LLMError("report time limit reached")
+                error.request_sent = False
+                raise error
+            from mira.llm import request_token_reservation
+            remaining_tokens = self.run._remaining_tokens()
+            reservation = request_token_reservation(system=kwargs["system"], user=kwargs["user"],
+                                                    output_type=kwargs["output_type"],
+                                                    max_output_tokens=REPORT_OUTPUT_TOKENS)
+            if remaining_tokens is not None and reservation > remaining_tokens:
+                error = LLMError("report token limit reached")
+                error.request_sent = False
+                raise error
+            return client.structured_bounded(timeout_seconds=timeout,
+                                             max_output_tokens=REPORT_OUTPUT_TOKENS, **kwargs)
+        except LLMError as exc:
+            if getattr(exc, "request_sent", None) is not False:
+                reserved = getattr(exc, "reserved_tokens", 0) or 0
+                if not reserved and not (exc.tokens_in or exc.tokens_out):
+                    from mira.llm import request_token_reservation
+                    reserved = request_token_reservation(system=kwargs["system"], user=kwargs["user"],
+                                                         output_type=kwargs["output_type"],
+                                                         max_output_tokens=REPORT_OUTPUT_TOKENS)
+                self.run.generation_reserved_tokens += reserved
+            raise
 
 
 @dataclass
@@ -101,8 +142,9 @@ class _Visit:
 
 
 def _is_pdf(url: str) -> bool:
+    from mira.publication_routes import is_publication_pdf
     lowered = url.lower()
-    return lowered.split("?")[0].endswith(".pdf") or "getpdf" in lowered
+    return lowered.split("?")[0].endswith(".pdf") or "getpdf" in lowered or is_publication_pdf(url)
 
 
 def _terms(text: str) -> set[str]:
@@ -112,6 +154,10 @@ def _terms(text: str) -> set[str]:
 def document_key(url: str) -> str:
     """Only collapse explicitly recognised HKMA landing/PDF aliases, never whole feeds."""
     url = urldefrag(url)[0]
+    from mira.publication_routes import register_document_key
+    register_key=register_document_key(url)
+    if register_key is not None:
+        return 'au-register:'+register_key
     parts = urlsplit(url)
     if parts.hostname == "brdr.hkma.gov.hk":
         match = re.fullmatch(r"/(eng|chi)/doc-ldg/(?:(?:current|docId)/([^/]+)|docId/getPdf/([^/]+)/[^/]+\.pdf)", parts.path)
@@ -158,7 +204,7 @@ def distinct_links(links: list[Link]) -> list[Link]:
 
 class WebScout:
     def __init__(self, dsn: str, client: LLMClient, fetcher: Fetcher, *, max_rounds: int = 2,
-                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None, hybrid=None) -> None:
+                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None, hybrid=None, frontier=None) -> None:
         self.dsn = dsn
         self.client = client
         self.fetcher = fetcher
@@ -168,6 +214,7 @@ class WebScout:
         self.browser_adapter = browser
         self.live_browser_adapter = live_browser
         self.hybrid = hybrid
+        self.frontier = frontier
         self._fetch_lock = threading.Lock()
         # Futures let concurrent tasks share one fetch/save, scoped to workspace and run.
         self._pages: dict[tuple[UUID, UUID, str], Future] = {}
@@ -182,7 +229,10 @@ class WebScout:
                 tokens_out = run.tokens_out + (exc.tokens_out if isinstance(exc, LLMError) else 0)
                 diagnostics = {"discovered": run.discovery, "discovered_omitted": run.discovery_omitted,
                                "rounds": run.selection_diagnostics, "stop_reason": "exception",
-                               "remaining_allowance": run.allowance, "hybrid": run.hybrid_diagnostics}
+                               "remaining_allowance": run.allowance, "hybrid": run.hybrid_diagnostics,
+                               "summary": run.summary_diagnostics,
+                               "generation_usage": {"reserved_tokens": run.generation_reserved_tokens or
+                                                    (getattr(exc, "reserved_tokens", 0) if getattr(exc, "request_sent", None) is not False else 0)}}
                 raise ScoutFailure(exc, run.log, diagnostics, run.model, PROMPT_VERSION,
                                    tokens_in, tokens_out) from exc
 
@@ -201,10 +251,13 @@ class _ScoutRun:
         self.visits: list[_Visit] = []
         self.seen: set[str] = set()
         self.candidates: list[Link] = []
+        self.publication_variants: dict[str, Link] = {}
         self.allowance = task.max_documents
         self.tokens_in = self.tokens_out = 0
         self.hybrid_tokens = 0
         self.hybrid_reserved_tokens = 0
+        self.generation_reserved_tokens = 0
+        self.summary_diagnostics = None
         self.hybrid_diagnostics = None
         self.token_stop = False
         self.model: str | None = None
@@ -216,6 +269,8 @@ class _ScoutRun:
         self.origins: dict[int, tuple[Link, dict]] = {}
 
     def _record_discovery(self, links: list[Link], request_url: str, version_id: UUID | None) -> None:
+        if self.scout.frontier is not None:
+            self.scout.frontier.record(links, request_url, version_id)
         for link in links:
             origin = {"request_url": _safe_url(request_url), "document_version_id": str(version_id) if version_id else None}
             record = {"url": _safe_url(link.url), "date": link.published.isoformat() if link.published else None,
@@ -422,9 +477,35 @@ class _ScoutRun:
         return None
 
     def _save_page(self,page,extracted,provenance,link=None,*,deadline=None):
+        from mira.australia import is_register_api_url
+        if (page.kind=='json' and urlsplit(page.url).path=='/v1/Documents'
+                and is_register_api_url(page.url) and extracted.metadata.get('role')=='discovery_metadata'
+                and link is not None and link.published and isinstance(link.date_source,str)
+                and link.date_source.startswith('Federal Register API registeredAt in ')):
+            extracted.links=[Link(child.url,child.text,child.context,link.published,link.date_source)
+                             if child.published is None else child for child in extracted.links]
+            extracted.metadata['availability']={'registered_at':link.published.isoformat(),'evidence':link.date_source}
+        from mira.publication_routes import register_publication
+        publication=register_publication(page.url)
+        if publication is not None:
+            publication=dict(publication)
+            if (link is not None and link.published and isinstance(link.date_source,str)
+                    and link.date_source.startswith('Federal Register API registeredAt in ')):
+                if extracted.published is not None:
+                    publication['extracted_date']=extracted.published.isoformat()
+                publication['registered_at']=link.published.isoformat()
+                extracted.published=link.published
+                extracted.published_basis=link.date_source
+            extracted.metadata['publication']=publication
         if extracted.published is None and link is not None and link.published and link.date_source:
             extracted.published = link.published
             extracted.published_basis = link.date_source
+            grounding = extracted.metadata.get("claim_grounding")
+            native_basis = (link.date_source.startswith("publication date in enclosing table/list record at ")
+                            or link.date_source in {"SFC public publication listing", "SFC public conclusions listing"})
+            if (page.kind == "pdf" and isinstance(grounding, dict) and grounding.get("role") == "publication"
+                    and native_basis and document_key(link.url) == document_key(page.requested_url)):
+                grounding.update(date_scope="publication", date_basis=link.date_source)
         saved = (self.writer.save(page,extracted,provenance,deadline=deadline) if deadline is not None
                  else self.writer.save(page,extracted,provenance))
         self.log.append(FetchAttempt(
@@ -443,6 +524,18 @@ class _ScoutRun:
     def _fetch_document(self, url: str, link: Link | None = None, *, reserved: int = 0) -> None:
         """Fetch a chosen page and, if it is a landing page for a PDF, the PDF it links to."""
         key = document_key(url)
+        if key.startswith('au-register:'):
+            # Only follow the verified counterpart actually discovered by the
+            # native API. Never turn a viewer URL into a guessed publication.
+            matches=[candidate for candidate in [*getattr(self,'publication_variants',{}).values(),*self.candidates]
+                     if document_key(candidate.url)==key and self.scout.fetcher.allow.allows(candidate.url)]
+            html=next((candidate for candidate in matches if not _is_pdf(candidate.url)),None)
+            pdf=next((candidate for candidate in matches if _is_pdf(candidate.url)),None)
+            if html is not None and pdf is not None and self.allowance>reserved+1:
+                self._fetch(html.url,html)
+                if self.allowance>reserved:
+                    self._fetch(pdf.url,pdf)
+                return
         if key.startswith("hkma:"):
             _, language, reference = key.split(":")
             if re.fullmatch(r"\d{8}-\d+-(?:EN|CHI)", reference):
@@ -461,7 +554,10 @@ class _ScoutRun:
             # A parent's publication date applies only to a recognised alias of that document.
             dated = (Link(pdf.url, pdf.text, pdf.context, extracted.published, extracted.published_basis)
                      if document_key(pdf.url) == document_key(url) else pdf)
-            self._fetch(pdf.url, dated)
+            if document_key(pdf.url).startswith('au-register:'):
+                self._fetch_document(pdf.url,dated,reserved=reserved)
+            else:
+                self._fetch(pdf.url, dated)
         elif (pdf is not None and self.allowance > 0 and reserved > 0
               and document_key(pdf.url) == key and pdf.url not in self.seen):
             # This exact full-content follow-up was deferred by the round quota.
@@ -475,22 +571,28 @@ class _ScoutRun:
 
     def _within_tokens(self) -> bool:
         limit = self.task.max_llm_tokens
-        return limit is None or self.tokens_in + self.tokens_out + self.hybrid_tokens + self.hybrid_reserved_tokens < limit
+        return limit is None or self.tokens_in + self.tokens_out + self.hybrid_tokens + self.hybrid_reserved_tokens + self.generation_reserved_tokens < limit
 
     def _remaining_tokens(self) -> int | None:
         limit = getattr(self.task, "max_llm_tokens", None)
-        return None if limit is None else limit - self.tokens_in - self.tokens_out - self.hybrid_tokens - self.hybrid_reserved_tokens
+        return None if limit is None else limit - self.tokens_in - self.tokens_out - self.hybrid_tokens - self.hybrid_reserved_tokens - self.generation_reserved_tokens
 
     def _report_reserve(self) -> int:
         """Tokens kept back so the final report call fits with a minimal set of passages."""
-        return estimate_tokens(REPORT_SYSTEM) + MIN_PASSAGE_CHARS // CHARS_PER_TOKEN + REPORT_OUTPUT_TOKENS
+        from mira.llm import request_token_reservation
+        return request_token_reservation(system=REPORT_SYSTEM, user="x" * MIN_PASSAGE_CHARS,
+                                         output_type=ScoutReport, max_output_tokens=REPORT_OUTPUT_TOKENS)
 
     def _passage_char_budget(self, prompt_without_passages: str) -> int:
         remaining = self._remaining_tokens()
         if remaining is None:
             return MAX_PASSAGE_CHARS
-        spare = remaining - estimate_tokens(REPORT_SYSTEM + prompt_without_passages) - REPORT_OUTPUT_TOKENS
-        return max(MIN_PASSAGE_CHARS, min(MAX_PASSAGE_CHARS, spare * CHARS_PER_TOKEN))
+        from mira.llm import request_token_reservation
+        base = request_token_reservation(system=REPORT_SYSTEM, user=prompt_without_passages,
+                                         output_type=ScoutReport, max_output_tokens=REPORT_OUTPUT_TOKENS)
+        # UTF-8 can use four bytes per character. Quoted passage metadata is
+        # checked against the actual reservation immediately before the call.
+        return max(0, min(MAX_PASSAGE_CHARS, (remaining - base) // 4))
 
     def _used(self, result: LLMResult) -> None:
         self.tokens_in += result.tokens_in
@@ -512,6 +614,23 @@ class _ScoutRun:
                 source_queues, source_others = seed_plan(source.connector_config, categories, years)
                 queues.extend(source_queues)
                 other_indexes.extend(source_others)
+        # Give previously discovered, unconsumed work a bounded share before
+        # refreshing indexes. The store checks the current attempt's fence.
+        if self.scout.frontier is not None and self.allowance > 1:
+            pending = self.scout.frontier.pending(self.task.source_ids, self.allowance // 2,
+                start_date=self.ctx.brief.period_start - timedelta(days=31), as_of_date=self.ctx.brief.as_of_date)
+            for link in pending:
+                if link.published and (link.published > self.ctx.brief.as_of_date or link.published < self.ctx.brief.period_start - timedelta(days=31)):
+                    continue
+                if self.allowance <= 0:
+                    break
+                start = len(self.log)
+                self._fetch_document(link.url, link, reserved=0)
+                attempts = self.log[start:]
+                if attempts:
+                    attempt = attempts[0]
+                    status = 'acquired' if attempt.outcome in ('saved', 'unchanged', 'reused') and not attempt.error else 'failed'
+                    self.scout.frontier.finish(link.url, status, error=attempt.error)
         # Open each assigned category's index in turn, most recent year first.
         # Bound seed pages to roughly half the allowance, preserving room for
         # the publications themselves when the task can fetch multiple pages.
@@ -579,7 +698,9 @@ class _ScoutRun:
             jurisdiction_code=self.task.jurisdiction_code, report=report, fetch_log=self.log, labels=labels,
             selection_diagnostics={"discovered": self.discovery, "discovered_omitted": self.discovery_omitted,
                                    "rounds": self.selection_diagnostics, "stop_reason": stop_reason,
-                                   "remaining_allowance": self.allowance, "hybrid": self.hybrid_diagnostics},
+                                   "remaining_allowance": self.allowance, "hybrid": self.hybrid_diagnostics,
+                                   "summary": self.summary_diagnostics,
+                                   "generation_usage": {"reserved_tokens": self.generation_reserved_tokens}},
         )
         return ScoutOutcome(result, self.model, PROMPT_VERSION, self.tokens_in, self.tokens_out)
 
@@ -605,6 +726,15 @@ class _ScoutRun:
             else:
                 diagnostic["filtered_omitted"] += 1
 
+        # Keep full-file counterparts before alias deduplication removes them.
+        # The bounded cache survives selection clearing its candidate queue.
+        for link in self.candidates:
+            if (document_key(link.url).startswith('au-register:')
+                    and (link.published is None or earliest<=link.published<=brief.as_of_date)
+                    and (link.url in self.publication_variants or len(self.publication_variants)<2000)):
+                old=self.publication_variants.get(link.url)
+                if old is None or (old.published is None and link.published is not None):
+                    self.publication_variants[link.url]=link
         distinct = distinct_links(self.candidates)
         retained_ids = {id(link) for link in distinct}
         accounted_ids: set[int] = set()
@@ -633,6 +763,63 @@ class _ScoutRun:
         fresh.sort(key=lambda link: (link.published is None,
                                      -len(terms & _terms(link.text + " " + link.context)),
                                      -(link.published.toordinal() if link.published else 0)))
+        # A dated publisher record with a topic-bearing publication title is a
+        # stronger acquisition candidate than another navigation page. Only
+        # use dates attached by recognised native record extractors; provider
+        # search snippets and inferred page dates do not qualify.
+        native = []
+        topic_terms = _terms(self.task.question)
+        publication_words = {"circular", "notice", "statement", "guideline", "guidance", "enforcement",
+                             "consultation", "policy", "action", "review", "report", "amendment"}
+        navigation_words = {"archive", "index", "navigation", "feed", "search", "faq"}
+        # Generic publisher and document-kind vocabulary cannot establish
+        # subject relevance, even if several such words match the task.
+        generic_terms = publication_words | navigation_words | {
+            "sfc", "hkma", "regulator", "regulatory", "authority", "commission",
+            "circulars", "notices", "statements", "guidelines", "actions", "reports",
+            "consultations", "papers", "paper", "news", "releases", "release",
+            "find", "published", "issued", "involving", "including", "licensed",
+            "corporations", "cases", "case", "fine", "fines", "reprimands", "disciplinary",
+        }
+        for link in fresh:
+            origin = self.origins.get(id(link), (link, {}))[1]
+            basis = link.date_source or ""
+            native_date = (basis.startswith("publication date in enclosing table/list record at ")
+                           or basis in {"SFC public publication listing", "SFC public conclusions listing"})
+            title_terms = _terms(link.text)
+            if (link.published and brief.period_start <= link.published <= brief.as_of_date
+                    and native_date and origin.get("request_url") not in (None, "discovery")
+                    and len(topic_terms & title_terms) >= 2
+                    and any(not word.isdigit() for word in (topic_terms & title_terms) - generic_terms)
+                    and publication_words & title_terms and not navigation_words & title_terms):
+                native.append(link)
+        if native:
+            capacity = min(self.scout.links_per_round, self.allowance)
+            if rounds_left > 1 and self.allowance > 1:
+                capacity = min(capacity, (self.allowance + rounds_left - 1) // rounds_left)
+            chosen = native[:capacity]
+            self.candidates.extend(link for link in fresh if link not in chosen)
+            self.prior_selections.extend(chosen)
+            reserved = self.allowance - capacity
+            diagnostic["deterministic_selected"] = []
+            for index, link in enumerate(chosen):
+                item = {"rank": index + 1, "url": _safe_url(link.url),
+                        "date": link.published.isoformat(), "selected": True,
+                        "selection_method": "publisher_record",
+                        **self.origins.get(id(link), (link, {}))[1]}
+                diagnostic["deterministic_selected"].append(item)
+                self.deferred_alias_pdfs.discard(link.url)
+                start = len(self.log)
+                before = self.allowance
+                self._fetch_document(link.url, link, reserved=reserved + len(chosen) - index - 1)
+                item["fetch_attempts"] = [
+                    {"url": _safe_url(a.url), "outcome": a.outcome,
+                     "document_version_id": str(a.document_version_id) if a.document_version_id else None}
+                    for a in self.log[start:]]
+                item["fetch_status"] = ("attempted" if len(self.log) > start else
+                                        "allowance_exhausted" if before <= 0 else "not_attempted")
+            diagnostic.update(stop_reason="selected", remaining_allowance=self.allowance)
+            return
         # Round-robin hosts so a large feed cannot crowd other sources out of the prompt.
         groups: dict[str, list[Link]] = {}
         for link in fresh:
@@ -733,6 +920,10 @@ class _ScoutRun:
             start = len(self.log)
             allowance_before = self.allowance
             self._fetch_document(link.url, link, reserved=reserved_for_later + len(result.output.link_labels) - index - 1)
+            if self.scout.frontier is not None and len(self.log) > start:
+                attempt = self.log[start]
+                status = 'acquired' if attempt.outcome in ('saved', 'unchanged', 'reused') and not attempt.error else 'failed'
+                self.scout.frontier.finish(link.url, status, error=attempt.error)
             item.setdefault("fetch_attempts", []).extend(
                 {"url": _safe_url(a.url), "outcome": a.outcome,
                  "document_version_id": str(a.document_version_id) if a.document_version_id else None}
@@ -816,6 +1007,10 @@ class _ScoutRun:
                                            "fallback_reason": hybrid.fallback_reason,
                                            "tokens": hybrid.tokens, "reserved_tokens": hybrid.reserved_tokens,
                                            "cache_error": getattr(hybrid, "cache_error", None)}
+                for field in ('eligible_passages','indexed_passages','pending_passages','blocked_passages',
+                              'index_batches','indexing_stop_reason','coverage_known',
+                              'input_characters','input_bytes','embedding_requests'):
+                    self.hybrid_diagnostics[field] = getattr(hybrid,field,None)
                 if hybrid.fallback_reason is None:
                     hybrid_order = {p.id: i for i, p in enumerate(hybrid.passages)}
                     ids.extend(p.id for p in hybrid.passages if p.id not in ids)
@@ -851,6 +1046,7 @@ class _ScoutRun:
                 continue
             content_seen.add(content_key)
             by_document.setdefault(document_key(passage.source_url), []).append(passage)
+        candidate_count = sum(map(len, by_document.values()))
         chosen, total = [], 0
         while by_document and len(chosen) < MAX_PASSAGES_SHOWN:
             for key in list(by_document):
@@ -862,6 +1058,10 @@ class _ScoutRun:
                     total += len(passage.content)
                 if not by_document[key]:
                     del by_document[key]
+        self.summary_diagnostics = {"passage_char_limit": max_chars, "shown_passages": len(chosen),
+                                    "shown_characters": total, "eligible_candidates": candidate_count,
+                                    "omitted_passages": candidate_count - len(chosen),
+                                    "omission_reason": "summary_passage_or_character_limit" if candidate_count > len(chosen) else None}
         return chosen
 
     def _report(self) -> tuple[ScoutReport, dict[str, UUID]]:
@@ -880,9 +1080,12 @@ class _ScoutRun:
         # Show as many passages as the task's remaining tokens allow, within the usual cap.
         passages = self._passages(self._passage_char_budget(header))
         if not passages:
-            statuses = [{"expected_source_label": label, "status": "missing", "note": "no readable pages were saved"}
+            reason = ("summary passage limit excluded available evidence"
+                      if self.summary_diagnostics and self.summary_diagnostics["omitted_passages"]
+                      else "no readable pages were saved")
+            statuses = [{"expected_source_label": label, "status": "missing", "note": reason}
                         for label in expected_labels]
-            return ScoutReport(documents=[], expected_source_statuses=statuses, notes="no passages"), labels.as_dict()
+            return ScoutReport(documents=[], expected_source_statuses=statuses, notes=reason), labels.as_dict()
         quoted = [quote_passage(labels.add("P", passage.id), passage) for passage in passages]
         user = header + "\n\n" + "Passages:\n\n" + "\n\n".join(quoted)
 
@@ -894,7 +1097,18 @@ class _ScoutRun:
                 labels.resolve(status.expected_source_label, "E")
                 labels.resolve_all(status.inspected_passage_labels, "P")
 
-        result = call_checked(self.scout.client, role=self.task.role, system=REPORT_SYSTEM, user=user,
+        result = call_checked(_SummaryClient(self), role=self.task.role, system=REPORT_SYSTEM, user=user,
                               output_type=ScoutReport, prompt_version=PROMPT_VERSION, check=check)
         self._used(result)
-        return result.output, labels.as_dict()
+        # The model cannot establish coverage from passages it did not see.
+        statuses = []
+        for status in result.output.expected_source_statuses:
+            supported = (status.status != "no_change" or bool(status.inspected_passage_labels))
+            if status.status == "found":
+                supported = any(status.expected_source_label in doc.expected_source_labels
+                                and doc.relevant_passage_labels for doc in result.output.documents)
+            if not supported:
+                status = status.model_copy(update={"status": "missing",
+                                                   "note": "no shown passage establishes this status"})
+            statuses.append(status)
+        return result.output.model_copy(update={"expected_source_statuses": statuses}), labels.as_dict()

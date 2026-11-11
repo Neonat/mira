@@ -24,6 +24,7 @@ from mira.config import REPORTS_DIR
 from mira.contracts import AnalysisCoverageSnapshot, CONTRACT_VERSION, Brief, CoverageRow, ReportSnapshot, RunStatus, StepRecord, Verdict
 from mira.db import acting_as, require_role
 from mira.report import TEMPLATE_VERSION
+from mira.research_settings import ResearchSettings
 from mira.store import (
     AnalysisEvent,
     ExpectedSourceRecord,
@@ -47,10 +48,11 @@ def create_run(
     budget: RunBudget,
     models: dict[str, str],
     previous_run_id: UUID | None = None,
+    *, settings: ResearchSettings | None = None,
 ) -> RunContext:
     """Save the brief as a new Project revision and a queued run; return its context."""
     revision = project_revision_fields(brief, "Research brief")
-    run = analysis_run_fields(brief, budget, models)
+    run = analysis_run_fields(brief, budget, models, settings=settings)
     with acting_as(conn, user_id):
         require_role(conn, workspace_id)
         project_id = conn.execute(
@@ -80,7 +82,8 @@ def create_run(
                values (%s, %s, 1, %s) returning id""",
             (workspace_id, run_id, user_id),
         ).fetchone()["id"]
-    return RunContext(workspace_id, user_id, run_id, analysis_revision_id, brief, budget, previous_run_id)
+    return RunContext(workspace_id, user_id, run_id, analysis_revision_id, brief, budget, previous_run_id,
+                      research_settings=settings,model_settings=dict(models))
 
 
 def create_rerun(
@@ -99,8 +102,10 @@ def create_rerun(
         raise ValueError("the run to re-run is not in this workspace")
     check_rerunnable(previous["status"])
     previous_ctx = load_run(conn, previous_run_id)
+    if previous_ctx.research_settings and previous_ctx.research_settings.credential_mode=='byok':
+        raise ValueError('BYOK reruns require fresh temporary keys in the research console')
     budget = previous_ctx.budget
-    run = analysis_run_fields(previous_ctx.brief, budget, models)
+    run = analysis_run_fields(previous_ctx.brief, budget, models,settings=previous_ctx.research_settings)
     with acting_as(conn, user_id):
         require_role(conn, workspace_id)
         run_id = conn.execute(
@@ -117,7 +122,8 @@ def create_rerun(
                values (%s, %s, 1, %s) returning id""",
             (workspace_id, run_id, user_id),
         ).fetchone()["id"]
-    return RunContext(workspace_id, user_id, run_id, analysis_revision_id, previous_ctx.brief, budget, previous_run_id)
+    return RunContext(workspace_id, user_id, run_id, analysis_revision_id, previous_ctx.brief, budget, previous_run_id,
+                      research_settings=previous_ctx.research_settings,model_settings=dict(models))
 
 
 def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
@@ -142,6 +148,7 @@ def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
         max_llm_tokens=int(limits.get("max_llm_tokens", default.max_llm_tokens)),
         max_run_minutes=float(limits.get("max_run_minutes", default.max_run_minutes)),
         max_gap_rounds=int(limits.get("max_gap_rounds", default.max_gap_rounds)),
+        max_cost_usd=limits.get('max_cost_usd'),
     )
     approved = conn.execute(
         """select approved_at is not null as approved from public.research_plans
@@ -155,7 +162,11 @@ def load_run(conn: psycopg.Connection, run_id: UUID) -> RunContext:
     return RunContext(run["workspace_id"], run["created_by"], run_id, analysis_revision["id"],
                       brief_from_rows(revision, run), budget, run["previous_run_id"],
                       plan_approved=bool(approved and approved["approved"]),
-                      completed_steps=int(steps["last"]))
+                      completed_steps=int(steps["last"]),
+                      research_settings=ResearchSettings.from_dict(run['retrieval_settings']['research'])
+                          if 'research' in (run['retrieval_settings'] or {}) else None,
+                      model_settings=run['model_settings'],
+                      resource_usage=(run['retrieval_settings'] or {}).get('monetary_usage'))
 
 
 def claim_next_run(conn: psycopg.Connection, workspace_id: UUID) -> UUID | None:
@@ -168,6 +179,10 @@ def claim_next_run(conn: psycopg.Connection, workspace_id: UUID) -> UUID | None:
         row = conn.execute(
             """select r.id, r.created_by from public.analysis_runs r
                where r.workspace_id = %s and r.status = 'queued'
+                 and coalesce(r.retrieval_settings->>'execution_mode','research') <> 'preparation'
+                 and (coalesce(r.retrieval_settings->'research'->>'credential_mode','operator')='operator'
+                      or (r.retrieval_settings->'research'->>'credential_mode'='byok'
+                          and r.retrieval_settings->'research'->>'credential_handle' ~ '^[A-Za-z0-9_-]{32,128}$'))
                  and (
                    -- No approval needed, or not yet planned: the worker must claim it to plan it.
                    not (r.retrieval_settings @> '{"plan_requires_approval": true}')
@@ -186,11 +201,11 @@ def claim_next_run(conn: psycopg.Connection, workspace_id: UUID) -> UUID | None:
         ).fetchone()
         if row is None:
             return None
-    with acting_as(conn, row["created_by"]):
-        conn.execute(
-            "update public.analysis_runs set status = 'running', started_at = now() where id = %s and status = 'queued'",
-            (row["id"],),
-        )
+        with acting_as(conn, row["created_by"]):
+            conn.execute(
+                "update public.analysis_runs set status = 'running', started_at = coalesce(started_at,now()) where id = %s and status = 'queued'",
+                (row["id"],),
+            )
     return row["id"]
 
 
@@ -199,11 +214,33 @@ def _as_date(value: datetime | None) -> date | None:
 
 
 class PostgresStore:
-    def __init__(self, conn: psycopg.Connection, reports_dir: Path = REPORTS_DIR) -> None:
+    def __init__(self, conn: psycopg.Connection, reports_dir: Path = REPORTS_DIR, *, artifact_store=None) -> None:
         self.conn = conn
         self.reports_dir = reports_dir
+        self.artifact_store = artifact_store
 
     # --- Reads ----------------------------------------------------------------
+
+    def previously_prepared_passages(self, ctx: RunContext) -> set[UUID]:
+        """Reuse completed analysis only for the same brief/profile and exact text.
+
+        Deferred/failed passages remain candidates for catch-up. A correction
+        request reopens its underlying evidence instead of silently reusing it.
+        Original checks remain in their original snapshot, never copied here.
+        """
+        rows=self.conn.execute('''select distinct e.passage_id from public.prepared_snapshots s
+            join public.analysis_runs r on r.id=(s.payload->'evidence_input'->>'analysis_run_id')::uuid
+                and r.workspace_id=s.workspace_id
+            join public.analysis_passage_events e on e.analysis_run_id=r.id and e.workspace_id=s.workspace_id
+            where s.workspace_id=%s and s.payload->'brief'=%s::jsonb and r.model_settings=%s::jsonb
+              and e.status='analysed' and e.created_at<=s.published_at
+              and not exists(select 1 from public.prepared_fact_reviews v
+                  where v.snapshot_id=s.id and v.decision='correction_requested'
+                    and not exists(select 1 from public.prepared_fact_reviews later where later.snapshot_id=v.snapshot_id
+                        and later.finding_id=v.finding_id and later.sequence>v.sequence)
+                    and (s.payload->'verifications'->v.finding_id::text->'input_snapshot'->'passages') ? e.passage_id::text)''',
+            (ctx.workspace_id,Jsonb(ctx.brief.model_dump(mode='json')),Jsonb(dict(ctx.model_settings or {})))).fetchall()
+        return {r['passage_id'] for r in rows}
 
     def begin_analysis_coverage(self, ctx: RunContext, source_ids: Sequence[UUID]) -> None:
         with acting_as(self.conn, ctx.user_id):
@@ -296,7 +333,7 @@ class PostgresStore:
                       coalesce(v.metadata->>'import', '') = 'manual' as imported,
                       v.content_sha256, coalesce(p.extraction_version, v.extraction_version) as extraction_version,
                       p.page_number, p.char_start, p.char_end,
-                      jsonb_build_object('acquisition_method', v.metadata->'acquisition_method', 'requested_url', v.metadata->'requested_url', 'original_capture_sha256', v.metadata->'original_capture_sha256', 'capture_sha256', v.metadata->'capture_sha256', 'extraction_sha256', v.metadata->'extraction_sha256', 'original_retained', v.metadata->'original_retained', 'acquired_at', v.retrieved_at, 'browser_context', v.metadata->'browser_context') || case when v.metadata->'retained_original' is not null and v.metadata->'retained_original'<>'null'::jsonb then jsonb_build_object('retained_original',v.metadata->'retained_original') else '{}'::jsonb end as acquisition_provenance
+                      jsonb_build_object('acquisition_method', v.metadata->'acquisition_method', 'requested_url', v.metadata->'requested_url', 'original_capture_sha256', v.metadata->'original_capture_sha256', 'capture_sha256', v.metadata->'capture_sha256', 'extraction_sha256', v.metadata->'extraction_sha256', 'original_retained', v.metadata->'original_retained', 'acquired_at', v.retrieved_at, 'browser_context', v.metadata->'browser_context') || case when jsonb_typeof(v.metadata->'source_reuse')='object' and v.metadata->'source_reuse'<>'{}'::jsonb then jsonb_build_object('source_reuse',v.metadata->'source_reuse') else '{}'::jsonb end || case when v.metadata->'retained_original' is not null and v.metadata->'retained_original'<>'null'::jsonb then jsonb_build_object('retained_original',v.metadata->'retained_original') else '{}'::jsonb end || case when jsonb_typeof(v.metadata->'claim_grounding')='object' and v.metadata->'claim_grounding'<>'{}'::jsonb then jsonb_build_object('claim_grounding',v.metadata->'claim_grounding') else '{}'::jsonb end as acquisition_provenance
                from public.document_passages p
                join public.document_versions v on v.id = p.document_version_id
                join public.documents d on d.id = v.document_id
@@ -364,8 +401,8 @@ class PostgresStore:
                    set status = %s, failure_summary = %s,
                        started_at = coalesce(started_at, now()),
                        finished_at = case when %s = any(%s) then now() else finished_at end
-                   where id = %s and workspace_id = %s""",
-                (status, failure_summary, status, list(FINAL_STATUSES), ctx.analysis_run_id, ctx.workspace_id),
+                   where id = %s and workspace_id = %s and (status <> 'cancelled' or %s = 'cancelled')""",
+                (status, failure_summary, status, list(FINAL_STATUSES), ctx.analysis_run_id, ctx.workspace_id,status),
             )
 
     def _step_values(self, record: StepRecord) -> tuple[object, ...]:
@@ -537,7 +574,7 @@ class PostgresStore:
             path = self.reports_dir / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(html, encoding="utf-8")
-            return self.conn.execute(
+            report_id = self.conn.execute(
                 """insert into public.reports
                      (workspace_id, analysis_revision_id, report_version, format, review_status, template_version,
                       evidence_snapshot, artifact_storage_path, generated_by)
@@ -545,3 +582,10 @@ class PostgresStore:
                 (ctx.workspace_id, ctx.analysis_revision_id, version, TEMPLATE_VERSION,
                  Jsonb(json.loads(snapshot.model_dump_json())), str(relative), ctx.user_id),
             ).fetchone()["id"]
+
+        from mira.artifact_jobs import publish_configured_report,publish_report
+        if self.artifact_store is not None:
+            publish_report(self.conn,ctx.workspace_id,report_id,ctx.user_id,html.encode('utf-8'),self.artifact_store)
+        else:
+            publish_configured_report(self.conn,ctx.workspace_id,report_id,ctx.user_id,html.encode('utf-8'))
+        return report_id

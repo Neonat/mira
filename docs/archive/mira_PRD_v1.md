@@ -1,3 +1,5 @@
+> **Current console addendum, 10 November 2026:** temporary per-request BYOK, USD admission, source/date/method/depth controls and measured country-method results are specified in [current PRD v3](../mira_PRD_v3_draft.md). Product users remain audit analysts and senior reviewers; this dated baseline retains its historical requirements and evidence.
+
 Mira Product Requirements
 
 > **Archive note — updated 8 November 2026.** This is the original 11 October requirements record. Its incident/project-first workflow, archive scale and ownership assignments remain historical context; they do not describe the current competition MVP. See [PRD v2](../mira_PRD_v2.md) for the baseline and [PRD v3](../mira_PRD_v3_draft.md) for current implemented behavior and settled amendments.

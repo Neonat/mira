@@ -47,7 +47,7 @@ def test_twenty_long_candidates_make_one_small_call_and_keep_originals():
     assert len(payload["candidates"]) == 1
     assert len(payload["primary"]) <= 2
     assert len(call["user"]) < 14000
-    assert call["max_output_tokens"] <= 4096
+    assert call["max_output_tokens"] <= 8192
     assert call["timeout_seconds"] <= 60
     assert all("Bank A holds" in c["content"] for c in payload["candidates"])
     assert [c.model_dump() for c in result.candidates] == [
@@ -357,10 +357,11 @@ def test_prompt_preparation_consumes_same_call_deadline(monkeypatch):
     assert len(client.calls) == 1 and client.calls[0]["timeout_seconds"] == 56
 
 
-def test_sixty_second_ceiling_and_legacy_thirty_second_limit():
+def test_ninety_second_ceiling_preserves_legacy_explicit_limits():
     from pydantic import ValidationError
     from mira.corroboration import SearchLimits
     assert SearchLimits().max_seconds == 60
     assert SearchLimits(max_seconds=30).max_seconds == 30
+    assert SearchLimits(max_seconds=90).max_seconds == 90
     with pytest.raises(ValidationError):
-        SearchLimits(max_seconds=61)
+        SearchLimits(max_seconds=91)

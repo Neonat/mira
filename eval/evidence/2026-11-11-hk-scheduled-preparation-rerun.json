@@ -1,0 +1,203 @@
+{
+  "tested_commit": "a42e92daafef61bd21527ecbf4693c467d0fb79c",
+  "run_id": "4aadb257-d7d8-4c2d-9544-e1dba41859d5",
+  "job_id": "0092d22d-d6f7-45ce-86e2-022b3a4af660",
+  "preparation_brief": {
+    "topic": "AML/CFT",
+    "as_of_date": "2026-11-11",
+    "period_end": "2026-11-04",
+    "period_start": "2025-11-04",
+    "jurisdictions": [
+      "HK"
+    ],
+    "plan_requires_approval": false
+  },
+  "report_brief": {
+    "topic": "AML/CFT",
+    "jurisdictions": [
+      "HK"
+    ],
+    "period_start": "2025-11-04",
+    "period_end": "2026-11-04",
+    "as_of_date": "2026-11-04",
+    "plan_requires_approval": false
+  },
+  "scope": [
+    "hk-elegislation",
+    "hkma",
+    "sfc"
+  ],
+  "limits": {
+    "max_fetched_documents": 30,
+    "max_llm_tokens": 600000,
+    "max_run_minutes": 25,
+    "max_gap_rounds": 2,
+    "max_cost_usd": "10",
+    "max_exa_searches": 6
+  },
+  "preparation_status": "failed",
+  "job_status": "failed",
+  "preparation_seconds": 847.0660633330699,
+  "wall_seconds": 847.0694362081122,
+  "initial_request_status": "waiting",
+  "final_request_status": "evidence_failed",
+  "report_generation_seconds": null,
+  "report_error": null,
+  "acquisition": {
+    "distinct_publications": 29,
+    "recall": {
+      "all": {
+        "found": 6,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 6,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 6,
+        "total": 14
+      }
+    },
+    "benchmark_ids": [
+      "GT03",
+      "GT04",
+      "GT05",
+      "GT06",
+      "GT21",
+      "GT22"
+    ]
+  },
+  "stored_text": {
+    "distinct_publications": 23,
+    "recall": {
+      "all": {
+        "found": 6,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 6,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 6,
+        "total": 14
+      }
+    },
+    "benchmark_ids": [
+      "GT03",
+      "GT04",
+      "GT05",
+      "GT06",
+      "GT21",
+      "GT22"
+    ]
+  },
+  "report": null,
+  "record_counts": {
+    "analysis_runs": 1,
+    "preparation_jobs": 1,
+    "prepared_snapshots": 0,
+    "prepared_reports": 0,
+    "analysis_findings": 20,
+    "document_passages": 459,
+    "document_versions": 29
+  },
+  "representations_by_source": {
+    "sfc": 15,
+    "hkma": 14
+  },
+  "extraction_statuses": {
+    "complete": 29
+  },
+  "passage_coverage": {
+    "candidate_passages": 459,
+    "attempted_passages": 24,
+    "analysed_passages": 12,
+    "failed_passages": 12,
+    "deferred_passages": 435,
+    "pending_passages": 0
+  },
+  "prepared_fact_count": 0,
+  "scouts": {
+    "failed": 2,
+    "succeeded": 9
+  },
+  "database_array_failures": 0,
+  "step_statuses": {
+    "planner:succeeded": 3,
+    "regulatory_scout:failed": 2,
+    "regulatory_scout:succeeded": 9,
+    "completeness_checker:succeeded": 3,
+    "analyst:failed": 4,
+    "analyst:succeeded": 4,
+    "verifier:succeeded": 11,
+    "verifier:failed": 1
+  },
+  "corroboration": {
+    "primary_source_only": 1
+  },
+  "events": {
+    "preparation_started": 1,
+    "step_started": 37,
+    "model_started": 36,
+    "model_completed": 30,
+    "exa_started": 6,
+    "exa_completed": 6,
+    "model_failed": 6,
+    "preparation_finished": 1
+  },
+  "usage_usd": {
+    "known_estimated_usd": "1.747144",
+    "unknown_reserved_usd": "1.100453",
+    "pending_usd": "0.000000",
+    "allowance_used_usd": "2.847597"
+  },
+  "tokens": {
+    "known_tokens": 277263,
+    "unknown_reserved_tokens": 112501,
+    "pending_tokens": 0,
+    "allowance_used": 389764
+  },
+  "cleanup": {
+    "enabled_schedules": 0,
+    "mas_active": false,
+    "temporary_hkma_browser_grant_removed": true
+  },
+  "comparison": {
+    "failed_scheduled_run": {
+      "run_id": "52f87456-6b22-49d6-81f2-4ffc6565a8ef",
+      "acquisition": {
+        "found": 0,
+        "total": 18
+      },
+      "citations": null
+    },
+    "earlier_end_to_end": {
+      "run_id": "489c2889-40f0-4ba9-b87c-5e592bbbabfa",
+      "acquisition": {
+        "found": 5,
+        "total": 18
+      },
+      "citations": {
+        "found": 1,
+        "total": 18
+      }
+    }
+  },
+  "durable_machine_supported": {
+    "facts": 4
+  },
+  "failure_summary": "internal error: CorroborationPersistenceFailure('corroboration persistence failed: CheckViolation')",
+  "database_error": "corroboration check time is missing or in the future",
+  "snapshot_and_report_recovered": false,
+  "model_errors": [
+    "output_limit",
+    "output_limit",
+    "stream_interrupted",
+    "stream_interrupted",
+    "request_timeout",
+    "request_timeout"
+  ],
+  "live_resume_or_replacement": false
+}

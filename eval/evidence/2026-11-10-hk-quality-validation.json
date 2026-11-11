@@ -1,0 +1,584 @@
+{
+  "schema_version": 1,
+  "kind": "bounded_hk_quality_validation",
+  "base_sha": "03db382f498e5ecb7a0224bc22dc235594da2b8e",
+  "brief": {
+    "topic": "AML/CFT",
+    "jurisdictions": [
+      "HK"
+    ],
+    "period_start": "2025-11-04",
+    "period_end": "2026-11-04",
+    "as_of_date": "2026-11-04",
+    "plan_requires_approval": false
+  },
+  "budget": {
+    "max_fetched_documents": 30,
+    "max_llm_tokens": 600000,
+    "max_run_minutes": 10,
+    "max_gap_rounds": 2,
+    "max_cost_usd": "10",
+    "max_exa_searches": 6
+  },
+  "selected_method": "keyword; hybrid optional experimental, not selected",
+  "current": {
+    "run_id": "489c2889-40f0-4ba9-b87c-5e592bbbabfa",
+    "status": "partial",
+    "started_at": "2026-11-10 07:34:27.722974+00:00",
+    "finished_at": "2026-11-10 07:43:31.723217+00:00",
+    "duration_seconds": 544.778,
+    "models": {
+      "writer": "openai:gpt-5.4-mini",
+      "analyst": "openai:gpt-5.4",
+      "planner": "openai:gpt-5.4",
+      "verifier": "openai:gpt-5.4",
+      "industry_scout": "openai:gpt-5.4-mini",
+      "regulatory_scout": "openai:gpt-5.4-mini"
+    },
+    "model_manifest_matches": true,
+    "duration_within_run_cap": true,
+    "saved_versions": 30,
+    "document_30_cap": true,
+    "acquisition": {
+      "distinct_publications": 30,
+      "recall": {
+        "all": {
+          "found": 5,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 5,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 5,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT04",
+        "GT05",
+        "GT06",
+        "GT21",
+        "GT22"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT07",
+        "GT08",
+        "GT09",
+        "GT11",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT20",
+        "GT23",
+        "GT24"
+      ]
+    },
+    "stored_text_with_passages": {
+      "distinct_publications": 24,
+      "recall": {
+        "all": {
+          "found": 5,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 5,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 5,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT04",
+        "GT05",
+        "GT06",
+        "GT21",
+        "GT22"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT07",
+        "GT08",
+        "GT09",
+        "GT11",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT20",
+        "GT23",
+        "GT24"
+      ]
+    },
+    "report_cited": {
+      "distinct_publications": 1,
+      "recall": {
+        "all": {
+          "found": 1,
+          "total": 18
+        },
+        "fetchable": {
+          "found": 1,
+          "total": 18
+        },
+        "regulatory": {
+          "found": 1,
+          "total": 14
+        }
+      },
+      "benchmark_ids": [
+        "GT21"
+      ],
+      "missing_benchmark_ids": [
+        "GT02",
+        "GT03",
+        "GT04",
+        "GT05",
+        "GT06",
+        "GT07",
+        "GT08",
+        "GT09",
+        "GT11",
+        "GT16",
+        "GT17",
+        "GT18",
+        "GT19",
+        "GT20",
+        "GT22",
+        "GT23",
+        "GT24"
+      ]
+    },
+    "representations_by_source": {
+      "sfc": 20,
+      "hkma": 10
+    },
+    "extraction_statuses": {
+      "complete": 29,
+      "partial": 1
+    },
+    "publications_by_source": {
+      "hkma": 10,
+      "sfc": 20
+    },
+    "passages": {
+      "latest_statuses": {
+        "deferred": 474,
+        "failed": 56,
+        "analysed": 8
+      },
+      "reasons": {
+        "batch_limit": 474,
+        "LLMError": 56
+      },
+      "event_statuses": {
+        "candidate": 538,
+        "deferred": 474,
+        "attempted": 64,
+        "failed": 56,
+        "analysed": 8
+      },
+      "total_saved": 538
+    },
+    "findings": {
+      "total": 5,
+      "model_verified_facts": 2,
+      "model_verified_inferences": 0,
+      "report_included_facts": 2,
+      "report_included_inferences": 0,
+      "report_findings_all_latest_supported": true,
+      "human_precision": "unlabelled"
+    },
+    "check_verdicts": {
+      "supported": 6,
+      "partially_supported": 2
+    },
+    "corroboration": {
+      "assessment_history": 3,
+      "latest_statuses": {
+        "inconclusive": 3
+      },
+      "stop_reasons": {
+        "assessment_workload_limit": 3,
+        "saved_evidence_exhausted": 3,
+        "incomplete_assessment": 3,
+        "assessment_attempt_limit": 3
+      },
+      "call_timeouts": 0
+    },
+    "checklist": [
+      {
+        "source_key": "hkma",
+        "category": "enforcement",
+        "status": "no_change"
+      },
+      {
+        "source_key": "apg",
+        "category": "industry",
+        "status": "missing"
+      },
+      {
+        "source_key": "hkma",
+        "category": "guideline",
+        "status": "found"
+      },
+      {
+        "source_key": "sfc",
+        "category": "circular",
+        "status": "found"
+      },
+      {
+        "source_key": "fstb",
+        "category": "circular",
+        "status": "missing"
+      },
+      {
+        "source_key": "wolfsberg",
+        "category": "industry",
+        "status": "missing"
+      },
+      {
+        "source_key": "fatf",
+        "category": "industry",
+        "status": "missing"
+      },
+      {
+        "source_key": "sfc",
+        "category": "guideline",
+        "status": "found"
+      },
+      {
+        "source_key": "sfc",
+        "category": "consultation",
+        "status": "missing"
+      },
+      {
+        "source_key": "hkma",
+        "category": "consultation",
+        "status": "found"
+      },
+      {
+        "source_key": "hkma",
+        "category": "circular",
+        "status": "found"
+      },
+      {
+        "source_key": "hk-elegislation",
+        "category": "legislation",
+        "status": "fetch_failed"
+      },
+      {
+        "source_key": "sfc",
+        "category": "enforcement",
+        "status": "missing"
+      }
+    ],
+    "checklist_statuses": {
+      "no_change": 1,
+      "missing": 6,
+      "found": 5,
+      "fetch_failed": 1
+    },
+    "step_statuses": {
+      "succeeded": 23,
+      "failed": 9
+    },
+    "expected_checklist": {
+      "active_hk_topic_rows": 13,
+      "with_results": 13,
+      "without_results": []
+    },
+    "step_failures": [
+      {
+        "role": "analyst",
+        "prompt_version": null
+      },
+      {
+        "role": "analyst",
+        "prompt_version": null
+      },
+      {
+        "role": "analyst",
+        "prompt_version": null
+      },
+      {
+        "role": "analyst",
+        "prompt_version": null
+      },
+      {
+        "role": "analyst",
+        "prompt_version": null
+      },
+      {
+        "role": "analyst",
+        "prompt_version": null
+      },
+      {
+        "role": "analyst",
+        "prompt_version": null
+      },
+      {
+        "role": "verifier",
+        "prompt_version": null
+      },
+      {
+        "role": "analyst",
+        "prompt_version": null
+      }
+    ],
+    "model_call_failures": [
+      {
+        "role": "analyst",
+        "prompt_version": "analyst/4",
+        "error_type": "LLMError",
+        "error_code": "request_timeout",
+        "request_sent": true
+      },
+      {
+        "role": "analyst",
+        "prompt_version": "analyst/4",
+        "error_type": "LLMError",
+        "error_code": "request_timeout",
+        "request_sent": true
+      },
+      {
+        "role": "analyst",
+        "prompt_version": "analyst/4",
+        "error_type": "LLMError",
+        "error_code": "request_timeout",
+        "request_sent": true
+      },
+      {
+        "role": "analyst",
+        "prompt_version": "analyst/4",
+        "error_type": "LLMError",
+        "error_code": "request_timeout",
+        "request_sent": true
+      },
+      {
+        "role": "analyst",
+        "prompt_version": "analyst/4",
+        "error_type": "LLMError",
+        "error_code": "request_timeout",
+        "request_sent": true
+      },
+      {
+        "role": "analyst",
+        "prompt_version": "analyst/4",
+        "error_type": "LLMError",
+        "error_code": "request_timeout",
+        "request_sent": true
+      },
+      {
+        "role": "analyst",
+        "prompt_version": "analyst/4",
+        "error_type": "LLMError",
+        "error_code": "request_timeout",
+        "request_sent": true
+      },
+      {
+        "role": "verifier",
+        "prompt_version": "verifier/3",
+        "error_type": "LLMError",
+        "error_code": "request_timeout",
+        "request_sent": true
+      }
+    ],
+    "event_counts": {
+      "run_started": 1,
+      "step_started": 32,
+      "model_started": 30,
+      "model_completed": 22,
+      "exa_started": 6,
+      "exa_completed": 6,
+      "model_failed": 8,
+      "run_finished": 1
+    },
+    "exa": {
+      "actual_attempts": 6,
+      "completed": 6,
+      "failed": 0
+    },
+    "browser": {
+      "actual_attempts": 0,
+      "completed": 0,
+      "failed": 0
+    },
+    "fetch_log_outcomes": {
+      "refused": 4,
+      "saved": 30,
+      "reused": 3
+    },
+    "fetch_request_sent_attempts": 37,
+    "tokens": {
+      "known_tokens": 180340,
+      "unknown_reserved_tokens": 255588,
+      "pending_tokens": 0,
+      "allowance_used": 435928,
+      "reconciles": true,
+      "within_600000": true
+    },
+    "money": {
+      "known_estimated_usd": "0.834422",
+      "unknown_reserved_usd": "2.174972",
+      "pending_usd": "0.000000",
+      "allowance_used_usd": "3.009394",
+      "reconciles": true,
+      "within_10": true
+    },
+    "journal_calls": {
+      "complete": 28,
+      "failed": 8
+    },
+    "monetary_file_matches": true,
+    "mas": {
+      "active": false,
+      "saved_versions": 0,
+      "fetch_log_entries": 0,
+      "browser_attempts": 0
+    },
+    "writer": {
+      "successful_llm_steps": 1,
+      "fallback": false
+    },
+    "report_artifact": {
+      "report_id": "3e3b4978-b188-4d6a-84a9-77ce06fc1807",
+      "path": "reports/489c2889-40f0-4ba9-b87c-5e592bbbabfa/report-v1.html",
+      "exists": true,
+      "sha256": "aa1c1869f942fa6b9ad77f64189ba05dfc7f7047a1ca10d9ab19752789b8a0eb",
+      "review_status": "draft"
+    }
+  },
+  "comparison_design": {
+    "equal_budget_controlled": false,
+    "runtime_changed": true,
+    "pristine_corpus": true,
+    "same_brief_and_denominator": true,
+    "baseline_models": {
+      "planner": "openai:gpt-5.4",
+      "regulatory_scout": "openai:gpt-5.4-mini",
+      "industry_scout": "openai:gpt-5.4-mini",
+      "analyst": "openai:gpt-5.4",
+      "verifier": "openai:gpt-5.4",
+      "writer": "openai:gpt-5.4-mini"
+    },
+    "baseline_models_match_manifest": true,
+    "interrupted_models_match_manifest": true
+  },
+  "process": {
+    "exit_code": 0,
+    "hard_deadline_reached": false,
+    "database_failures": 0,
+    "database_ready_same_postmaster_at_end": true,
+    "elapsed_seconds": 547.944,
+    "finished_at": "2026-11-10T07:43:34.087791+00:00",
+    "paid_resume_or_replacement": false
+  },
+  "cleanup": {
+    "temporary_browser_grant_removed": true,
+    "credential_handle_cleared": true,
+    "ambient_provider_keys_absent": true,
+    "MAS_active": false
+  },
+  "artifact_hashes": {
+    "manifest.json": "fb67b205131a993a850075522cd8cf8744716ff173eeff322d603af2543b617e",
+    "outcome.json": "1f1f25591ecbf636350623af7919fb02a448ac2472be64d456a62209fee83ef4",
+    "process-exit.json": "ff79dd23b10c536d30c98fbd606000253af2956f72c1cadf2428bed9fd01a722",
+    "events.jsonl": "f110d2b5cc258bd96a1eba2c125b134d547280241c74fae1e51a872f69c02d53",
+    "database-health.json": "5c8f3370a015cc532b1a6bbf0bab83c5cf712b2c2552f17034d6739c2177c7d1",
+    "monetary-usage.json": "0dc26f8f59c7b5a0369a603cc16d7b4bd9794cffd1bedafe455d5a5d2d804761",
+    "cleanup.json": "ca1eefe1dada83430a749163f01e6deb921f747ca71505f153c90ac09b5601dd",
+    "audit.py": "607d00a6f78f73275633a25f3a729ea78eef19207baac09a3c41509597c2e93e"
+  },
+  "limitations": [
+    "Same market/date/18-item benchmark; changed runtime and pristine corpus. Observational comparison, not causal feature or equal-budget evidence.",
+    "Optional browser permission is HKMA-scoped. No country-wide completeness or causal Exa/browser claim.",
+    "Model verification/corroboration statuses are not human precision/relevance labels or report acceptance.",
+    "Estimated known charges and conservative unknown/pending reservations are not provider invoices.",
+    "Source URLs count explicit publication aliases. Saved representations and passages are not independent publications.",
+    "The earlier Australia report was described as bad by the user; this HK observation does not relabel it acceptable."
+  ],
+  "prior_immediate": {
+    "run_id": "ea485995-7ff1-4717-9ccd-bedb958d1866",
+    "duration_seconds": 1412.731,
+    "acquisition": {
+      "found": 5,
+      "total": 18
+    },
+    "cited": {
+      "found": 4,
+      "total": 18
+    },
+    "facts": 10,
+    "inferences": 1
+  },
+  "comparisons": {
+    "immediate_prior": {
+      "newly_acquired": [
+        "GT22"
+      ],
+      "not_reacquired": [
+        "GT20"
+      ]
+    },
+    "7be59cdf": {
+      "prior_acquired": {
+        "found": 6,
+        "total": 18
+      },
+      "current_acquired": {
+        "found": 5,
+        "total": 18
+      },
+      "newly_acquired": [
+        "GT05"
+      ],
+      "not_reacquired": [
+        "GT08",
+        "GT23"
+      ]
+    },
+    "1637f9f8": {
+      "prior_acquired": {
+        "found": 5,
+        "total": 18
+      },
+      "current_acquired": {
+        "found": 5,
+        "total": 18
+      },
+      "newly_acquired": [
+        "GT05",
+        "GT22"
+      ],
+      "not_reacquired": [
+        "GT11",
+        "GT23"
+      ]
+    }
+  },
+  "database_health": {
+    "checks": 109,
+    "failures": 0,
+    "same_postmaster_at_end": true
+  },
+  "quality_review": {
+    "included_claims_checked": 2,
+    "included_claim_support": "Supported in retained source context; qualitative review, not a precision estimate.",
+    "dates": "Both supported by the actual 28 August 2026 publication header.",
+    "unsupported_inference": "No inference in the generated report.",
+    "material_omission": "Retained circular page 2 expects institutions to consider adopting the practices and announces thematic examinations; this supervisory point is absent from findings.",
+    "overall_acceptance": "Failed for coverage, completeness and analysis reliability; not demo-ready."
+  },
+  "post_run_fixes": {
+    "live_validated": false,
+    "description": "Restore 3/4500 batches, require a useful minimum window, reserve verification/writer time and reject publisher/document-kind-only native selection. No paid replacement."
+  }
+}

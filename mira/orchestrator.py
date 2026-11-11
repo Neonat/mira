@@ -24,6 +24,7 @@ re-scouting for unsupported claims (§6.3 step 4), and the re-run diff (M3).
 from __future__ import annotations
 
 import time
+import inspect
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
@@ -111,6 +112,8 @@ class Orchestrator:
         plan_strategy: PlanStrategy | None = None,
         corroborator: Callable | None = None,
         analysis_limits: AnalysisLimits | None = None,
+        max_parallel_analysis: int = 1,
+        max_parallel_checks: int = 1,
     ) -> None:
         self.store = store
         self.analysis_limits = analysis_limits
@@ -121,14 +124,20 @@ class Orchestrator:
         self.clock = clock
         self.now = now
         self.max_parallel_scouts = max_parallel_scouts
+        if any(not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 4
+               for n in (max_parallel_analysis, max_parallel_checks)):
+            raise ValueError('analysis and verification concurrency must be between one and four')
+        self.max_parallel_analysis = max_parallel_analysis
+        self.max_parallel_checks = max_parallel_checks
         # How the first plan is made. The default is the model planner (the multi-agent arm). The single-agent
         # arm passes a code-built plan (mira.single_agent.code_plan), so no planner model is called.
         self.plan_strategy: PlanStrategy = plan_strategy or planner.plan
 
-    def run(self, ctx: RunContext) -> RunOutcome:
+    def run(self, ctx: RunContext, *, preparation: bool = False,
+            preparation_guard: Callable[[], None] | None = None) -> RunOutcome:
         check_brief_scope(ctx.brief)
         try:
-            return _Run(self, ctx).execute()
+            return _Run(self, ctx, preparation=preparation, preparation_guard=preparation_guard).execute()
         finally:
             close = getattr(self.corroborator, "close", None)
             if close is not None:
@@ -155,11 +164,18 @@ def _latest_rows(rows: Sequence[CoverageRow]) -> list[CoverageRow]:
 
 
 class _Run:
-    def __init__(self, orchestrator: Orchestrator, ctx: RunContext) -> None:
+    def __init__(self, orchestrator: Orchestrator, ctx: RunContext, *, preparation=False,
+                 preparation_guard=None) -> None:
         self.o = orchestrator
         self.store = orchestrator.store
         self.ctx = ctx
+        self.preparation = preparation
+        self.preparation_guard = preparation_guard
         self.budget = BudgetTracker(ctx.budget, orchestrator.clock)
+        if ctx.resource_usage:
+            old=ctx.resource_usage
+            self.budget.tokens_used=sum(int(old.get(k,0)) for k in ('known_tokens','unknown_reserved_tokens','pending_tokens'))
+            self.budget._started-=float(old.get('elapsed_seconds',0))
         self.step_no = ctx.completed_steps
         self.reasons: list[str] = []
         self.tasks: tuple[ScoutTask, ...] = ()
@@ -185,6 +201,7 @@ class _Run:
         self.store.set_run_status(ctx, "running", None)
         try:
             try:
+                self._preparation_phase('planning')
                 self._plan()
                 if ctx.brief.plan_requires_approval and not ctx.plan_approved:
                     # PRD v2 §4: the auditor approves the plan before any scouting. The run goes back to
@@ -194,16 +211,29 @@ class _Run:
                 if self.o.analysis_limits is not None:
                     self.store.begin_analysis_coverage(ctx, list(self.sources))
                     self.analysis_started = True
+                self._preparation_phase('acquiring')
                 self._scout(self.tasks)
                 self._check_coverage()
                 self._fill_gaps()
+                self._preparation_phase('analysing')
                 self._analyse()
+                self._preparation_phase('verifying')
                 self._verify()
             except BudgetExhausted as exc:
                 self.reasons.append(str(exc))
             for claim in self.claims:
                 if claim.finding_id not in self.verified and claim.finding_id not in self.unresolved:
                     self.unresolved[claim.finding_id] = "not checked: the run stopped before this claim"
+            if self.preparation:
+                self._check_cancel()
+                self._finalize_analysis()
+                coverage = self.store.analysis_coverage(ctx) if self.analysis_started else None
+                reused=sum(d.reason_counts.get('prepared_snapshot_reuse',0) for d in coverage.documents) if coverage else 0
+                if coverage and (coverage.deferred_passages>reused or coverage.failed_passages or coverage.pending_passages):
+                    self.reasons.append('Preparation analysis is incomplete; passage dispositions were retained.')
+                status = 'partial' if self.reasons or self.unresolved else 'draft'
+                self.store.set_run_status(ctx,status,'; '.join(self.reasons) or None)
+                return RunOutcome(status,self.reasons,None,None)
             report_id, snapshot, status = self._write()
         except RunCancelled:
             self._finalize_analysis("cancelled")
@@ -221,8 +251,14 @@ class _Run:
     # --- Steps --------------------------------------------------------------------
 
     def _check_cancel(self) -> None:
+        if self.preparation_guard is not None:
+            self.preparation_guard()
         if self.store.cancel_requested(self.ctx):
             raise RunCancelled()
+
+    def _preparation_phase(self, phase):
+        if self.preparation_guard is not None and 'phase' in inspect.signature(self.preparation_guard).parameters:
+            self.preparation_guard(phase=phase)
 
     def _start(
         self, role: AgentRole, *, jurisdiction: str | None = None, gap_round: int = 0,
@@ -259,18 +295,24 @@ class _Run:
         self.store.finish_step(self.ctx, step.id, step.record.model_copy(update={"output_refs": step.output_refs}))
 
     @contextmanager
-    def _step(self, role: AgentRole, *, check_budget: bool = True, **kwargs: object) -> Iterator[_Step]:
+    def _step(self, role: AgentRole, *, check_budget: bool = True, _existing_step: _Step | None = None, **kwargs: object) -> Iterator[_Step]:
         """One recorded step. Checks cancellation and budget first; records failure and re-raises."""
-        self._check_cancel()
-        if check_budget:
-            self.budget.check()
-        step = self._start(role, **kwargs)
+        if _existing_step is None:
+            self._check_cancel()
+            if check_budget:
+                self.budget.check()
+        step = _existing_step or self._start(role, **kwargs)
         try:
             yield step
         except Exception as exc:
             if isinstance(exc, LLMError):
                 step.tokens_in += exc.tokens_in
                 step.tokens_out += exc.tokens_out
+                step.output_refs['provider_request_sent']=exc.request_sent
+                if exc.validation_issues:step.output_refs['validation_issues']=list(exc.validation_issues)
+                if exc.reserved_tokens and not step.tokens_precharged and not step.output_refs.get('reserved_tokens'):
+                    self.budget.charge_tokens(exc.reserved_tokens,0)
+                    step.output_refs['reserved_tokens']=exc.reserved_tokens
             self._finish(step, "failed", f"{type(exc).__name__}: {exc}")
             raise
         self._finish(step, "succeeded")
@@ -287,7 +329,11 @@ class _Run:
     def _plan(self) -> None:
         ctx, brief = self.ctx, self.ctx.brief
         sources = self.store.list_sources(ctx.workspace_id)
+        from mira.research_settings import restrict_sources
+        sources=restrict_sources(sources,ctx.research_settings,brief.jurisdictions)
         expected = self.store.list_expected_sources(ctx.workspace_id, brief.topic, brief.jurisdictions)
+        if ctx.research_settings is not None:
+            expected=[e for e in expected if e.source_id in {s.id for s in sources}]
         self.sources = {source.id: source for source in sources}
         self.expected = list(expected)
         if ctx.plan_approved:
@@ -298,6 +344,8 @@ class _Run:
                 raise RunFailed("the run is marked approved but no approved plan is stored")
             try:
                 self.tasks = planner.tasks_from_stored(approved, brief)
+                if any(not set(t.source_ids)<={s.id for s in sources} for t in self.tasks):
+                    raise ValueError('approved plan includes an unavailable selected source')
             except (ValueError, KeyError) as exc:
                 raise RunFailed(f"approved plan cannot be used: {exc}") from exc
             return
@@ -339,8 +387,10 @@ class _Run:
         self._check_cancel()
         self.budget.check()
         # Scouts run unattended, so each gets its share of what is left up front.
-        tokens = self.budget.remaining_tokens() // len(funded)
-        minutes = self.budget.remaining_minutes()
+        reserve_tokens=self.o.analysis_limits.reserve_tokens if self.o.analysis_limits else 0
+        reserve_seconds=self.o.analysis_limits.reserve_seconds if self.o.analysis_limits else 0
+        tokens = max(0,self.budget.remaining_tokens()-reserve_tokens) // len(funded)
+        minutes = max(0,self.budget.remaining_minutes()-reserve_seconds/60)
         launch = [
             (replace(task, max_documents=cap, max_llm_tokens=tokens, max_minutes=minutes), scout)
             for task, scout, cap in funded
@@ -431,6 +481,12 @@ class _Run:
                 self.analysis_selections.setdefault(attempt.document_version_id, set()).update(task.source_ids)
 
     def _record_scout_fetches(self, step: _Step, fetch_log: list[FetchAttempt], diagnostics: dict) -> None:
+        generation=diagnostics.get('generation_usage') or {}
+        reserved=generation.get('reserved_tokens',0)
+        if type(reserved) is not int or reserved<0:raise ValueError('invalid scout generation reservation')
+        if generation:
+            self.budget.charge_tokens(reserved,0)
+            step.output_refs['generation_usage']=generation
         hybrid = diagnostics.get('hybrid') or {}
         for key in ('tokens','reserved_tokens'):
             count = hybrid.get(key,0)
@@ -552,8 +608,15 @@ class _Run:
 
     def _load_analysis(self) -> None:
         if self.analysis_started and not self.analysis_loaded:
+            preferred={pid:i for i,pid in enumerate(self.passages)}
             pool = self.store.load_analysis_candidates(self.ctx, self.analysis_selections)
+            # The scouts already ranked relevant evidence. Give it the first
+            # bounded opportunity, retaining every expanded passage/disposition.
+            pool.sort(key=lambda p:(p.id not in preferred,preferred.get(p.id,0)))
             self.passages = {p.id:p for p in pool}
+            if self.preparation and hasattr(self.store,'previously_prepared_passages'):
+                reused=self.store.previously_prepared_passages(self.ctx)
+                self._defer_analysis([p for p in pool if p.id in reused],'prepared_snapshot_reuse')
             self.analysis_loaded = True
 
     def _defer_analysis(self, passages: Sequence[PassageRecord], reason: str) -> None:
@@ -569,76 +632,156 @@ class _Run:
     def _analyse_batches(self) -> None:
         self._load_analysis()
         limits = self.o.analysis_limits
-        plan = plan_batches(list(self.passages.values()), limits)
+        plan = plan_batches([p for p in self.passages.values() if p.id not in self.analysis_terminal], limits, self.ctx.brief)
         for pid, reason in plan.deferred.items():
             self._defer_analysis([self.passages[pid]], reason)
-        for index, batch in enumerate(plan.batches, 1):
-            self._check_cancel()
-            reservation = analyst.request_reservation(self.ctx.brief, batch, limits.max_output_tokens)
-            if self.budget.remaining_tokens() < reservation + limits.reserve_tokens:
-                self._defer_analysis(list(self.passages.values()), "token_budget")
-                break
-            seconds = self.budget.remaining_minutes()*60 - limits.reserve_seconds
-            if seconds <= 0:
-                self._defer_analysis(list(self.passages.values()), "time_budget")
-                break
-            batch_id = f"B{index}"
-            try:
-                with self._step("analyst", input_refs={"batch_id":batch_id,
-                        "passage_ids":[str(p.id) for p in batch], "reservation_tokens":reservation,
-                        "max_output_tokens":limits.max_output_tokens,
-                        "timeout_seconds":min(seconds,limits.timeout_seconds)}) as step:
-                    self.store.append_analysis_events(self.ctx, [passage_event(p,"attempted",batch_id,step.id) for p in batch])
+        # Provider work overlaps; starts, dispositions, claims and steps are written
+        # only here, in submission order. All futures join before leaving the phase.
+        with ThreadPoolExecutor(max_workers=self.o.max_parallel_analysis) as pool:
+            index = 0
+            stopped = False
+            while index < len(plan.batches) and not stopped:
+                pending = []
+                reserved = 0
+                stop_reason = None
+                dispatch_error = None
+                try:
+                    for _ in range(self.o.max_parallel_analysis):
+                        if index == len(plan.batches):
+                            break
+                        self._check_cancel()
+                        batch = plan.batches[index]
+                        reservation = analyst.request_reservation(self.ctx.brief, batch, limits.max_output_tokens)
+                        available = self.budget.remaining_tokens() - limits.reserve_tokens - reserved
+                        seconds = self.budget.remaining_minutes()*60 - limits.reserve_seconds
+                        if available < reservation or seconds < min(limits.minimum_seconds,limits.timeout_seconds):
+                            stopped = True
+                            stop_reason = 'token_budget' if available < reservation else 'time_budget'
+                            break
+                        batch_id = f'B{index+1}'
+                        step = self._start('analyst', input_refs={'batch_id':batch_id,
+                            'passage_ids':[str(p.id) for p in batch], 'reservation_tokens':reservation,
+                            'max_output_tokens':limits.max_output_tokens,
+                            'timeout_seconds':min(seconds,limits.timeout_seconds)})
+                        self.store.append_analysis_events(self.ctx,[passage_event(p,'attempted',batch_id,step.id) for p in batch])
+                        future = pool.submit(analyst.analyse,self.o.client,self.ctx.brief,batch,
+                            timeout_seconds=min(seconds,limits.timeout_seconds),max_output_tokens=limits.max_output_tokens,
+                            max_total_tokens=available)
+                        pending.append((batch_id,batch,step,reservation,future))
+                        reserved += reservation
+                        index += 1
+                except Exception as exc:
+                    dispatch_error = exc
+                collection_error = None
+                for batch_id,batch,step,reservation,future in pending:
                     try:
-                        analysis = analyst.analyse(self.o.client,self.ctx.brief,batch,
-                            timeout_seconds=min(seconds,limits.timeout_seconds),max_output_tokens=limits.max_output_tokens)
-                    except LLMError as exc:
-                        if not exc.tokens_in and not exc.tokens_out:
-                            self.budget.charge_tokens(reservation,0)
-                            step.output_refs['reserved_tokens'] = reservation
-                        raise
-                    self._used(step,analysis.llm)
-                    claims = namespace_claims(analysis.claims,len(self.claims))
-                    saved = self.store.save_analysis_batch(self.ctx,batch_id,step.id,claims,batch)
-                    self.claims.extend(saved)
-                    self.analysis_terminal.update(p.id for p in batch)
-                    step.output_refs['finding_ids'] = [str(c.finding_id) for c in saved]
-            except (LLMError, ValueError) as exc:
-                self.store.append_analysis_events(self.ctx,[passage_event(p,'failed',batch_id,step.id,type(exc).__name__) for p in batch])
-                self.analysis_terminal.update(p.id for p in batch)
-                self.reasons.append(f"analysis batch {batch_id} failed ({type(exc).__name__}); saved findings were retained")
+                        with self._step('analyst',_existing_step=step):
+                            try:
+                                analysis = future.result()
+                            except LLMError as exc:
+                                if (not exc.tokens_in and not exc.tokens_out and not exc.reserved_tokens
+                                        and exc.request_sent is not False):
+                                    self.budget.charge_tokens(reservation,0)
+                                    step.output_refs['reserved_tokens'] = reservation
+                                raise
+                            self._used(step,analysis.llm)
+                            claims = namespace_claims(analysis.claims,len(self.claims))
+                            saved = self.store.save_analysis_batch(self.ctx,batch_id,step.id,claims,batch)
+                            self.claims.extend(saved)
+                            self.analysis_terminal.update(p.id for p in batch)
+                            step.output_refs['finding_ids'] = [str(c.finding_id) for c in saved]
+                    except (LLMError, ValueError) as exc:
+                        self.store.append_analysis_events(self.ctx,[passage_event(p,'failed',batch_id,step.id,type(exc).__name__) for p in batch])
+                        self.analysis_terminal.update(p.id for p in batch)
+                        self.reasons.append(f'analysis batch {batch_id} failed ({type(exc).__name__}); saved findings were retained')
+                    except Exception as exc:
+                        collection_error = collection_error or exc
+                if dispatch_error or collection_error:
+                    raise dispatch_error or collection_error
+                if stop_reason:
+                    self._defer_analysis(list(self.passages.values()),stop_reason)
+
+    def _verifier_kwargs(self, method, claim, facts=()):
+        kwargs = self._corroboration_kwargs(claim)
+        parameters = inspect.signature(method).parameters
+        if 'brief' in parameters:
+            kwargs['brief'] = self.ctx.brief
+        if 'passages' in parameters and claim.draft.is_inference:
+            ids = {e.passage_id for f in facts for e in f.evidence}
+            kwargs['passages'] = [self.passages[pid] for pid in self.passages if pid in ids]
+        return kwargs
+
+    def _verify_wave(self, claims, *, inference=False):
+        # Checks are independent within a fact wave or an inference dependency
+        # layer. Inputs are captured before dispatch; all persistence is serial.
+        with ThreadPoolExecutor(max_workers=self.o.max_parallel_checks) as pool:
+            for offset in range(0,len(claims),self.o.max_parallel_checks):
+                pending = []
+                wave = claims[offset:offset+self.o.max_parallel_checks]
+                if not inference:
+                    self._corroborate_wave(wave, pool)
+                dispatch_error = None
+                try:
+                    for claim in wave:
+                        self._check_cancel()
+                        self.budget.check()
+                        facts = [self.verified[d] for d in claim.depends_on] if inference else ()
+                        passages = [self.passages[e.passage_id] for e in claim.evidence]
+                        method = self.o.verifier.check_inference if inference else self.o.verifier.check_fact
+                        args = facts if inference else passages
+                        captured = build_verification_input(self.ctx,claim,
+                            {c.finding_id:c for c in self.claims},self.passages,self.corroboration)
+                        kwargs = self._verifier_kwargs(method,claim,facts)
+                        step = self._start('verifier',input_refs={'finding_id':str(claim.finding_id),'attempt':1})
+                        future = pool.submit(method,claim,args,1,**kwargs)
+                        pending.append((claim,passages,step,captured,future))
+                except Exception as exc:
+                    dispatch_error = exc
+                collection_error = None
+                for claim,passages,step,captured,future in pending:
+                    try:
+                        outcome = self._check(claim,1,future.result,started=step,captured=captured)
+                        if not dispatch_error and not collection_error and not inference and outcome is not None and outcome.verdict=='partially_supported':
+                            rewritten = self._rewrite(claim,passages,outcome.checks[-1].reason)
+                            if rewritten is None:
+                                self.unresolved[claim.finding_id]='partially supported; the rewrite failed'
+                                continue
+                            claim = rewritten
+                            self._corroborate(claim)
+                            outcome = self._check(claim,2,lambda:self.o.verifier.check_fact(
+                                claim,passages,2,**self._verifier_kwargs(self.o.verifier.check_fact,claim)))
+                        self._decide(claim,outcome)
+                    except Exception as exc:
+                        collection_error = collection_error or exc
+                if dispatch_error or collection_error:
+                    raise dispatch_error or collection_error
 
     def _verify(self) -> None:
         for claim in self.claims:
-            if claim.draft.finding_type == "audit_question":
-                self.unresolved[claim.finding_id] = "out of scope: audit actions are for the auditor to decide"
-        for claim in self.claims:
-            if not claim.draft.is_inference:
-                self._verify_fact(claim)
-        pending = [claim for claim in self.claims
-                   if claim.draft.is_inference and claim.finding_id not in self.unresolved]
-        progress = True
-        while pending and progress:
-            progress = False
-            for claim in list(pending):
-                if any(dependency in self.unresolved for dependency in claim.depends_on):
-                    self.unresolved[claim.finding_id] = "rests on a claim that was not verified"
-                elif all(dependency in self.verified for dependency in claim.depends_on):
-                    facts = [self.verified[dependency] for dependency in claim.depends_on]
-                    outcome = self._check(claim, 1, lambda: self.o.verifier.check_inference(claim, facts, 1, **self._corroboration_kwargs(claim)))
-                    self._decide(claim, outcome)
-                else:
-                    continue
+            if claim.draft.finding_type == 'audit_question':
+                self.unresolved[claim.finding_id] = 'out of scope: audit actions are for the auditor to decide'
+        facts = [c for c in self.claims if not c.draft.is_inference and c.finding_id not in self.unresolved]
+        self._verify_wave(facts)
+        pending = [c for c in self.claims if c.draft.is_inference and c.finding_id not in self.unresolved]
+        while pending:
+            rejected = [c for c in pending if any(d in self.unresolved for d in c.depends_on)]
+            for claim in rejected:
+                self.unresolved[claim.finding_id]='rests on a claim that was not verified'
                 pending.remove(claim)
-                progress = True
+            ready = [c for c in pending if all(d in self.verified for d in c.depends_on)]
+            if not ready:
+                break
+            self._verify_wave(ready,inference=True)
+            for claim in ready:
+                pending.remove(claim)
         for claim in pending:
-            self.unresolved[claim.finding_id] = "circular dependency between inferences"
+            self.unresolved[claim.finding_id]='circular dependency between inferences'
 
     def _verify_fact(self, claim: StoredClaim) -> None:
         for attempt in (1, 2):
             self._corroborate(claim)
             passages = [self.passages[item.passage_id] for item in claim.evidence]
-            outcome = self._check(claim, attempt, lambda: self.o.verifier.check_fact(claim, passages, attempt, **self._corroboration_kwargs(claim)))
+            outcome = self._check(claim, attempt, lambda: self.o.verifier.check_fact(claim, passages, attempt, **self._verifier_kwargs(self.o.verifier.check_fact,claim)))
             if outcome is None or outcome.verdict != "partially_supported" or attempt == 2:
                 self._decide(claim, outcome)
                 return
@@ -652,6 +795,50 @@ class _Run:
         captured = build_verification_input(self.ctx, claim,
             {c.finding_id:c for c in self.claims}, self.passages, self.corroboration)
         return {"corroboration":captured.corroboration} if captured.corroboration else {}
+
+    def _corroborate_wave(self,claims,pool):
+        prepare = getattr(self.o.corroborator,'prepare_saved',None)
+        if prepare is None or self.o.max_parallel_checks==1:
+            for claim in claims:
+                self._corroborate(claim)
+            return
+        pending=[]
+        dispatch_error=None
+        try:
+            for claim in claims:
+                if any(not e.supporting_quote or e.supporting_quote not in self.passages[e.passage_id].content
+                       for e in claim.evidence):
+                    self._corroborate(claim)
+                    continue
+                self._check_cancel()
+                base=build_verification_input(self.ctx,claim,
+                    {c.finding_id:c for c in self.claims},self.passages).model_dump(mode='json')
+                prepared=prepare(self.ctx,claim,base)
+                if prepared is None:
+                    self._corroborate(claim)
+                    continue
+                step=self._start('verifier',input_refs={'finding_id':str(claim.finding_id),'purpose':'corroboration'})
+                step.tokens_precharged=True
+                pending.append((claim,step,prepared,pool.submit(prepared.evaluate,self.budget)))
+        except Exception as exc:
+            dispatch_error=exc
+        collection_error=None
+        for claim,step,prepared,future in pending:
+            try:
+                with self._step('verifier',_existing_step=step):
+                    result=future.result()
+                    step.tokens_in=result.get('tokens_in',0)
+                    step.tokens_out=result.get('tokens_out',0)
+                    step.model=result.get('model')
+                    step.prompt_version=result.get('prompt_version')
+                    step.output_refs['reserved_tokens']=result.get('reserved_tokens',0)
+                    envelope=prepared.persist(result)
+                    self.corroboration[claim.finding_id]=envelope
+                    step.output_refs.update(assessment_id=envelope['assessment_id'],corroboration_status=result['status'])
+            except Exception as exc:
+                collection_error=collection_error or exc
+        if dispatch_error or collection_error:
+            raise dispatch_error or collection_error
 
     def _corroborate(self, claim):
         if self.o.corroborator is None:
@@ -691,11 +878,11 @@ class _Run:
                                     corroboration_status=assessment["status"],
                                     reserved_tokens=assessment.get("reserved_tokens",0))
 
-    def _check(self, claim: StoredClaim, attempt: int, call: Callable[[], CheckOutcome]) -> CheckOutcome | None:
+    def _check(self, claim: StoredClaim, attempt: int, call: Callable[[], CheckOutcome], *, started=None, captured=None) -> CheckOutcome | None:
         refs = {"finding_id": str(claim.finding_id), "attempt": attempt}
         try:
-            with self._step("verifier", input_refs=refs) as step:
-                checked_input = build_verification_input(
+            with self._step("verifier", input_refs=refs, _existing_step=started) as step:
+                checked_input = captured or build_verification_input(
                     self.ctx, claim, {item.finding_id: item for item in self.claims}, self.passages, self.corroboration,
                 )
                 outcome = call()
@@ -847,10 +1034,39 @@ class _Run:
         lines = [
             coverage_line,
             f"{len(self.verified)} claims verified; {len(self.unresolved)} unresolved and kept out of the report body.",
-            f"Budget used: {status['tokens_used']} of {status['max_llm_tokens']} model tokens, "
+            f"Budget allowance used (known usage plus unknown-usage reservations): {status['tokens_used']} of {status['max_llm_tokens']} tokens, "
             f"{status['documents_fetched']} of {status['max_fetched_documents']} documents, "
             f"{status['minutes_used']:g} of {status['max_run_minutes']:g} minutes.",
             *[f"Limitation: {reason}." for reason in self.reasons],
         ]
+        if self.ctx.research_settings is not None:
+            settings=self.ctx.research_settings
+            lines.extend([
+                f"Research methods: {'Experimental hybrid' if settings.retrieval=='hybrid' else 'Keyword'} archive retrieval; "
+                f"Exa discovery {'enabled' if settings.enable_exa else 'disabled'}; permitted browser acquisition "
+                f"{'enabled' if settings.enable_browser else 'disabled'}; {len(self.sources)} selected eligible sources; "
+                f"analysis depth limited to {settings.max_analysis_batches} batches.",
+                'PostgreSQL retains permitted full text and passage references; optional vectors are a rebuildable search index. '
+                'This single configuration does not establish a retrieval or storage quality winner.',
+            ])
+            versions={p.document_version_id:p for p in self.passages.values()}
+            methods={}
+            for passage in versions.values():
+                method=passage.acquisition_provenance.get('acquisition_method','unrecorded')
+                methods[method]=methods.get(method,0)+1
+            lines.append(f"Saved evidence representations selected for analysis: {len(versions)}; "
+                +(', '.join(f'{method}: {count}' for method,count in sorted(methods.items())) or 'none')
+                +'. These counts describe the selected evidence pool, not national publication coverage.')
+            generation=getattr(self.o.client,'budget',None)
+            if generation is not None and generation.spending is not None:
+                snap=generation.snapshot();money=snap['spending']
+                lines.append(f"Cost allowance: USD {money['max_usd']}; known public-price estimate USD {money['known_estimated_usd']}; "
+                    f"unknown reserved USD {money['unknown_reserved_usd']}; pending USD {money['pending_usd']}. "
+                    'These estimates exclude account-specific discounts and credits; they are not an invoice.')
+                lines.append('Prices checked '+money['pricing']['checked_at']+'; sources: '+', '.join(money['pricing']['sources'])+'.')
+                for kind,label in (('search','Exa search'),('embedding','Embedding')):
+                    calls=[c for c in snap['calls'] if c['kind']==kind]
+                    lines.append(f"{label} requests recorded: {sum(c['status']=='complete' for c in calls)} complete, "
+                        f"{sum(c['status']=='failed' for c in calls)} failed or uncertain, {sum(c['status']=='not_sent' for c in calls)} locally refused.")
         sentences = [ReportSentence(text=line, finding_ids=[], structural=True) for line in lines]
         return ReportSection(section="coverage_limitations", sentences=sentences, no_verified_items=False)

@@ -6,6 +6,7 @@ MIRA_TEST_DATABASE_URL (see test_worker_db.py).
 """
 
 import os
+import json
 import re
 import uuid
 from datetime import date
@@ -123,16 +124,40 @@ def analyst(prompt):
                 priority="high", priority_reason="new guidance", evidence_confidence="high",
                 evidence_confidence_reason="direct quote")
     inference = dict(fact, claim_label="C2", finding_type="risk_implication", title="Enhanced due diligence exposure",
-                     content="The guidance may increase the diligence needed for customers linked to these schemes.",
+                     content="Authorized institutions should apply enhanced due diligence to customers linked to example money laundering schemes. This may reduce risk.",
                      change_type=None, key_date=None, key_date_kind=None, is_inference=True, citations=[],
                      depends_on=["C1"])
     return {"claims": [fact, inference]}
 
 
+
+def grounded_inference(prompt):
+    """Script a valid premise using the verifier's real dependency/passage labels.
+
+    Keep security fixtures on the actual gate: missing source text/relationships
+    raises rather than returning a blanket supported verdict.
+    """
+    dependency_text = prompt.split("Premise labels (verified dependencies):\n", 1)[1]
+    dependencies, _ = json.JSONDecoder().raw_decode(dependency_text)
+    passages = dict(re.findall(r'<passage label="(P\d+)"[^>]*>\n(.*?)\n</passage>', prompt, re.S))
+    for dependency_label, dependency in dependencies.items():
+        for passage_label in dependency['passage_labels']:
+            text = passages[passage_label]
+            quote = next((sentence for sentence in (CIRCULAR_TEXT, MAS_TEXT)
+                if sentence in text), None)
+            if quote:
+                return {"introduces_new_fact": False, "new_facts": [], "is_supported_assessment": True,
+                        "reason": "Assessment preserves the source-backed obligation and scope.",
+                        "premises": [{"claim_label": dependency_label, "passage_label": passage_label,
+                                      "supporting_quote": quote}],
+                        "preserves_qualifications": True, "is_substantive": True}
+    raise AssertionError("fixture lacks a source-backed inference premise")
+
+
 def writer(prompt):
     cited = re.findall(r"^(C\d+) \[", prompt, re.M)
-    sections = [{"section": "executive_summary", "sentences": [{"text": "HKMA issued guidance.", "claim_labels": cited, "structural": False}], "no_verified_items": False}]
-    sections += [{"section": key, "sentences": [], "no_verified_items": True} for key in (
+    sections = [{"section": "executive_summary", "groups": [cited]}]
+    sections += [{"section": key, "groups": []} for key in (
         "regulatory_developments", "deadlines_timeline", "jurisdiction_comparison", "supervisory_trends",
         "industry_developments", "impact_assessment")]
     return {"sections": sections}
@@ -170,7 +195,7 @@ def test_full_run_on_postgres(conn, workspace, tmp_path):
         "industry_scout": [scout, scout],
         "analyst": [analyst],
         "verifier": [{"verdict": "supported", "reason": "stated in the passage"},
-                     {"introduces_new_fact": False, "new_facts": [], "is_supported_assessment": True, "reason": "grounded assessment"}],
+                     grounded_inference],
         "writer": [writer],
     })
     fetcher = Fetcher(AllowList(store.list_sources(workspace_id)), transport=FakeWeb(),
@@ -293,7 +318,7 @@ def test_gap_round_finds_an_item_the_first_pass_missed_and_stores_it(conn, works
         "industry_scout": [scout, scout],
         "analyst": [analyst],
         "verifier": [{"verdict": "supported", "reason": "stated in the passage"},
-                     {"introduces_new_fact": False, "new_facts": [], "is_supported_assessment": True, "reason": "grounded assessment"}],
+                     grounded_inference],
         "writer": [writer],
     })
     fetcher = Fetcher(AllowList(store.list_sources(workspace_id)), transport=FakeWeb(),
@@ -344,7 +369,7 @@ def run_hk(conn, workspace, tmp_path, analyst_fn, previous_run_id=None, scout_fn
         "industry_scout": [scout_fn, scout_fn],
         "analyst": [analyst_fn],
         "verifier": [{"verdict": "supported", "reason": "stated in the passage"},
-                     {"introduces_new_fact": False, "new_facts": [], "is_supported_assessment": True, "reason": "grounded assessment"}],
+                     grounded_inference],
         "writer": [writer],
     })
     fetcher = Fetcher(AllowList(store.list_sources(workspace_id)), transport=FakeWeb(),
@@ -405,7 +430,7 @@ def test_approval_gated_run_is_paused_skipped_until_approved_then_completes(conn
         "industry_scout": [scout, scout],
         "analyst": [analyst],
         "verifier": [{"verdict": "supported", "reason": "stated in the passage"},
-                     {"introduces_new_fact": False, "new_facts": [], "is_supported_assessment": True, "reason": "grounded assessment"}],
+                     grounded_inference],
         "writer": [writer],
     })
     fetcher = Fetcher(AllowList(store.list_sources(workspace_id)), transport=FakeWeb(),
@@ -578,7 +603,7 @@ def test_worker_renders_a_signed_off_report_without_the_draft_watermark(conn, wo
     # The reviewed report carries the sentences the draft cited, with their citation, not just the chrome.
     # The final gate renders the complete saved claim, not the fixture writer's paraphrase.
     if inference_only:
-        assert "The guidance may increase the diligence needed for customers linked to these schemes." in html
+        assert "Authorized institutions should apply enhanced due diligence to customers linked to example money laundering schemes. This may reduce risk." in html
         assert "https://brdr.hkma.gov.hk/eng/doc-ldg/current/TEST-1" in html
     else:
         assert "HKMA expects enhanced due diligence for customers linked to example schemes." in html
@@ -850,15 +875,23 @@ BLOCK_PAGE = RawResponse(200, HTML, b"<h1>Sorry, this service is currently unava
 
 def mas_file(tmp_path):
     path = tmp_path / "example-notice.html"
-    path.write_text(f"<html><body><main><h1>Example MAS notice amendment</h1><p>{MAS_TEXT}</p></main></body></html>")
+    path.write_text(f'<html><head><meta name="article:published_time" content="2026-05-25"></head><body><main><h1>Example MAS notice amendment</h1><p>Published 25 May 2026</p><p>{MAS_TEXT}</p></main></body></html>')
     return path
 
 
-def test_manual_import_saves_versions_and_records_the_import(conn, workspace, tmp_path):
+@pytest.fixture()
+def mas_workspace(conn, workspace):
+    # Explicit synthetic opt-in for manual-import/block-page guard regressions.
+    # Production seeding keeps MAS inactive; these tests use FakeWeb only.
+    conn.execute("update public.sources set is_active=true where workspace_id=%s and source_key='mas'", (workspace[0],))
+    return workspace
+
+
+def test_manual_import_saves_versions_and_records_the_import(conn, mas_workspace, tmp_path):
     from mira.db import NotAuthorisedError
     from mira.manual_import import ImportItem, import_files
 
-    workspace_id, user_id = workspace
+    workspace_id, user_id = mas_workspace
     good = ImportItem(mas_file(tmp_path), MAS_URL, "Example MAS notice", date(2026, 5, 25))
     bad = ImportItem(mas_file(tmp_path), "https://www.hkma.gov.hk/not-mas")
     first = import_files(conn, workspace_id, user_id, "mas", [good, bad])
@@ -886,10 +919,10 @@ def test_manual_import_saves_versions_and_records_the_import(conn, workspace, tm
 
 @pytest.mark.parametrize("via_workbench", [False, True])
 @pytest.mark.parametrize("historical", [False, True])
-def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspace, tmp_path, via_workbench, historical):
+def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, mas_workspace, tmp_path, via_workbench, historical):
     from mira.manual_import import ImportItem, import_files
 
-    workspace_id, user_id = workspace
+    workspace_id, user_id = mas_workspace
     if via_workbench:
         import io
         import json
@@ -932,14 +965,14 @@ def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspa
         label, text = next((label, text) for label, text in passages if "screen customers" in text)
         fact = dict(claim_label="C1", finding_type="obligation_summary", title="Example MAS screening requirement",
                     content="Banks must screen customers and beneficial owners before establishing business relations.",
-                    jurisdiction_code="SG", change_type="amended", industry_category=None, key_date=None,
-                    key_date_kind=None, is_inference=False,
+                    jurisdiction_code="SG", change_type="amended", industry_category=None, key_date=date(2026, 5, 25),
+                    key_date_kind="published", is_inference=False,
                     citations=[{"passage_label": label, "supporting_quote": text[:60]}], depends_on=[],
                     priority="high", priority_reason="screening requirement", evidence_confidence="high",
                     evidence_confidence_reason="direct quote")
-        insight = dict(fact, claim_label="C2", finding_type="risk_implication", title="Screening scope",
-                       content="Screening controls limited to customers may leave gaps in beneficial owner coverage.",
-                        change_type=None, is_inference=True, citations=[], depends_on=["C1"])
+        insight = dict(fact, claim_label="C2", finding_type="risk_implication", title="Customers and beneficial owners",
+                       content="Banks must screen customers and beneficial owners before establishing business relations. This may reduce risk.",
+                        change_type=None, key_date=None, key_date_kind=None, is_inference=True, citations=[], depends_on=["C1"])
         return {"claims": [fact, insight]}
 
     brief = Brief(topic="AML/CFT", jurisdictions=["SG"], period_start=date(2025, 10, 26), period_end=date(2026, 10, 26),
@@ -952,7 +985,7 @@ def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspa
         "industry_scout": [scout, scout],
         "analyst": [analyst_sg, analyst_sg] if historical else [analyst_sg],
         "verifier": [{"verdict": "supported", "reason": "stated in the passage"},
-                     {"introduces_new_fact": False, "new_facts": [], "is_supported_assessment": True, "reason": "grounded assessment"}],
+                     grounded_inference],
         "writer": [writer],
     })
     fetcher = Fetcher(AllowList(store.list_sources(workspace_id)), transport=BlockingWeb(),
@@ -987,9 +1020,9 @@ def test_singapore_run_uses_imported_mas_documents_when_mas_blocks(conn, workspa
     assert MAS_URL in html and "Imported by hand" in html
 
 
-def test_failed_manual_extraction_is_a_failed_ingestion_item(conn, workspace, tmp_path):
+def test_failed_manual_extraction_is_a_failed_ingestion_item(conn, mas_workspace, tmp_path):
     from mira.manual_import import ImportItem, import_files
-    workspace_id, user_id = workspace
+    workspace_id, user_id = mas_workspace
     path = tmp_path / 'broken.pdf'
     path.write_bytes(b'%PDF-1.4 truncated')
     result = import_files(conn, workspace_id, user_id, 'mas', [ImportItem(path, MAS_URL)])[0]
@@ -999,12 +1032,12 @@ def test_failed_manual_extraction_is_a_failed_ingestion_item(conn, workspace, tm
     assert row['status'] == 'completed_with_errors' and row['counts']['failed'] == 1
 
 
-def test_scout_excludes_future_manual_and_fetched_passages(conn, workspace, tmp_path):
+def test_scout_excludes_future_manual_and_fetched_passages(conn, mas_workspace, tmp_path):
     from mira.agents.scout import _ScoutRun, _Visit
     from mira.interfaces import ScoutTask
     from mira.manual_import import ImportItem, import_files, load_source
 
-    ws, user = workspace
+    ws, user = mas_workspace
     source = load_source(conn, ws, 'mas')
     items = [ImportItem(mas_file(tmp_path), MAS_URL + f'?case={label}', published=published)
              for label, published in [('historical',date(2023,4,18)),('future',date(2026,11,7)),

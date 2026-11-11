@@ -13,13 +13,16 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from mira.agents.common import NO_CONCLUSIONS_RULE, brief_text
 from mira.contracts import Brief, LabelMap, ReportSection, ReportSentence, WriterOutput
 from mira.llm import LLMClient, LLMResult, call_checked
 from mira.store import StoredClaim
 
-PROMPT_VERSION = "writer/3"
+PROMPT_VERSION = "writer/4"
 
 WRITER_SECTIONS: tuple[str, ...] = (
     "executive_summary", "regulatory_developments", "deadlines_timeline", "jurisdiction_comparison",
@@ -41,25 +44,28 @@ SECTION_FOR_TYPE: dict[str, str] = {
 }
 
 SYSTEM = f"""You are the writer in Mira, a research assistant for bank internal auditors.
-Write the report sections from the verified claims given. Return exactly these sections, once each, in this order: {", ".join(WRITER_SECTIONS)}.
+Select and order verified claim labels only. Return exactly these sections, once each, in order: {", ".join(WRITER_SECTIONS)}.
+Each section contains groups of labels; each group is one summary sentence or ordered set of findings. Do not produce prose or facts. Use only labels provided. Return empty groups for sections without selections.
+Select at most eight groups for the executive summary and at most 64 label references total across all sections. Code automatically includes every omitted finding in its main section and renders saved claim content.
+Select only relevant labels for each section; impact assessment is limited to verified inference claims. Dated items in the timeline are sorted by code.
+{NO_CONCLUSIONS_RULE}"""
 
-Rules:
-- Select and order verified claims. Copy their content verbatim; do not paraphrase, infer, or add recommendations. Code renders the saved claim text, not newly generated prose.
-- Every sentence must list the claim labels it rests on (C1, C2) and set structural to false. Headings are added for you.
-- Keep inferences worded as assessments, not facts.
-- regulatory_developments: by jurisdiction, each item's change (new, amended, upcoming) and plain-language obligation.
-- deadlines_timeline: one sentence per dated item, sorted by date.
-- impact_assessment: only verified inference claims explaining risks, opportunities or applicability. Do not derive these from factual claims yourself.
-- Include every distinct verified finding in its main section. The executive summary selects key points.
-- executive_summary: at most eight sentences.
-- If a section has no claims for it, set no_verified_items to true and give no sentences.
-- {NO_CONCLUSIONS_RULE}"""
+
+class WriterPlanSection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    section: str
+    groups: list[Annotated[list[str], Field(min_length=1, max_length=64)]] = Field(max_length=64)
+
+
+class WriterPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sections: list[WriterPlanSection] = Field(min_length=7, max_length=7)
 
 
 @dataclass(frozen=True)
 class WrittenReport:
     sections: list[ReportSection]
-    llm: LLMResult[WriterOutput]
+    llm: LLMResult[WriterPlan]
     grounded_sentences: int = 0
 
 
@@ -86,28 +92,34 @@ def write(client: LLMClient, brief: Brief, verified: Sequence[StoredClaim]) -> W
     lines = [_claim_line(labels.add("C", claim.finding_id), claim) for claim in verified]
     user = f"{brief_text(brief)}\n\nVerified claims:\n\n" + "\n\n".join(lines)
 
-    def check(output: WriterOutput) -> None:
+    def check(output: WriterPlan) -> None:
         keys = [section.section for section in output.sections]
         if tuple(keys) != WRITER_SECTIONS:
             raise ValueError(f"return exactly these sections in order: {', '.join(WRITER_SECTIONS)}")
+        if len(output.sections[0].groups) > 8:
+            raise ValueError("executive summary may contain at most eight groups")
+        if sum(len(group) for section in output.sections for group in section.groups) > 64:
+            raise ValueError("plan may contain at most 64 label references")
         for section in output.sections:
-            # Structural text comes from code only; an uncited "structural" sentence could carry a fact (C7).
-            if any(sentence.structural for sentence in section.sentences):
-                raise ValueError("every sentence must cite claims and set structural to false")
-            if section.no_verified_items and section.sentences:
-                raise ValueError(f"{section.section} is marked no_verified_items but has sentences")
-            if not section.no_verified_items and not section.sentences:
-                raise ValueError(f"{section.section} has no sentences; set no_verified_items")
-            for sentence in section.sentences:
-                # AG10: only verified claims were labelled, so this rejects anything else.
-                labels.resolve_all(sentence.claim_labels, "C")
+            for group in section.groups:
+                if not group:
+                    raise ValueError("claim label groups must not be empty")
+                labels.resolve_all(group, "C")
 
     result = call_checked(
-        client, role="writer", system=SYSTEM, user=user, output_type=WriterOutput,
+        client, role="writer", system=SYSTEM, user=user, output_type=WriterPlan,
         prompt_version=PROMPT_VERSION, check=check,
     )
-    sections, replaced = ground_sections(result.output, labels, verified)
+    # Reuse the established grounding gate; placeholders never reach the report.
+    draft = WriterOutput(sections=[{
+        "section": section.section,
+        "sentences": [{"text": "", "claim_labels": group, "structural": False}
+                      for group in section.groups],
+        "no_verified_items": not section.groups,
+    } for section in result.output.sections])
+    sections, replaced = ground_sections(draft, labels, verified)
     return WrittenReport(sections, result, replaced)
+
 
 
 def ground_sections(output: WriterOutput, labels: LabelMap,

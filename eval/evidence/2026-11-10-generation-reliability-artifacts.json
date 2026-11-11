@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "date_singapore": "2026-11-10",
+  "package": "reports/generation-reliability-20261110/Mira_Australia_UAE_Reports_2026-11-10.zip",
+  "package_sha256": "bab57d8e23972a33f841b9006d39ce00dddc453ed62c4bdd993d4548d22d5e9f",
+  "package_bytes": 464979,
+  "members": {
+    "Australia_UAE_Validation.html": {
+      "sha256": "19bb916f2d9e1beb44ae4d97eab401548c4626e47013bca8a3acc55d7188cfce",
+      "bytes": 17739
+    },
+    "Australia_UAE_Validation.pdf": {
+      "sha256": "44ccf1e86349a33fa3e3741aab1f49c26c5441d01aa6be471db25969d926a30f",
+      "bytes": 254450,
+      "pages": 6
+    },
+    "Validation_Metadata.json": {
+      "sha256": "95998c6f6f952e82e94d009972a1a8a259db9ccb82e5c2716513bdd4d0e45693",
+      "bytes": 18662
+    },
+    "Mira_Australia_UAE_Recovered_Partial_Draft.pdf": {
+      "sha256": "5807c7ab99e078551e324af0444bbf209acbb80a33548e9d382e80aee8741456",
+      "bytes": 445165,
+      "pages": 7
+    },
+    "Mira_Australia_UAE_Recovered_Partial_Draft.html": {
+      "sha256": "42ad59db8f9d0b7661de85457ffee313773adf816cbdb6f8fa380ce86536c0f9",
+      "bytes": 34771
+    },
+    "README.txt": {
+      "sha256": "e3e559ec059c9b51144edb43b86d0e324ea3a6e5ab92bb62ebba61d9b5ff8aee",
+      "bytes": 2060
+    },
+    "SHA256SUMS.txt": {
+      "sha256": "616c8d0945252c811689ce7ad9921adcf0e794473d935b3071a9cec6293b160a",
+      "bytes": 586
+    }
+  },
+  "private_artifact_sha256": {
+    "full-suite-result.json": "027e69082c644d1f863df4b87c7032a6d8f7d2cec1bdbfbdd553d94e5d86293b",
+    "pr13-before.json": "abacb518f3a257753c769eeba84094c4062d21094a37939b803e56cfbd8b6d5a",
+    "audit.py": "424c643e69dfaf18a04b336f9f00d2715cf41a7c86370949f5496d930431a0ff",
+    "generation-ledger.json": "be92e30215fa0ece779951911d0b0d1aa4c171b5a6decee57d31f1ca135df22a",
+    "process.log": "d85214459218db5cbc2bc9cff1d603d9fe6885343031d0507601305d96edc693",
+    "recover-draft.py": "a708157fbff8e1c36397aaae8145ade995907c5a91b6e68ef8e5d6e58acaaf83",
+    "search-calls.json": "c54fe455e0b7ab4cb1810dc4d1d9182cf298d11ba177d9816cfffa587c9f030b",
+    "live-harness.py": "7704edfc9f6ad01a41b6a94aa43ec199491e20c6d10e0b030c69dd9aa3b1bb59",
+    "live-manifest.json": "64ffccb830c0e82295797266b6b7b41133ad1fd8c927503a59abbb9b540c5e54",
+    "recovered-snapshot.json": "2f305d5af4d7387cd68e37a0daf5da760f067dcfe895003312400d041e00dc26",
+    "full-suite-final.log": "84c800a75ea3c76078e16e4a6159c5c038c63505c447e97f073cccdc06cc3368",
+    "embedding-calls.json": "d57e00d7f421fb574d46da17be85f07135d71ccaeb4d88a41ec5f4373903dce3",
+    "database-container-state.json": "46e0546c11347e0bf63e01ae436a804a019e71d4440727991ba3ecdf97521109",
+    "live-outcome.json": "08d901cd5f5ba4ed2b040ceb46f98f38a2c2f5586586986d39d11b16b043d455",
+    "recovery-proof.json": "28514b888530b8c59b4104cd709bd63e34e0922f403989dede0bf44b5812f8ab",
+    "infrastructure-recovery.json": "eb96f85b392fe93d390ebdefdd0f6187300978195345fc7ed34f50ce0fe338b3",
+    "database-audit.json": "31df8199fb5334125f9eba49966c16a20e2ef77738e167e1b4bc21d3c92816ce",
+    "full-suite-final-result.json": "d37225845c03f57f770906454dc22f14fac6a01b3f62a81db88c589f2c4e67fb"
+  },
+  "layout_verification": "All13 PDF pages rendered and inspected in contact sheets; detailed coverage/corroboration and validation table pages inspected. Final label-only validation update rendered and its last page checked. No clipped/overlapping/squashed tables observed. PDF text/link checks pass.",
+  "recovery_draft_html_matches_original_offline_export": true,
+  "no_paid_resume_or_replacement": true
+}

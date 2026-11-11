@@ -1,0 +1,341 @@
+{
+  "schema_version": 1,
+  "kind": "mixed_retrieval_integration_validation",
+  "title": "Australia and UAE federal mixed-retrieval validation",
+  "base_sha": "360280e5693516413952ae5d66e5b41b355128f1",
+  "live_candidate_sha": "a5280fc",
+  "date_singapore": "2026-11-10",
+  "requested_scope": [
+    "Australia: Federal Register and AUSTRAC public sources",
+    "UAE: CBUAE federal sources; excludes DIFC/DFSA"
+  ],
+  "status": "Partial research draft; acquisition/storage checks passed; zero verified findings",
+  "budgets": [
+    {
+      "metric": "Research fetch attempts",
+      "limit": 12,
+      "observed": 12,
+      "unit": "11 saved + 1 failed API query"
+    },
+    {
+      "metric": "Extra public API contract diagnostics",
+      "limit": 3,
+      "observed": 3,
+      "unit": "No models or replacement research run"
+    },
+    {
+      "metric": "Actual Exa searches",
+      "limit": 4,
+      "observed": 3,
+      "unit": "requests"
+    },
+    {
+      "metric": "Known model + embedding tokens",
+      "limit": 250000,
+      "observed": 61277,
+      "unit": "known tokens; not total billed usage"
+    },
+    {
+      "metric": "Unknown failed-call reservations",
+      "limit": 250000,
+      "observed": 184241,
+      "unit": "conservative reservations; not measured tokens"
+    },
+    {
+      "metric": "Known + unknown reservations",
+      "limit": 250000,
+      "observed": 245518,
+      "unit": "tokens/allowance"
+    },
+    {
+      "metric": "Preserved draft internal counter",
+      "limit": 250000,
+      "observed": 183654,
+      "unit": "Different reservation method; wrapper245518 governs test cap; not billed usage"
+    },
+    {
+      "metric": "Embedding calls",
+      "limit": 10,
+      "observed": 6,
+      "unit": "requests"
+    },
+    {
+      "metric": "Embedding input",
+      "limit": 100000,
+      "observed": 30537,
+      "unit": "UTF-8 bytes"
+    },
+    {
+      "metric": "Network research duration",
+      "limit": 1200,
+      "observed": 246.623,
+      "unit": "seconds; global deadline preserved after no-network bootstrap failure"
+    }
+  ],
+  "methods": [
+    {
+      "source": "CBUAE (federal)",
+      "method": "html",
+      "status": "complete",
+      "url": "https://centralbank.ae/en/our-operations/anti-money-laundering-aml/offsite-supervision/",
+      "characters": 11228,
+      "pages": null,
+      "passages": 11,
+      "permission_status": "Approved organisational text/quote; no embedding",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "AUSTRAC",
+      "method": "html",
+      "status": "complete",
+      "url": "https://www.austrac.gov.au/industry-and-business/obligations-and-guidance/your-amlctf-program/develop-your-amlctf-programs/step-3-manage-and-mitigate-your-risks-amlctf-policies",
+      "characters": 29387,
+      "pages": null,
+      "passages": 27,
+      "permission_status": "Licensed prose; attribution; optional embeddings",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "CBUAE (federal)",
+      "method": "pdf",
+      "status": "complete",
+      "url": "https://centralbank.ae/media/ltygsiln/aml-cft-cpf-thematic-review-of-insurance-sector-issued-2025.pdf",
+      "characters": 21426,
+      "pages": 12,
+      "passages": 23,
+      "permission_status": "Approved organisational text/quote; no embedding",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "CBUAE (federal)",
+      "method": "html",
+      "status": "complete",
+      "url": "https://centralbank.ae/en/news-and-publications/news-and-insights/press-release/cbuae-updates-amlcftcpf-guidance-for-licensed-financial-institutions/",
+      "characters": 764,
+      "pages": null,
+      "passages": 1,
+      "permission_status": "Approved organisational text/quote; no embedding",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "AUSTRAC",
+      "method": "html",
+      "status": "complete",
+      "url": "https://www.austrac.gov.au/industry-and-business/obligations-and-guidance/your-amlctf-program/develop-your-amlctf-programs/step-2-identify-and-assess-your-risks",
+      "characters": 44747,
+      "pages": null,
+      "passages": 39,
+      "permission_status": "Licensed prose; attribution; optional embeddings",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "CBUAE (federal)",
+      "method": "pdf",
+      "status": "complete",
+      "url": "https://centralbank.ae/media/baepfo4f/cbuae-updates-amlcftcpf-guidance-for-licensed-financial-institutions-en.pdf",
+      "characters": 6133,
+      "pages": 3,
+      "passages": 8,
+      "permission_status": "Approved organisational text/quote; no embedding",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "Federal Register of Legislation",
+      "method": "html",
+      "status": "complete",
+      "url": "https://www.legislation.gov.au/C2006A00169/2026-10-01/2026-10-01/text/original/epub/OEBPS/document_1/document_1.html",
+      "characters": 551972,
+      "pages": null,
+      "passages": 488,
+      "permission_status": "Licensed prose; attribution; optional embeddings",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "AUSTRAC",
+      "method": "pdf",
+      "status": "complete",
+      "url": "https://www.austrac.gov.au/sites/default/files/2025-12/AML%20CTF%20program%20quick%20guide.pdf",
+      "characters": 10035,
+      "pages": 5,
+      "passages": 10,
+      "permission_status": "Licensed prose; attribution; optional embeddings",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "Federal Register of Legislation",
+      "method": "html",
+      "status": "complete",
+      "url": "https://www.legislation.gov.au/C2006A00169/2026-07-01/2026-07-01/text/original/epub/OEBPS/document_1/document_1.html",
+      "characters": 552388,
+      "pages": null,
+      "passages": 488,
+      "permission_status": "Licensed prose; attribution; optional embeddings",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "Federal Register of Legislation",
+      "method": "html",
+      "status": "complete",
+      "url": "https://www.legislation.gov.au/C2006A00169/2026-06-04/2026-06-04/text/original/epub/OEBPS/document%5F1/document%5F1.html",
+      "characters": 542646,
+      "pages": null,
+      "passages": 477,
+      "permission_status": "Licensed prose; attribution; optional embeddings",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "Federal Register of Legislation",
+      "method": "html",
+      "status": "complete",
+      "url": "https://www.legislation.gov.au/C2006A00169/2026-03-31/2026-03-31/text/original/epub/OEBPS/document_1/document_1.html",
+      "characters": 540449,
+      "pages": null,
+      "passages": 476,
+      "permission_status": "Licensed prose; attribution; optional embeddings",
+      "note": "Complete extracted text hash verified; alternate representations are not independent publications."
+    },
+    {
+      "source": "Federal Register native API",
+      "method": "Versions → scoped Documents → fixed HTML/PDF",
+      "status": "Corrected contract and offline storage replay passed",
+      "url": "https://www.legislation.gov.au/C2006A00169",
+      "note": "Original research query returned HTTP400 ($expand unsupported). Three additional public API diagnostics isolated it; corrected Versions/Documents returned200. Final code replayed offline with complete records, zero metadata citation passages and registeredAt=2026-10-10. No replacement paid research run."
+    }
+  ],
+  "storage_checks": [
+    {
+      "check": "Complete permitted text retained",
+      "status": "passed",
+      "observed": "2,311,175 extracted characters / 2,048 passages / 11 saved representations",
+      "note": "Every stored text hash matches extraction hash; offsets match; every extracted non-whitespace character covered. Not an independent original/PDF fact-completeness assessment."
+    },
+    {
+      "check": "Corrected native API capture",
+      "status": "passed offline using actual200 responses",
+      "observed": "2 complete JSON records; 12 document indexes; 2 full file links",
+      "note": "Mira extraction/save/scout path preserves native records and registeredAt; zero legal-text metadata passages; temporary transaction rolled back."
+    },
+    {
+      "check": "Disabled source audit",
+      "status": "passed in dedicated workspace",
+      "observed": "MAS inactive/zero versions; no MY/DFSA active sources",
+      "note": "No disabled-source acquisition or embedding. Unrelated synthetic test workspaces are outside this assertion."
+    },
+    {
+      "check": "UAE embedding policy",
+      "status": "passed",
+      "observed": "0 UAE vectors; 27 permitted AU vectors",
+      "note": "Hybrid remains experimental; no quality comparison or archive-completeness claim."
+    },
+    {
+      "check": "Frozen notice integrity",
+      "status": "passed automated integration tests",
+      "observed": "Python/SQL capture parity; legacy shapes preserved",
+      "note": "New migration applied locally only; old report snapshots untouched."
+    }
+  ],
+  "checks": [
+    {
+      "check": "Final full test suite",
+      "status": "passed",
+      "note": "1045 tests + 8 subtests; no skips; 66.49s. Earlier integrated mismatch was fixed with SQL/Python parity regression and rerun."
+    },
+    {
+      "check": "Independent focused runtime review",
+      "status": "no blockers",
+      "note": "Includes actual selection/alias preservation, discovery-only viewers, source operation preservation, registration propagation and latest API correction."
+    },
+    {
+      "check": "Actual research draft",
+      "status": "partial; zero verified findings",
+      "note": "task T1 (regulatory scout) failed: bounded request timed out; provider usage may be unavailable; task T3 (regulatory scout) failed: bounded request timed out; provider usage may be unavailable; analysis batch B1 failed (LLMError); saved findings were retained; analysis batch B2 failed (LLMError); saved findings were retained; analysis batch B3 failed (LLMError); saved findings were retained; Passage analysis is incomplete; see passage analysis coverage for recorded dispositions."
+    },
+    {
+      "check": "Bootstrap preflight",
+      "status": "local refusal preserved; zero provider/publication/Exa calls",
+      "note": "Worktree lacked role variables; existing primary-project settings were loaded unchanged. No .env/model settings changed."
+    }
+  ],
+  "source_links": [
+    {
+      "label": "Federal Register readable publication",
+      "url": "https://www.legislation.gov.au/C2006A00169"
+    },
+    {
+      "label": "Federal Register API/access policy",
+      "url": "https://www.legislation.gov.au/help-and-resources/using-the-legislation-register/data-share-and-reuse"
+    },
+    {
+      "label": "AUSTRAC public copyright",
+      "url": "https://www.austrac.gov.au/austrac-copyright-attribution-and-third-party-guidelines"
+    },
+    {
+      "label": "CBUAE federal publication hub",
+      "url": "https://centralbank.ae/en/our-operations/anti-money-laundering-aml/offsite-supervision/"
+    },
+    {
+      "label": "CBUAE reuse terms",
+      "url": "https://centralbank.ae/en/footer/terms-and-conditions/"
+    }
+  ],
+  "scope_limits": [
+    "The actual research run used a5280fc and produced a partial, coverage-only draft with zero verified findings; no successful analyst/verifier/writer research acceptance is claimed.",
+    "Two scout requests and one analyst request timed out. Further analysis batches were refused by the shared conservative token allowance. Unknown provider usage is reserved, not recovered or measured.",
+    "The exact partial draft shows Mira internal183654/250000 model tokens; wrapper known61277 + unknown reservations184241 =245518 uses a different scope/reservation method and governs this validation cap. Neither is complete billed usage; original HTML remains unchanged.",
+    "Final corrected API code (360280e) passed actual endpoint contract checks plus offline database/availability replay and the full suite; it has not completed a clean paid end-to-end rerun.",
+    "Three extra public metadata diagnostics are separate from the research run’s12-document budget. No replacement paid research/model run.",
+    "11 saved versions include alternate formats/compilations and hubs; they are not11 independent publications. No country completeness or human-labelled precision denominator.",
+    "Only English sampled. Malaysia/DFSA/MAS remain disabled; UAE rulebook subdomain and other UAE regulators are unapproved.",
+    "Preservation is measured after extraction. Original layout/OCR/table/fact completeness, optional CFF font decoding and cloud storage/backup acceptance remain separate checks.",
+    "Draft is engineering validation material for peers, not signed-off audit advice. CBUAE text reuse remains private organisational use with copyright attribution."
+  ],
+  "run_id": "0451a19c-431b-47aa-848e-d521e3817990",
+  "workspace_id": "717f0417-35c2-49fa-8337-5dc88b4c1d28",
+  "known_tokens": 61277,
+  "unknown_reserved_tokens": 184241,
+  "actual_calls": {
+    "exa": 3,
+    "model": 11,
+    "embedding": 6
+  },
+  "quality_acceptance": false,
+  "final_suite": {
+    "passed": 1045,
+    "subtests": 8,
+    "skipped": 0,
+    "seconds": 66.49
+  },
+  "live_outcome": {
+    "status": "partial",
+    "reasons": [
+      "task T1 (regulatory scout) failed: bounded request timed out; provider usage may be unavailable",
+      "task T3 (regulatory scout) failed: bounded request timed out; provider usage may be unavailable",
+      "analysis batch B1 failed (LLMError); saved findings were retained",
+      "analysis batch B2 failed (LLMError); saved findings were retained",
+      "analysis batch B3 failed (LLMError); saved findings were retained",
+      "Passage analysis is incomplete; see passage analysis coverage for recorded dispositions."
+    ],
+    "report_id": "03729368-e21f-4402-bc57-69243bbd62ba",
+    "elapsed_seconds": 246.623,
+    "finished_at": "2026-11-09T19:39:00.207140+00:00"
+  },
+  "database_summary": {
+    "versions": 11,
+    "characters": 2311175,
+    "passages": 2048,
+    "uae_vectors": 0,
+    "au_vectors": 27,
+    "findings": 0,
+    "report_count": 1
+  },
+  "corrected_api_storage": {
+    "kind": "offline native-API/registration/storage replay using actual 200 response bytes; no network/models",
+    "workspace_scoped": true,
+    "native_records_equal": true,
+    "metadata_citation_passages": 0,
+    "full_file_links": 2,
+    "child_registration_date": "2026-10-10",
+    "registration_evidence_preserved": true,
+    "rolled_back": true
+  }
+}
