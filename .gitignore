@@ -20,3 +20,6 @@ eval/results/
 private-originals/
 # Operator backups contain complete database and private evidence bytes.
 backups/
+
+# Local answer key for blind Hong Kong benchmark review.
+/eval/hk_labelled_retrieval_cases.json

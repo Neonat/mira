@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Mira · Evidence review</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #1d302d; --muted: #4d635e; --line: #ccd9d3; --paper: #eff3ef;
+  --surface: #fff; --green: #205947; --deep: #153c33; --soft: #e4eee7;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); }
+h1, h2, h3, p { margin: 0; }
+h1, h2 { font-family: Georgia, serif; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
+h1 { font-size: clamp(1.25rem, 3vw, 1.7rem); }
+h2 { font-size: clamp(1.22rem, 2.6vw, 1.75rem); }
+h3 { font-size: 1.05rem; line-height: 1.35; overflow-wrap: anywhere; }
+button, textarea, input { font: inherit; }
+button, summary { cursor: pointer; touch-action: manipulation; }
+button, input, textarea {
+  min-height: 44px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); color: var(--ink); padding: .45rem .75rem;
+}
+button:hover, summary:hover { background: var(--soft); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, summary:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid #4b7d68; outline-offset: 2px;
+}
+[hidden] { display: none !important; }
+.wrap { width: min(100% - 2rem, 56rem); margin-inline: auto; }
+header { background: var(--deep); color: #fff; }
+header .wrap { min-height: 65px; padding-block: .55rem; justify-content: space-between; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+button.dark { color: #fff; background: var(--green); border-color: var(--green); }
+button.dark:hover { background: #174637; }
+button.soft { color: var(--deep); background: var(--soft); border-color: #acc7b8; }
+button.soft:hover { background: #d4e6da; }
+.eyebrow { font-size: .75rem; font-weight: 750; letter-spacing: .075em; text-transform: uppercase; }
+header .eyebrow { color: #bedbcd; }
+#run-progress { font-size: .78rem; color: #cce6d8; font-variant-numeric: tabular-nums; }
+#finish-banner { margin-bottom: .75rem; border: 1px solid #a5cbb5; border-radius: 10px; padding: .85rem 1rem; background: #e2f2e7; }
+#finish-banner p + p { margin-top: .25rem; }
+#finish-banner.is-preview { padding: clamp(1.25rem, 6vw, 3rem); }
+#preview-back { margin-top: 1rem; }
+#clear-progress { color: #923b32; border-color: #dbbdb8; }
+#clear-progress:hover { background: #faedeb; }
+#finish-title { color: var(--deep); font-size: 1.2rem; font-weight: 750; }
+#reward { position: absolute; right: 1rem; bottom: -.55rem; z-index: 2; color: var(--deep); font-size: .77rem; font-weight: 700; background: #dceee1; border-radius: 999px; padding: .16rem .55rem; white-space: nowrap; }
+#particles { position: fixed; inset: 0; z-index: 10; overflow: hidden; pointer-events: none; }
+.particle { position: absolute; }
+.effect-option { display: inline-flex; align-items: center; min-height: 44px; gap: .4rem; }
+.effect-option input { min-height: auto; accent-color: var(--green); }
+main { padding-block: 1rem 1.6rem; }
+.question, .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.question { position: relative; padding: .8rem clamp(.8rem, 3vw, 1.3rem); margin-bottom: .65rem; }
+.question h2 { margin: .25rem 0 .5rem; }
+.spread { justify-content: space-between; }
+.meta { color: var(--muted); font-size: .86rem; }
+#case-progress { font-variant-numeric: tabular-nums; }
+progress { width: 100%; height: .42rem; display: block; margin-top: .5rem; accent-color: var(--green); }
+.card-top { padding: .8rem clamp(.8rem, 3vw, 1.3rem) .65rem; border-bottom: 1px solid var(--line); }
+.card-top h3 { margin-block: .18rem; }
+#saved-pick { margin-top: .35rem; color: var(--deep); font-weight: 650; }
+.reading {
+  overflow-y: auto; max-height: clamp(9rem, calc(100dvh - 32rem), 29rem); min-height: 5rem;
+  padding: .75rem clamp(.8rem, 3vw, 1.3rem); scrollbar-gutter: stable;
+}
+.source-context { background: #eef4ef; border-left: 3px solid #66927e; padding: .55rem .75rem; margin: 0 0 .7rem; max-width: 75ch; }
+.source-context p + p { margin-top: .2rem; }
+#text-heading { color: var(--muted); margin-bottom: .35rem; }
+.passage { font-size: 1rem; line-height: 1.52; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 75ch; }
+#scroll-hint { padding: .25rem clamp(.8rem, 3vw, 1.3rem); background: #f7f9f6; }
+.decisions { position: sticky; bottom: 0; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; padding: .7rem clamp(.8rem, 3vw, 1.3rem); background: #f7f9f6; border-top: 1px solid var(--line); }
+.decisions button { font-weight: 650; }
+.decisions button[aria-pressed="true"] { background: var(--soft); border-color: #66927e; box-shadow: inset 0 0 0 1px #66927e; }
+kbd { font: .72rem/1 system-ui, sans-serif; margin-inline-end: .3rem; border: 1px solid currentColor; border-radius: 4px; padding: .12rem .28rem; }
+label { display: block; font-weight: 650; font-size: .88rem; margin: .4rem 0 .25rem; }
+textarea { width: 100%; min-height: 5rem; resize: vertical; }
+#status { margin-top: .5rem; }
+#status:empty { display: none; }
+.summary { padding: 1.1rem; }
+.summary > * + * { margin-top: .65rem; }
+dialog { max-width: min(52rem, calc(100% - 1.5rem)); width: 100%; max-height: 90dvh; border: 1px solid var(--line); border-radius: 10px; padding: 1rem; color: var(--ink); }
+dialog::backdrop { background: #172f28a8; }
+#menu-dialog { max-width: min(27rem, calc(100% - 1.5rem)); }
+.menu-actions { display: grid; gap: .4rem; margin-block: .65rem; }
+.menu-actions button { text-align: left; }
+#menu-dialog details { border-top: 1px solid var(--line); }
+#menu-dialog summary { padding: .65rem .15rem; min-height: 44px; font-weight: 650; }
+#advanced-options > details { margin-inline: .55rem; }
+#menu-dialog #notes { min-height: 5rem; }
+#continue-case { min-width: min(12rem, 100%); }
+.dialog-list { display: grid; gap: .4rem; max-height: 58dvh; overflow: auto; padding: 4px; margin-block: .55rem; }
+.dialog-list button { text-align: left; }
+#passage-query { width: 100%; }
+.dialog-list small { display: block; color: var(--muted); }
+.dialog-list article { padding: .7rem .2rem; border-bottom: 1px solid var(--line); }
+.dialog-list article p { margin-block: .45rem; }
+.url { font: .85rem/1.45 ui-monospace, monospace; overflow-wrap: anywhere; margin-block: .75rem; }
+@media (max-width: 520px) {
+  .wrap { width: calc(100% - 1rem); }
+  header .wrap { gap: .35rem; }
+  header button { font-size: .85rem; }
+  .decisions { gap: .35rem; }
+  .decisions button { font-size: .83rem; padding-inline: .25rem; }
+  kbd { display: none; }
+  .reading { max-height: none; overflow: visible; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap row">
+    <div><p class="eyebrow">Mira · Hong Kong archive</p><h1>Evidence review</h1><p id="run-progress"></p></div>
+    <div class="row">
+      <button id="replay" aria-keyshortcuts="R" hidden>← Back</button>
+      <button id="return-to-queue" aria-keyshortcuts="Escape R" hidden>Return</button>
+      <button id="menu-button" class="soft">Menu</button>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <section id="finish-banner" aria-labelledby="finish-title" hidden>
+    <p id="finish-title"></p>
+    <p id="finish-copy"></p>
+    <button id="preview-back" class="dark" hidden>Back to review</button>
+  </section>
+  <section id="question-panel" class="question" aria-labelledby="question">
+    <div class="row spread">
+      <div class="row">
+        <p class="eyebrow" id="case-number"></p>
+        <span id="reward" aria-hidden="true" hidden></span>
+      </div>
+      <p class="meta" id="scope"></p>
+    </div>
+    <h2 id="question"></h2>
+    <p class="meta" id="case-progress"></p>
+    <progress id="progress" aria-label="Passages judged"></progress>
+  </section>
+  <section id="card" class="card" aria-labelledby="source-title">
+    <div class="card-top">
+      <p class="eyebrow" id="position"></p>
+      <h3 id="source-title"></h3>
+      <p class="meta" id="source-meta"></p>
+      <p class="meta" id="saved-pick" hidden></p>
+    </div>
+    <div class="reading" id="reading" tabindex="0" aria-label="Saved passage text">
+      <aside id="source-context" class="source-context" aria-label="Publication context">
+        <p class="eyebrow" id="source-kind"></p>
+        <p id="source-intro"></p>
+      </aside>
+      <p id="text-heading" class="eyebrow">Saved passage</p>
+      <p class="passage" id="passage"></p>
+    </div>
+    <p class="meta" id="scroll-hint" hidden>Scroll to read the rest</p>
+    <div class="decisions" aria-label="Judge and advance">
+      <button id="yes" aria-keyshortcuts="1"><kbd aria-hidden="true">1</kbd>Supports</button>
+      <button id="no" aria-keyshortcuts="2"><kbd aria-hidden="true">2</kbd>Doesn’t support</button>
+      <button id="unsure" aria-keyshortcuts="3"><kbd aria-hidden="true">3</kbd>Unsure</button>
+    </div>
+
+  </section>
+  <section id="summary" class="card summary" aria-labelledby="summary-heading" hidden>
+    <h3 id="summary-heading" tabindex="-1">Case summary</h3>
+    <p id="summary-text"></p>
+    <button id="continue-case" class="dark">Continue</button>
+  </section>
+  <p id="status" class="meta" role="status"></p>
+
+</main>
+<div id="particles" aria-hidden="true"></div>
+<dialog id="menu-dialog" aria-labelledby="menu-title">
+  <div class="row spread"><h3 id="menu-title">Menu</h3><button data-close>Close</button></div>
+  <div class="menu-actions">
+    <button id="cases-button">Choose a case</button>
+    <button id="export-button">Export review</button>
+  </div>
+  <details id="advanced-options">
+    <summary>Options</summary>
+    <details id="passage-options">
+      <summary>Passage tools</summary>
+      <div class="menu-actions">
+        <button id="publication-button">See more from this source</button>
+        <button id="source-button">Source details</button>
+        <button id="format">Original formatting</button>
+        <button id="back" aria-keyshortcuts="ArrowLeft">Previous passage</button>
+        <button id="next" aria-keyshortcuts="ArrowRight">Skip this passage</button>
+        <button id="set-aside">Set aside for later</button>
+      </div>
+    </details>
+    <details id="case-options">
+      <summary>Case tools</summary>
+      <div class="menu-actions">
+        <button id="find-button">Find a passage</button>
+        <button id="summary-button">Case summary</button>
+        <button id="review-mode"></button>
+        <button id="review-again">Review picks</button>
+        <button id="reopen-scope" hidden>Review scope again</button>
+      </div>
+    </details>
+    <details id="review-tools">
+      <summary>Save and settings</summary>
+      <label for="notes">Case notes (optional)</label>
+      <textarea id="notes" maxlength="10000"></textarea>
+      <label for="reviewer">Reviewer name or initials (optional)</label>
+      <div class="row">
+        <input id="reviewer" type="text" maxlength="100" autocomplete="off">
+        <button id="import-button">Import review</button>
+      </div>
+      <input type="file" id="review-file" accept=".json,application/json" hidden>
+      <div class="row">
+        <label class="effect-option"><input id="visual-effects" type="checkbox" checked> Visual effects</label>
+        <label class="effect-option"><input id="sound-effects" type="checkbox"> Sound effects</label>
+      </div>
+      <div class="menu-actions">
+        <button id="skip-to-end">Skip to end</button>
+        <button id="clear-progress">Clear all progress</button>
+      </div>
+      <p class="meta">Use the saved passage as evidence. A related title or topic alone doesn’t support a fact. First-pass suggestions use local wording matches and leave other passages unreviewed. To confirm that the archive has no answer, review the full case.</p>
+    </details>
+  </details>
+</dialog>
+<dialog id="cases-dialog" aria-labelledby="cases-title">
+  <div class="row spread"><h3 id="cases-title">All cases</h3><button data-close>Close</button></div>
+  <div id="case-list" class="dialog-list"></div>
+</dialog>
+<dialog id="source-dialog" aria-labelledby="source-heading">
+  <div class="row spread"><h3 id="source-heading">Source details</h3><button data-close>Close</button></div>
+  <p id="source-url" class="url"></p>
+  <p id="source-id" class="meta"></p>
+</dialog>
+<dialog id="publication-dialog" aria-labelledby="publication-heading">
+  <div class="row spread"><h3 id="publication-heading">Publication passages</h3><button data-close>Close</button></div>
+  <div id="publication-list" class="dialog-list"></div>
+  <button id="bulk" class="dark"></button>
+  <p class="meta">Use this after reading every unjudged passage above. Existing judgments are kept.</p>
+</dialog>
+<dialog id="find-dialog" aria-labelledby="find-heading">
+  <div class="row spread"><h3 id="find-heading">Find a passage</h3><button data-close>Close</button></div>
+  <label for="passage-query">Search this case’s saved text, titles or source URLs</label>
+  <input id="passage-query" type="search">
+  <div id="passage-results" class="dialog-list"></div>
+</dialog>
+<noscript>Enable JavaScript to use the review queue.</noscript>
+<script type="application/json" id="pack-data">{{PACK_DATA}}</script>
+<script type="application/json" id="review-guide">{{REVIEW_GUIDE}}</script>
+<script>
+"use strict";
+const pack = JSON.parse(document.getElementById("pack-data").textContent);
+const guide = JSON.parse(document.getElementById("review-guide").textContent);
+const $ = id => document.getElementById(id);
+const storageKey = "mira-blind-review:" + pack.pack_id;
+const positionKey = storageKey + ":queue";
+const scopes = {HK: "Hong Kong", AU: "Australia"};
+const agencies = {hkma: "HKMA", sfc: "SFC"};
+const judgmentNames = {"1": "Supports", "0": "Doesn’t support", "?": "Unsure"};
+const dateFormatter = new Intl.DateTimeFormat("en-GB", {day:"numeric", month:"short", year:"numeric", timeZone:"UTC"});
+const displayDate = value => value ? dateFormatter.format(new Date(value + "T00:00:00Z")) : "No stored publication date";
+let state = {reviewer: "", cases: {}};
+let storageAvailable = true;
+let selected = 0;
+let cursor = -1;
+let original = false;
+let focused = true;
+let lastPick = null;
+let replayOrigin = null;
+let finishPreview = false;
+
+function node(tag, content, className) {
+  const element = document.createElement(tag);
+  if (content !== undefined) element.textContent = content;
+  if (className) element.className = className;
+  return element;
+}
+function button(text, action) {
+  const element = node("button", text);
+  element.addEventListener("click", action);
+  return element;
+}
+function currentCase() { return pack.cases[selected]; }
+function record(item = currentCase()) {
+  return state.cases[item.id] ??= {labels: {}, notes: "", complete: false};
+}
+function comparePassages(a, b) {
+  const pa = pack.passages[a], pb = pack.passages[b];
+  const va = pack.publications[pa.version_id], vb = pack.publications[pb.version_id];
+  return va.source_key.localeCompare(vb.source_key) || va.title.localeCompare(vb.title) ||
+    pa.version_id.localeCompare(pb.version_id) || pa.passage_number - pb.passage_number || a.localeCompare(b);
+}
+const order = pack.cases.map(item => [...item.passage_ids].sort(comparePassages));
+function allPassages() { return order[selected]; }
+function firstPass(item = currentCase()) { return guide.shortlists[item.id]; }
+function queue() { return focused ? firstPass() : allPassages(); }
+function firstPassStatus(item) {
+  const ids = firstPass(item);
+  const {judged, supports, unsure, unjudged} = counts(ids, record(item).labels);
+  return {suggested: ids.length, seen: judged + unsure, supports, unsure, unjudged};
+}
+function counts(ids, labels) {
+  const values = ids.map(id => labels[id]);
+  const supports = values.filter(value => value === "1").length;
+  const unsure = values.filter(value => value === "?").length;
+  const judged = supports + values.filter(value => value === "0").length;
+  return {judged, supports, unsure, unjudged: values.length - judged - unsure};
+}
+function say(text) { $("status").textContent = text; }
+function save() {
+  if (!storageAvailable) return;
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({pack_id: pack.pack_id, ...state, lastPick}));
+  } catch {
+    storageAvailable = false;
+    say("Browser saving is unavailable. Export your review to keep it.");
+  }
+}
+function loadReview(payload) {
+  if (payload?.pack_id !== pack.pack_id || typeof payload.reviewer !== "string" ||
+      !payload.cases || typeof payload.cases !== "object" || Array.isArray(payload.cases)) {
+    throw new Error("Choose a review exported from this pack.");
+  }
+  const restored = {reviewer: payload.reviewer.slice(0, 100), cases: {}};
+  for (const item of pack.cases) {
+    const incoming = payload.cases[item.id];
+    if (!incoming) continue;
+    const labels = {};
+    if (typeof incoming.notes !== "string" || !incoming.labels || typeof incoming.labels !== "object" ||
+        Array.isArray(incoming.labels) || typeof incoming.complete !== "boolean") {
+      throw new Error("This file contains a malformed case review.");
+    }
+    for (const [id, value] of Object.entries(incoming.labels)) {
+      const label = value === null ? "?" : value === 0 || value === 1 ? String(value) : value;
+      if (!item.passage_ids.includes(id) || !["0", "1", "?"].includes(label)) {
+        throw new Error("This file contains a passage or judgment outside its case.");
+      }
+      labels[id] = label;
+    }
+    const complete = incoming.complete && counts(item.passage_ids, labels).judged === item.passage_ids.length;
+    restored.cases[item.id] = {labels, notes: incoming.notes.slice(0, 10000), complete};
+  }
+  return restored;
+}
+function loadLastPick(saved) {
+  const item = pack.cases.find(candidate => candidate.id === saved?.caseId);
+  if (!item?.passage_ids.includes(saved.passageId)) return null;
+  return {caseId: item.id, passageId: saved.passageId, focused: saved.focused === true};
+}
+function savePosition() {
+  if (!storageAvailable || replayOrigin) return;
+  try {
+    localStorage.setItem(positionKey, JSON.stringify({caseId: currentCase().id, passageId: queue()[cursor] ?? null, mode: focused ? "first_pass" : "full"}));
+  } catch {
+    storageAvailable = false;
+    say("Browser saving is unavailable. Export your review to keep it.");
+  }
+}
+function compact(passage) {
+  const text = passage.content.replace(/\r\n?/g, "\n").trim();
+  if (passage.page_number == null) return text.replace(/\n(?:[ \t]*\n)+/g, "\n");
+  return text.split(/\n[ \t]*\n+/).map(paragraph => paragraph.replace(/\n[ \t]*/g, " ")).join("\n\n");
+}
+function passageLabel(passage) {
+  return "Passage " + passage.passage_number + (passage.page_number == null ? "" : " · Page " + passage.page_number);
+}
+function updateScrollHint() {
+  const reader = $("reading");
+  $("scroll-hint").hidden = reader.scrollHeight - reader.clientHeight - reader.scrollTop <= 2;
+}
+function renderText() {
+  const passage = pack.passages[queue()[cursor]];
+  if (!passage) return;
+  $("passage").textContent = original ? passage.content : compact(passage);
+  $("format").textContent = original ? "Compact formatting" : "Original formatting";
+  $("format").setAttribute("aria-pressed", String(original));
+  $("reading").scrollTop = 0;
+  updateScrollHint();
+}
+function render() {
+  renderReviewProgress();
+  $("question-panel").hidden = finishPreview;
+  if (finishPreview) {
+    for (const id of ["card", "summary", "replay", "return-to-queue", "passage-options", "case-options"]) {
+      $(id).hidden = true;
+    }
+    return;
+  }
+  $("case-options").hidden = false;
+  const item = currentCase(), ids = queue(), review = record();
+  const all = allPassages();
+  const {judged, supports, unsure, unjudged} = counts(all, review.labels);
+  const {suggested, seen} = firstPassStatus(item);
+  $("review-mode").hidden = !all.length || review.complete || Boolean(replayOrigin);
+  $("review-mode").textContent = focused ? "Review full archive" : "Return to first pass";
+  $("case-number").textContent = "Case " + (selected + 1) + " of " + pack.cases.length;
+  $("question").textContent = item.question;
+  $("scope").textContent = scopes[item.jurisdiction] + " · As of " + displayDate(item.as_of);
+  $("case-progress").textContent = !all.length ? "No eligible saved passages" :
+    review.complete ? "All " + all.length + " passages judged · " + supports + " supporting" :
+    focused ? "First pass · " + seen + " of " + suggested + " reviewed" :
+    "Full archive · " + judged + " of " + all.length + " judged" + (unsure ? " · " + unsure + " unsure" : "");
+  $("progress").hidden = !all.length;
+  $("progress").max = (focused && !review.complete ? suggested : all.length) || 1;
+  $("progress").value = focused && !review.complete ? seen : judged;
+  $("notes").value = review.notes;
+  const id = ids[cursor], passage = pack.passages[id];
+  $("card").hidden = !passage;
+  $("summary").hidden = Boolean(passage);
+  const replaying = Boolean(replayOrigin);
+  const pickCase = lastPick ? pack.cases.findIndex(item => item.id === lastPick.caseId) : -1;
+  $("replay").hidden = !lastPick || replaying || (pickCase === selected && lastPick.passageId === id);
+  $("replay").title = pickCase >= 0 && pickCase !== selected ? "Back to your last pick in case " + (pickCase + 1) : "Back to your last pick";
+  $("return-to-queue").hidden = !replaying;
+  $("passage-options").hidden = !passage;
+  $("summary-button").hidden = !passage || replaying;
+  $("find-button").hidden = !all.length;
+  $("review-again").hidden = !all.length || replaying;
+  $("reopen-scope").hidden = !review.complete || Boolean(all.length);
+  if (passage) {
+    const publication = pack.publications[passage.version_id];
+    const pick = review.labels[id];
+    $("position").textContent = (replaying ? "Replay · " : "") +
+      (focused ? "Suggested source " : "Passage ") + (cursor + 1) + " of " + ids.length;
+    $("saved-pick").hidden = pick === undefined;
+    $("saved-pick").textContent = pick === undefined ? "" : "Your pick · " + judgmentNames[pick];
+    $("set-aside").hidden = pick === undefined;
+    $("set-aside").title = "Remove this pick and leave the passage open for later.";
+    for (const [buttonId, value] of [["yes", "1"], ["no", "0"], ["unsure", "?"]]) {
+      $(buttonId).setAttribute("aria-pressed", String(pick === value));
+    }
+    $("source-title").textContent = publication.title;
+    $("source-meta").textContent = agencies[publication.source_key] + " · " +
+      displayDate(publication.published_at) + " · " + passageLabel(passage);
+    $("back").hidden = replaying || cursor === 0;
+    $("next").hidden = replaying;
+    const [kind, intro] = guide.context[passage.version_id];
+    $("source-kind").textContent = kind;
+    $("source-intro").textContent = intro;
+    $("publication-button").hidden = all.filter(pid => pack.passages[pid].version_id === passage.version_id).length < 2;
+    renderText();
+  } else {
+    const covered = judged === all.length;
+    const undecided = unjudged + unsure;
+    const firstPassResult = seen < suggested ? "First pass in progress." :
+      supports ? "You found supporting evidence in the passages you reviewed." :
+      unsure ? "No supporting evidence marked yet. Some passages are still unsure." :
+      "No support found in the passages you reviewed.";
+    $("summary-text").textContent = review.complete ? "Case confirmed." :
+      !all.length ? "The market and date scope contains no eligible saved passages." :
+      covered ? (supports ? "All passages judged. Confirm this case to finish." :
+        "All passages judged. You can confirm that the archive contains no supporting passage.") :
+      focused ? firstPassResult + " " + undecided + " of " + all.length +
+        " eligible passages still need a decision for a full review." :
+      [unjudged ? unjudged + " unjudged" : "", unsure ? unsure + " unsure" : ""].filter(Boolean).join(" · ") +
+        ". Resolve these passages before confirming the case.";
+    const primary = $("continue-case");
+    if (!review.complete && covered) {
+      primary.dataset.action = "confirm";
+      primary.textContent = !all.length ? "Confirm empty scope" :
+        supports ? "Confirm case" : "Confirm no supporting passage";
+    } else if (!covered && (!focused || seen < suggested)) {
+      primary.dataset.action = "resume";
+      primary.textContent = "Continue reviewing";
+    } else if (reviewProgress().first === pack.cases.length) {
+      primary.dataset.action = "export";
+      primary.textContent = "Export review";
+    } else {
+      primary.dataset.action = "next";
+      primary.textContent = "Continue";
+    }
+  }
+  savePosition();
+}
+function nextIndex(predicate, after = -1) {
+  const ids = queue();
+  for (let step = 1; step <= ids.length; step++) {
+    const index = (after + step) % ids.length;
+    if (index !== after && predicate(record().labels[ids[index]])) return index;
+  }
+  return -1;
+}
+function pendingIndex() {
+  const unjudged = nextIndex(value => value === undefined);
+  return unjudged >= 0 || focused ? unjudged : nextIndex(value => value === "?");
+}
+function move(index) {
+  const wasCard = !$("card").hidden;
+  cursor = index;
+  render();
+  if (matchMedia("(max-width: 520px)").matches) window.scrollTo(0, 0);
+  if (cursor < 0 && wasCard) $("summary-heading").focus({preventScroll:true});
+}
+function setMode(isFocused) {
+  replayOrigin = null;
+  focused = isFocused;
+  say("");
+  move(record().complete ? -1 : pendingIndex());
+}
+function moveToPassage(id) {
+  replayOrigin = null;
+  if (!queue().includes(id)) focused = false;
+  move(queue().indexOf(id));
+}
+function chooseCase(index) {
+  finishPreview = false;
+  clearTimeout(rewardTimer);
+  $("reward").hidden = true;
+  replayOrigin = null;
+  selected = index;
+  focused = true;
+  $("passage-query").value = "";
+  say("");
+  move(record().complete ? -1 : pendingIndex());
+}
+function applyLabels(ids, value) {
+  const review = record();
+  const active = queue()[cursor];
+  const passageId = ids.includes(active) ? active : ids.at(-1);
+  lastPick = {caseId: currentCase().id, passageId, focused};
+  for (const id of ids) {
+    if (value === null) delete review.labels[id];
+    else review.labels[id] = value;
+  }
+  review.complete = false;
+  save();
+}
+function judge(value) {
+  const id = queue()[cursor];
+  if (!id) return;
+  const previous = record().labels[id];
+  if (previous !== value) applyLabels([id], value);
+  say(previous === value ? "Pick kept." : judgmentNames[value] + " saved.");
+  if (replayOrigin) {
+    returnToQueue();
+    return;
+  }
+  const next = nextIndex(label => label === undefined, cursor);
+  move(next);
+  if (previous === undefined) rewardReview(focused && next < 0 ? "Case first pass done" : "");
+}
+function replayLastPick() {
+  if (!lastPick || replayOrigin ||
+      (currentCase().id === lastPick.caseId && queue()[cursor] === lastPick.passageId)) return;
+  replayOrigin = {selected, focused, cursor};
+  selected = pack.cases.findIndex(item => item.id === lastPick.caseId);
+  focused = lastPick.focused && firstPass().includes(lastPick.passageId);
+  $("passage-query").value = "";
+  say("");
+  move(queue().indexOf(lastPick.passageId));
+  $("reading").focus({preventScroll:true});
+}
+function returnToQueue() {
+  if (!replayOrigin) return;
+  const origin = replayOrigin;
+  replayOrigin = null;
+  selected = origin.selected;
+  focused = origin.focused;
+  move(origin.cursor);
+  if (cursor < 0) $("summary-heading").focus({preventScroll:true});
+  else $("reading").focus({preventScroll:true});
+}
+function setAside() {
+  const id = queue()[cursor];
+  if (!id || record().labels[id] === undefined) return;
+  applyLabels([id], null);
+  say("Passage set aside. It’s open for review later.");
+  if (replayOrigin) returnToQueue();
+  else move(nextIndex(label => label === undefined, cursor));
+}
+function closeMenu() {
+  if ($("menu-dialog").open) $("menu-dialog").close();
+}
+function openCases() {
+  const list = pack.cases.map((item, index) => {
+    const review = record(item);
+    const entry = button(item.question, () => {
+      $("cases-dialog").close();
+      chooseCase(index);
+    });
+    const {suggested, seen} = firstPassStatus(item);
+    const detail = review.complete ? "Confirmed" : !item.passage_ids.length ? "Empty scope" :
+      seen + "/" + suggested + " first-pass sources reviewed";
+    entry.append(node("small", "Case " + (index + 1) + " · " + scopes[item.jurisdiction] +
+      " · " + displayDate(item.as_of) + " · " + detail));
+    return entry;
+  });
+  $("case-list").replaceChildren(...list);
+  $("cases-dialog").showModal();
+}
+function showPassageResults() {
+  const terms = $("passage-query").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const results = [];
+  if (terms.length) {
+    allPassages().forEach(id => {
+      const passage = pack.passages[id], publication = pack.publications[passage.version_id];
+      const searchable = [publication.title, publication.source_url, publication.source_key, passage.content].join(" ").toLowerCase();
+      if (!terms.every(term => searchable.includes(term))) return;
+      const entry = button(publication.title, () => {
+        $("find-dialog").close();
+        moveToPassage(id);
+      });
+      entry.append(node("small", passageLabel(passage) + " · " + (judgmentNames[record().labels[id]] ?? "Unjudged")));
+      results.push(entry);
+    });
+  }
+  $("passage-results").replaceChildren(...(results.length ? results : [
+    node("p", terms.length ? "No saved passages match." : "Enter a title, identifier or phrase.", "meta")
+  ]));
+}
+function openSource() {
+  const id = queue()[cursor], passage = pack.passages[id];
+  $("source-url").textContent = pack.publications[passage.version_id].source_url;
+  $("source-id").textContent = passageLabel(passage) + " · " + id;
+  $("source-dialog").showModal();
+}
+function openPublication() {
+  const version = pack.passages[queue()[cursor]].version_id;
+  const ids = allPassages().filter(id => pack.passages[id].version_id === version);
+  const review = record();
+  const unjudged = ids.filter(id => review.labels[id] === undefined);
+  $("publication-heading").textContent = pack.publications[version].title;
+  $("publication-list").replaceChildren(...ids.map(id => {
+    const passage = pack.passages[id], article = node("article");
+    article.append(node("h3", passageLabel(passage) + " · " + (judgmentNames[review.labels[id]] ?? "Unjudged")),
+      node("p", compact(passage), "passage"), button("Open in queue", () => {
+        $("publication-dialog").close();
+        moveToPassage(id);
+      }));
+    return article;
+  }));
+  $("bulk").disabled = !unjudged.length;
+  $("bulk").textContent = "Mark " + unjudged.length + " unjudged as Doesn’t support";
+  $("bulk").onclick = () => {
+    $("publication-dialog").close();
+    applyLabels(unjudged, "0");
+    say(unjudged.length + " judgments saved. Undo is available.");
+    const next = nextIndex(label => label === undefined, cursor);
+    move(next);
+    rewardReview(focused && next < 0 ? "Case first pass done" : "");
+  };
+  $("publication-dialog").showModal();
+  const active = ids.indexOf(queue()[cursor]);
+  const list = $("publication-list");
+  list.scrollTop = Math.max(0, list.children[active].offsetTop - list.offsetTop);
+}
+const effectsKey = storageKey + ":effects";
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const effectColors = ["#23735a", "#44a48b", "#f3b744", "#e76b55", "#5686df", "#935fc1"];
+const effects = {visual: true, sound: false, firstPassSeen: false, fullSeen: false};
+let audioContext;
+let rewardTimer;
+
+function saveEffects() {
+  try { localStorage.setItem(effectsKey, JSON.stringify(effects)); } catch { /* Preferences last for this tab. */ }
+}
+function finishedFirstPass(item) {
+  const review = state.cases[item.id];
+  const ids = firstPass(item);
+  return ids.length ? ids.every(id => review?.labels[id] !== undefined) : Boolean(review?.complete);
+}
+function reviewProgress() {
+  let first = 0;
+  let full = 0;
+  for (const item of pack.cases) {
+    const review = state.cases[item.id];
+    if (review?.complete) full++;
+    if (finishedFirstPass(item)) first++;
+  }
+  return {first, full, total: pack.cases.length};
+}
+function renderReviewProgress() {
+  const {first, full, total} = reviewProgress();
+  $("run-progress").textContent = "First pass · " + first + "/" + total + " cases";
+  $("finish-banner").hidden = !finishPreview && first !== total && full !== total;
+  $("finish-banner").classList.toggle("is-preview", finishPreview);
+  $("preview-back").hidden = !finishPreview;
+  $("finish-title").textContent = finishPreview ? "Finish screen preview" :
+    full === total ? "Full archive review complete" : "First pass complete";
+  $("finish-copy").textContent = finishPreview ? "Your progress is saved. Return whenever you’re ready." :
+    full === total ? "All cases confirmed. Export your review when ready." :
+    "All first-pass cases reviewed. Your export keeps any remaining archive passages open.";
+}
+function playChime(level) {
+  if (!effects.sound || typeof AudioContext !== "function") return;
+  try {
+    audioContext ??= new AudioContext();
+    audioContext.resume().then(() => {
+      if (!effects.sound) return;
+      const pitches = level === "finish" ? [523.25, 659.25, 783.99, 1046.5] :
+        level === "case" ? [523.25, 659.25, 783.99] : [659.25, 783.99];
+      pitches.forEach((frequency, index) => {
+        const start = audioContext.currentTime + 0.055 * index;
+        const voice = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        voice.type = "sine";
+        voice.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.001, start);
+        gain.gain.exponentialRampToValueAtTime(0.035, start + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.11);
+        voice.connect(gain).connect(audioContext.destination);
+        voice.start(start);
+        voice.stop(start + 0.12);
+        voice.onended = () => { voice.disconnect(); gain.disconnect(); };
+      });
+    }).catch(() => {});
+  } catch { /* Audio is optional when the browser cannot initialize it. */ }
+}
+function celebrate(level) {
+  playChime(level);
+  if (!effects.visual || reducedMotion.matches) return;
+  const layer = $("particles");
+  const finish = level === "finish";
+  const count = finish ? 84 : level === "case" ? 16 : 7;
+  const anchor = (cursor < 0 ? $("summary-heading") : $("progress")).getBoundingClientRect();
+  const originY = Math.min(innerHeight * 0.72, Math.max(innerHeight * 0.2, anchor.top + anchor.height / 2));
+  const originX = anchor.left + anchor.width / 2;
+  const fragments = document.createDocumentFragment();
+  const chips = [];
+  for (let index = 0; index < count; index++) {
+    const chip = node("span", undefined, "particle");
+    const size = (finish ? 6 : 4) + Math.random() * 5;
+    chip.style.width = size + "px";
+    chip.style.height = size * (index % 3 ? 1.45 : 1) + "px";
+    chip.style.background = effectColors[index % effectColors.length];
+    chip.style.borderRadius = index % 4 === 0 ? "50%" : "2px";
+    chip.style.left = (finish ? Math.random() * innerWidth : originX) + "px";
+    chip.style.top = (finish ? -18 : originY) + "px";
+    fragments.append(chip);
+    chips.push(chip);
+  }
+  layer.append(fragments);
+  for (const chip of chips) {
+    const drift = (Math.random() - 0.5) * (finish ? 190 : level === "case" ? 230 : 110);
+    const drop = finish ? innerHeight + 40 : -(20 + Math.random() * (level === "case" ? 105 : 48));
+    const spin = (Math.random() - 0.5) * (finish ? 900 : 420);
+    const animation = chip.animate([
+      {transform:"translate(0, 0) rotate(0deg)", opacity:1},
+      {transform:`translate(${drift}px, ${drop}px) rotate(${spin}deg)`, opacity:0}
+    ], {
+      duration: finish ? 1350 + Math.random() * 950 : 440 + Math.random() * 180,
+      delay: finish ? Math.random() * 280 : 0,
+      easing: finish ? "ease-in" : "ease-out",
+      fill: "both"
+    });
+    animation.onfinish = () => chip.remove();
+  }
+  const progress = $("progress");
+  if (!progress.hidden && !finish) {
+    progress.animate([{filter:"brightness(1.65)"}, {filter:"brightness(1)"}], {duration:420, easing:"ease-out"});
+  }
+}
+function rememberMilestones() {
+  const {first, full, total} = reviewProgress();
+  const firstNew = first === total && !effects.firstPassSeen;
+  const fullNew = full === total && !effects.fullSeen;
+  if (firstNew || fullNew) {
+    effects.firstPassSeen ||= firstNew;
+    effects.fullSeen ||= fullNew;
+    saveEffects();
+  }
+  return firstNew || fullNew;
+}
+function rewardReview(caseCue = "") {
+  const finished = rememberMilestones();
+  const level = finished ? "finish" : caseCue ? "case" : "saved";
+  const badge = $("reward");
+  clearTimeout(rewardTimer);
+  badge.textContent = level === "finish" ? $("finish-title").textContent : caseCue || "Review saved";
+  badge.hidden = false;
+  rewardTimer = setTimeout(() => { badge.hidden = true; }, level === "saved" ? 900 : 1700);
+  celebrate(level);
+}
+function initializeEffects() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(effectsKey) ?? "{}");
+    for (const key of Object.keys(effects)) {
+      if (typeof saved?.[key] === "boolean") effects[key] = saved[key];
+    }
+  } catch { /* Use defaults if the browser cannot restore preferences. */ }
+  rememberMilestones();
+  $("visual-effects").checked = effects.visual;
+  $("sound-effects").checked = effects.sound;
+  $("visual-effects").onchange = event => {
+    effects.visual = event.target.checked;
+    if (!effects.visual) $("particles").replaceChildren();
+    saveEffects();
+  };
+  $("sound-effects").onchange = event => {
+    effects.sound = event.target.checked;
+    saveEffects();
+    if (effects.sound) playChime("saved");
+  };
+  reducedMotion.addEventListener("change", event => {
+    if (event.matches) $("particles").replaceChildren();
+  });
+}
+
+function skipToEnd() {
+  closeMenu();
+  clearTimeout(rewardTimer);
+  $("reward").hidden = true;
+  $("particles").replaceChildren();
+  say("");
+  finishPreview = true;
+  render();
+  window.scrollTo(0, 0);
+  $("preview-back").focus({preventScroll:true});
+  celebrate("finish");
+}
+function leaveFinishPreview() {
+  finishPreview = false;
+  $("particles").replaceChildren();
+  render();
+  $(cursor < 0 ? "continue-case" : "reading").focus({preventScroll:true});
+}
+function clearProgress() {
+  if (!window.confirm("Clear all saved picks, case notes and case confirmations in this pack? You’ll start again at case 1.")) return;
+  closeMenu();
+  state = {reviewer: state.reviewer, cases: {}};
+  lastPick = null;
+  effects.firstPassSeen = false;
+  effects.fullSeen = false;
+  saveEffects();
+  $("particles").replaceChildren();
+  chooseCase(0);
+  save();
+  say("Progress cleared. You’re back at case 1.");
+  $("reading").focus({preventScroll:true});
+}
+function exportReview() {
+  const cases = Object.fromEntries(pack.cases.map(item => [item.id, {
+    question: item.question, jurisdiction: item.jurisdiction, as_of: item.as_of,
+    corpus_sha256: item.corpus_sha256, eligible_passages: item.passage_ids.length,
+    complete: record(item).complete, notes: record(item).notes,
+    first_pass: {
+      strategy: guide.selection,
+      suggested_passage_ids: firstPass(item),
+      reviewed_passage_ids: firstPass(item).filter(id => record(item).labels[id] !== undefined)
+    },
+    labels: Object.fromEntries(Object.entries(record(item).labels).map(
+      ([id, label]) => [id, label === "?" ? null : Number(label)]))
+  }]));
+  const output = {schema_version: 1, pack_id: pack.pack_id, reviewer: state.reviewer, cases};
+  const url = URL.createObjectURL(new Blob([JSON.stringify(output, null, 2) + "\n"], {type: "application/json"}));
+  const link = node("a");
+  link.href = url;
+  link.download = "mira-hong-kong-blind-review.json";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  say("Review exported. The file includes unfinished cases.");
+}
+
+try {
+  const local = localStorage.getItem(storageKey);
+  if (local) {
+    const saved = JSON.parse(local);
+    state = loadReview(saved);
+    lastPick = loadLastPick(saved.lastPick ?? saved.undo);
+  }
+  const position = JSON.parse(localStorage.getItem(positionKey) ?? "null");
+  const index = pack.cases.findIndex(item => item.id === position?.caseId);
+  if (index >= 0) selected = index;
+  focused = position?.mode !== "full";
+  cursor = index >= 0 && position.mode ? queue().indexOf(position.passageId) :
+    record().complete ? -1 : pendingIndex();
+} catch {
+  say("Saved progress could not be loaded. You can import an exported review.");
+  cursor = pendingIndex();
+}
+$("reviewer").value = state.reviewer;
+$("reviewer").addEventListener("input", event => { state.reviewer = event.target.value; save(); });
+$("notes").addEventListener("input", event => { record().notes = event.target.value; save(); });
+$("yes").onclick = () => judge("1");
+$("no").onclick = () => judge("0");
+$("unsure").onclick = () => judge("?");
+$("replay").onclick = replayLastPick;
+$("return-to-queue").onclick = () => { say(""); returnToQueue(); };
+$("set-aside").onclick = setAside;
+$("back").onclick = () => { if (cursor > 0) move(cursor - 1); };
+$("next").onclick = () => move(cursor + 1 < queue().length ? cursor + 1 : -1);
+$("summary-button").onclick = () => move(-1);
+$("review-again").onclick = () => {
+  if (record().complete) focused = false;
+  move(0);
+};
+$("reopen-scope").onclick = () => {
+  if (!record().complete || allPassages().length) return;
+  record().complete = false;
+  save();
+  say("Scope reopened.");
+  move(-1);
+};
+$("review-mode").onclick = () => setMode(!focused);
+function confirmCase() {
+  if (counts(allPassages(), record().labels).judged !== allPassages().length) return;
+  record().complete = true;
+  save();
+  say("Case confirmed. Your review is ready to export.");
+  render();
+  rewardReview("Case confirmed");
+  $("continue-case").focus({preventScroll:true});
+}
+$("continue-case").onclick = () => {
+  const action = $("continue-case").dataset.action;
+  if (action === "confirm") confirmCase();
+  else if (action === "resume") move(pendingIndex());
+  else if (action === "export") exportReview();
+  else {
+    const next = pack.cases.findIndex((item, index) => index > selected && !finishedFirstPass(item));
+    const remaining = next >= 0 ? next : pack.cases.findIndex(item => !finishedFirstPass(item));
+    if (remaining >= 0) chooseCase(remaining);
+  }
+};
+$("reading").addEventListener("scroll", updateScrollHint);
+new ResizeObserver(updateScrollHint).observe($("reading"));
+$("format").onclick = () => {
+  original = !original;
+  renderText();
+  $("reading").focus({preventScroll:true});
+};
+$("cases-button").onclick = openCases;
+$("source-button").onclick = openSource;
+$("find-button").onclick = () => {
+  showPassageResults();
+  $("find-dialog").showModal();
+  $("passage-query").focus();
+};
+$("passage-query").addEventListener("input", showPassageResults);
+$("publication-button").onclick = openPublication;
+document.querySelectorAll("[data-close]").forEach(control => {
+  control.onclick = () => control.closest("dialog").close();
+});
+$("export-button").onclick = exportReview;
+$("skip-to-end").onclick = skipToEnd;
+$("preview-back").onclick = leaveFinishPreview;
+$("clear-progress").onclick = clearProgress;
+$("menu-button").onclick = () => {
+  $("menu-dialog").querySelectorAll("details").forEach(section => { section.open = false; });
+  $("menu-dialog").showModal();
+};
+for (const id of ["cases-button", "export-button", "publication-button", "source-button", "format",
+    "back", "next", "set-aside", "find-button", "summary-button", "review-mode", "review-again", "reopen-scope"]) {
+  $(id).addEventListener("click", closeMenu, {capture:true});
+}
+$("import-button").onclick = () => $("review-file").click();
+$("review-file").addEventListener("change", async event => {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const restored = loadReview(JSON.parse(await file.text()));
+    const hasProgress = state.reviewer || Object.values(state.cases).some(
+      item => item.complete || item.notes || Object.keys(item.labels).length);
+    if (hasProgress && !window.confirm("Replace this browser’s current review with the imported file?")) return;
+    closeMenu();
+    finishPreview = false;
+    $("particles").replaceChildren();
+    state = restored;
+    rememberMilestones();
+    $("reviewer").value = state.reviewer;
+    lastPick = null;
+    replayOrigin = null;
+    move(record().complete ? -1 : pendingIndex());
+    say("Review imported.");
+    save();
+  } catch (error) {
+    say(error instanceof SyntaxError ? "Choose a valid JSON review file." : error.message);
+  }
+});
+document.addEventListener("keydown", event => {
+  if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey ||
+      event.target.closest?.("input, textarea, select, [contenteditable], dialog") || document.querySelector("dialog[open]")) return;
+  if (finishPreview) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      leaveFinishPreview();
+    }
+    return;
+  }
+  const actions = {r: replayOrigin ? $("return-to-queue").onclick : replayLastPick};
+  if (cursor >= 0) Object.assign(actions, {
+    "1": () => judge("1"), "2": () => judge("0"), "3": () => judge("?")
+  });
+  if (replayOrigin) actions.Escape = $("return-to-queue").onclick;
+  else if (cursor >= 0) Object.assign(actions, {ArrowLeft: $("back").onclick, ArrowRight: $("next").onclick});
+  if (!Object.hasOwn(actions, event.key)) return;
+  event.preventDefault();
+  actions[event.key]();
+});
+initializeEffects();
+render();
+</script>
+</body>
+</html>
