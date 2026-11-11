@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from uuid import UUID
 
-from mira.originals import PrivateOriginalStore
+from mira.originals import PrivateOriginalStore, original_identity
 
 
 _ROLES = {'admin', 'analyst', 'curator', 'reviewer', 'viewer'}
@@ -48,10 +48,7 @@ def read_original(client, workspace_id: UUID, version_id: UUID,
                         id=version.get('document_id'), workspace_id=workspace_id)
         source = _row(client, 'sources', 'is_active, permitted_operations, connector_config',
                       id=document.get('source_id'), workspace_id=workspace_id)
-        metadata = version.get('metadata')
-        if not isinstance(metadata, Mapping) or metadata.get('original_retained') is not True:
-            raise PermissionError('Original is unavailable')
-        identity = metadata.get('retained_original')
+        identity = original_identity(version.get('metadata'))
         # A frozen identity only narrows access. The database still selects the
         # object; callers cannot supply a different object/path for retrieval.
         if expected_identity is not None and identity != expected_identity:

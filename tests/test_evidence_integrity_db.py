@@ -206,8 +206,11 @@ def test_legacy_checks_require_fresh_verification(conn, research, binding):
         if binding == "missing":
             conn.execute("delete from public.claim_checks where analysis_run_id=%s", (ctx.analysis_run_id,))
         else:
-            conn.execute("update public.claim_checks set input_snapshot=null, input_fingerprint=null where analysis_run_id=%s",
-                         (ctx.analysis_run_id,))
+            conn.execute(
+                """update public.claim_checks set input_snapshot=null, input_fingerprint=null, premise_mappings=null
+                   where analysis_run_id=%s""",
+                (ctx.analysis_run_id,),
+            )
         with pytest.raises(psycopg.errors.CheckViolation, match="verification is unbound"):
             with conn.transaction():
                 sign_off(conn, ctx)

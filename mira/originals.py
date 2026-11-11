@@ -19,6 +19,21 @@ from uuid import UUID, uuid4
 from mira.store import SourceRecord
 
 
+def original_identity(metadata: Mapping | None) -> Mapping | None:
+    """Get the retained object, including exact bytes recovered after ingestion."""
+    if not isinstance(metadata, Mapping):
+        return None
+    if metadata.get('original_retained') is True:
+        identity = metadata.get('retained_original')
+        return identity if isinstance(identity, Mapping) else None
+    recovery = metadata.get('recovered_original')
+    identity = recovery.get('identity') if isinstance(recovery, Mapping) else None
+    digest = metadata.get('capture_sha256')
+    if isinstance(identity, Mapping) and isinstance(digest, str) and identity.get('sha256') == digest:
+        return identity
+    return None
+
+
 @dataclass(frozen=True)
 class RetentionPolicy:
     enabled: bool = False

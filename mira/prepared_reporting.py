@@ -19,7 +19,7 @@ from mira.contracts import (Brief,ClaimCitation,ClaimDraft,CoverageRow,EvidenceI
 from mira.db import acting_as,require_role
 from mira.evidence_snapshot import build_verification_input
 from mira.pg_store import PostgresStore,load_run
-from mira.report import ReportContext,render_html
+from mira.report import MARKET_NAMES, ReportContext, render_html
 from mira.store import ClaimEvidence,ExpectedSourceRecord,PassageRecord,StoredClaim
 
 
@@ -262,8 +262,13 @@ def _timeline_date(claim: StoredClaim) -> tuple[KeyDateKind, date] | None:
 def compose_prepared_report(request_id,brief,selected,*,manifest=None):
     request_id=UUID(str(request_id));now=datetime.now(UTC)
     sections=writer.claim_sections(selected.claims)
-    summary=ReportSection(section='executive_summary',sentences=[ReportSentence(text=c.draft.content,
-        finding_ids=[c.finding_id],structural=False) for c in selected.claims[:5]],no_verified_items=not selected.claims)
+    summary_items = [ReportSentence(text=c.draft.content, finding_ids=[c.finding_id], structural=False)
+                     for c in selected.claims[:5]]
+    if not summary_items:
+        summary_items = [ReportSentence(text="The selected snapshot has no supported findings for this request. "
+                                            "See Coverage and limitations for the available evidence.",
+                                        finding_ids=[], structural=True)]
+    summary = ReportSection(section='executive_summary', sentences=summary_items, no_verified_items=False)
     timeline_dates = {}
     timeline_sentences = []
     for claim in selected.claims:
@@ -277,8 +282,23 @@ def compose_prepared_report(request_id,brief,selected,*,manifest=None):
     timeline = ReportSection(section='deadlines_timeline', sentences=timeline_sentences,
                              no_verified_items=not timeline_sentences)
     sections = [summary, *(timeline if s.section == 'deadlines_timeline' else s for s in sections[1:])]
-    notes=['This fresh report uses completed prepared evidence; no source acquisition or new factual wording was generated for this request.',
-           'Human evidence checking, machine support, publication coverage and final report approval are separate.']
+    sections = [section for section in sections if section.sentences]
+    notes = ['This draft uses saved evidence. The counts describe the selected sources and dates.']
+    for market in brief.jurisdictions:
+        claims = [c for c in selected.claims if c.draft.jurisdiction_code == market]
+        facts = [c for c in claims if not c.draft.is_inference]
+        publications = {selected.passages[e.passage_id].document_id for c in facts for e in c.evidence}
+        name = MARKET_NAMES.get(market, market)
+        count = len(publications)
+        if not facts:
+            notes.append(f'{name} has no supported facts in the selected evidence.')
+        else:
+            notes.append(f'{name} has {len(facts)} supported {"fact" if len(facts) == 1 else "facts"} from '
+                         f'{count} cited {"publication" if count == 1 else "publications"}.')
+        if not any(c.draft.is_inference for c in claims):
+            notes.append(f'The selected evidence yielded no supported inferences for {name}.')
+    if not timeline_sentences:
+        notes.append('The selected evidence yielded no verified deadlines or consultation dates.')
     if selected.omissions:notes.append(f'{len(selected.omissions)} prepared items were omitted by source/date/review/dependency or report limits.')
     for sid,s in selected.snapshots.items():
         a=s.get('analysis_coverage')
@@ -295,6 +315,9 @@ def compose_prepared_report(request_id,brief,selected,*,manifest=None):
     freshness=''.join('<li>'+escape(str(s.get('source_name') or s.get('scope_id')))+': '+escape(str(s.get('published_at') or 'unknown'))+'</li>' for s in scopes)
     banner='<aside role="status" style="border:2px solid #ae7029;background:#fff5e6;padding:1rem;margin:1rem 0"><strong>{{PREPARED_REVIEW_WARNING}}</strong><p>Evidence snapshot freshness by source:</p><ul>'+freshness+'</ul></aside>'
     html=html.replace('</h1>','</h1>'+banner,1)
+    coverage_heading = 'id="section-coverage_limitations"'
+    heading_end = html.find('</h2>', html.index(coverage_heading)) + len('</h2>')
+    html = html[:heading_end] + '{{PREPARED_MARKET_REVIEWS}}' + html[heading_end:]
     html=html.replace('</ol></nav>','<li><a href="#prepared-fact-reviews">Human evidence decisions</a></li></ol></nav>',1)
     html=html.replace('</body>','{{PREPARED_FACT_REVIEWS}}</body>',1)
     capture={'schema_version':1,'kind':'prepared_report','request_id':str(request_id),'brief':brief.model_dump(mode='json'),

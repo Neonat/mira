@@ -46,23 +46,27 @@ Keep the existing Supabase database, Auth, REST and gateway running. Apply all l
 
 ## Guest report demo
 
-Apply `20261111120000_mira_guest_demo.sql` to the demo database. Serve the three
-files in `app/guest/` from a public HTTPS static origin, with a sibling
+Apply the guest demo migrations to the demo database.
+Serve `app/guest/` from a public HTTPS static origin, with a sibling
 `config.json` containing `url` (the Supabase project URL) and `key` (its
 publishable key). Set `MIRA_GUEST_DEMO_URL` to that origin on the private
-operator console. Run `python -m mira prepared-report-worker --poll-seconds 1`
-against the same workspace with a server-side report worker connection.
+operator console. Supabase publishes guest drafts from saved evidence and admits up to six concurrent report builds. If all slots are busy, the page shows a loading state and retries with the same guest receipt.
 
-In **Guest demo**, a workspace admin selects a saved report and clicks
-**Open guest access for one hour**. Share the generated link with participants.
-**Close guest access** revokes the link immediately. The next opening creates
-a new link and starts a fresh hour. Generated drafts remain in **Prepared
-reports** after closing. Any HTML a guest downloaded remains on their device.
+In **Guest demo**, a workspace admin selects a saved report and an access window
+of **Five minutes** or **One hour**, then clicks **Open guest access** for an individual market.
+For the fixed QR on the slides, an authenticated workspace admin opens the
+registered portal with `open_guest_demo_portal` and closes it with
+`close_guest_demo_portal`. The portal opens the selected markets together and
+uses the same QR for rehearsal and presentation. Each opening generates fresh
+guest links. Supabase handles access and admission while the public page serves
+the chooser, so the demo can run with the operator's computer offline.
+Generated drafts remain in **Prepared reports** after closing. Guests keep any
+HTML they downloaded.
 
-Guest requests reuse the selected report's evidence snapshot and scope. The
-report-only worker assembles a fresh draft and preserves its citations and
-review status. The guest page has one report per browser tab and a 100-request
-limit per window. It needs neither a guest account nor a provider key.
+Each guest request saves a new copy of the selected draft using its pinned
+evidence and scope, preserving citations and review status. The guest page
+opens the draft on the phone and offers an HTML download. It needs no guest
+account or provider key. Each window accepts up to 100 requests.
 
 ## Prepared report and preparation services
 

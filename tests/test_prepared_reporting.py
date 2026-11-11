@@ -67,12 +67,16 @@ def test_prepared_timeline_keeps_supported_deadlines_distinct_from_publication_d
     next(iter(evidence['passages'].values()))['content'] = quote
     selection = select_prepared_facts([row], brief, {sid: snap}, {sid}, {})
     html, capture = compose_prepared_report(uuid4(), brief, selection)
-    timeline = html.split('<h2 id="section-deadlines_timeline">', 1)[1].split('</section>', 1)[0]
     if timeline_date:
+        timeline = html.split('<h2 id="section-deadlines_timeline">', 1)[1].split('</section>', 1)[0]
         assert f'<time datetime="{timeline_date}">' in timeline
         assert f'href="#finding-{fid}"' in timeline
     else:
-        assert 'No verified items.' in timeline
+        assert 'id="section-deadlines_timeline"' not in html
+        assert 'The selected evidence yielded no verified deadlines or consultation dates.' in html
+    assert 'No verified items.' not in html
+    assert 'Hong Kong has 1 supported fact from 1 cited publication.' in html
+    assert 'The selected evidence yielded no supported inferences for Hong Kong.' in html
     assert capture['selected_findings'][str(fid)] == fact
     assert html.index('<h1>') < html.index('{{PREPARED_REVIEW_WARNING}}')
     assert html.index('id="section-evidence"') < html.index('{{PREPARED_FACT_REVIEWS}}')

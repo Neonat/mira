@@ -1,8 +1,4 @@
-"""Signed-in prepared evidence console; all writes use authenticated RPCs.
-
-The UI never chooses a latest snapshot or starts acquisition. The server pins the
-manifest atomically and enforces workspace membership, source policy and roles.
-"""
+"""Signed-in prepared evidence console; the server pins the manifest atomically."""
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
@@ -57,6 +53,43 @@ def _time(value) -> str:
         return str(value)
 
 
+def _prepared_window(sb, workspace: str, brief: dict, source_ids: list[str]) -> dict | None:
+    """Find the common prepared dates for the selected topic and sources."""
+    scopes = _rows(sb.table("preparation_scopes").select("source_id,latest_snapshot_id")
+                   .eq("workspace_id", workspace).eq("topic", brief["topic"]).in_("source_id", source_ids))
+    pins = {s["source_id"]: s["latest_snapshot_id"] for s in scopes if s.get("latest_snapshot_id")}
+    if pins.keys() != set(source_ids):
+        return None
+    snapshots = _rows(sb.table("prepared_snapshots").select(
+        "id,brief:payload->brief,prepared_through:payload->>prepared_through")
+        .eq("workspace_id", workspace).in_("id", list(set(pins.values()))))
+    if {s["id"] for s in snapshots} != set(pins.values()):
+        return None
+    try:
+        first = max(date.fromisoformat(s["brief"]["period_start"]) for s in snapshots)
+        last = min(date.fromisoformat(s["brief"]["period_end"]) for s in snapshots)
+        cutoff = min(date.fromisoformat(s["prepared_through"]) for s in snapshots)
+    except (KeyError, TypeError, ValueError):
+        return None
+    if first > min(last, cutoff):
+        return None
+    return {"period_start": first.isoformat(), "period_end": min(last, cutoff).isoformat(),
+            "as_of_date": cutoff.isoformat()}
+
+
+def _saved_dates(brief: dict, window: dict) -> dict:
+    cutoff = min(brief["as_of_date"], window["as_of_date"])
+    first = max(brief["period_start"], window["period_start"])
+    last = min(brief["period_end"], window["period_end"], cutoff)
+    return {"period_start": first, "period_end": last, "as_of_date": cutoff} if first <= last else window
+
+
+def _continue_with_research() -> None:
+    st.session_state.research_from_prepared = st.session_state.pop("pending_prepared_request")
+    st.session_state.pop("pending_research", None)
+    st.session_state["research-workflow"] = "Full research"
+
+
 def request_page(sb, workspace_id: str, sources: list[dict]) -> None:
     """Request a new report; the RPC decides which scopes wait or pin."""
     from mira.report import MARKET_NAMES
@@ -71,11 +104,33 @@ def request_page(sb, workspace_id: str, sources: list[dict]) -> None:
         st.caption(f"As of {brief['as_of_date']}")
         names = {str(s["id"]): s["name"] for s in sources}
         st.write("Sources: " + ", ".join(names.get(i, "Unavailable source") for i in pending["source_ids"]))
-        st.info("A completed refresh is used. If a selected source is being prepared, this request waits for that refresh.")
-        st.caption("The draft will identify any evidence still awaiting human review. Evidence review and final report approval are separate.")
-        if st.button("Edit request"):
+        if st.button("Edit dates or sources"):
             st.session_state.pop("pending_prepared_request", None)
             st.rerun()
+        try:
+            window = _prepared_window(sb, workspace_id, brief, pending["source_ids"])
+        except Exception:
+            st.error("Could not check the saved dates. Refresh to try again, or continue to research.")
+            st.button("Keep dates and continue to research", on_click=_continue_with_research)
+            return
+        suggestion = _saved_dates(brief, window) if window else None
+        if suggestion is None or any(brief[key] != value for key, value in suggestion.items()):
+            st.warning("Part of this request falls outside the dates prepared for all selected sources.")
+            if suggestion:
+                st.write(f"Available for a quicker report: {suggestion['period_start']} to "
+                         f"{suggestion['period_end']} · as of {suggestion['as_of_date']}")
+                if st.button("Use saved dates", type="primary"):
+                    st.session_state.pending_prepared_request = {**pending, "brief": {**brief, **suggestion}}
+                    st.rerun()
+            else:
+                st.caption("No common saved date range is available for these sources.")
+            st.caption("Keep these dates to collect evidence and generate a report with Full research. "
+                       "Allow about 20 minutes for evidence collection and checking. Time varies by scope.")
+            st.button("Keep dates and continue to research", on_click=_continue_with_research)
+            return
+        st.info("The requested dates are within the saved range. If a selected source is being prepared, "
+                "this request waits for that refresh.")
+        st.caption("The draft will identify evidence awaiting human review.")
         if st.button("Queue report", type="primary"):
             try:
                 request_id = submit_request(sb, workspace_id, brief, pending["source_ids"], pending["idempotency_key"])
@@ -168,7 +223,7 @@ def reports_page(sb, workspace_id: str, role: str) -> None:
 
 def guest_demo_page(sb, workspace_id: str, guest_url: str) -> None:
     st.header("Guest demo")
-    st.write("Open a one-hour link for visitors to generate a draft from a saved report's evidence.")
+    st.write("Let visitors generate a draft from a saved report's evidence.")
     try:
         active = sb.rpc("guest_demo_admin_status", {"p_workspace": workspace_id}).execute().data
     except Exception:
@@ -203,7 +258,9 @@ def guest_demo_page(sb, workspace_id: str, guest_url: str) -> None:
         return
     request = st.selectbox("Saved report to use", requests, format_func=lambda item:
         f"{item['brief']['topic']} · {', '.join(item['brief']['jurisdictions'])} · {_time(item['finished_at'])}")
-    if st.button("Open guest access for one hour", type="primary"):
+    durations = {5: "Five minutes", 60: "One hour"}
+    minutes = st.selectbox("Access window", list(durations), format_func=durations.__getitem__)
+    if st.button("Open guest access", type="primary"):
         link = token_hex(32)
         try:
             reports = _rows(sb.table("prepared_reports").select("id").eq("workspace_id", workspace_id)
@@ -211,7 +268,9 @@ def guest_demo_page(sb, workspace_id: str, guest_url: str) -> None:
             if not reports:
                 st.error("The saved report is unavailable.")
                 return
-            opened = sb.rpc("open_guest_demo", {"p_report": reports[0]["id"], "p_link": link}).execute().data
+            opened = sb.rpc("open_guest_demo", {
+                "p_report": reports[0]["id"], "p_link": link, "p_minutes": minutes,
+            }).execute().data
         except Exception:
             st.error("Could not open guest access. Check that the report's evidence is still available.")
         else:

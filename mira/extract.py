@@ -21,7 +21,7 @@ from urllib.parse import parse_qsl, urlencode, urldefrag, urljoin, urlsplit
 
 from mira.fetch import FetchedPage
 
-EXTRACTION_VERSION = "extract/2"
+EXTRACTION_VERSION = "extract/3"
 ExtractionStatus = Literal["complete", "partial", "failed", "unsupported"]
 
 BLOCK_TAGS = {
@@ -290,7 +290,10 @@ def extract_pdf(body: bytes, url: str) -> Extracted:
         title = first.split("\n", 1)[0][:200] if first else url
     if not any(pages):
         return Extracted(title=title, status="unsupported", pages=[], error="no extractable text (scanned PDF?)")
-    status: ExtractionStatus = "complete" if all(pages) else "partial"
+    missing_pages = [i for i, text in enumerate(pages, 1) if not text]
+    encoding_issues = [i for i, text in enumerate(pages, 1)
+                       if re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", text)]
+    status: ExtractionStatus = "partial" if missing_pages or encoding_issues else "complete"
     published = None
     basis = None
     # HKMA circulars put the issue date on a standalone line before the salutation.
@@ -303,7 +306,10 @@ def extract_pdf(body: bytes, url: str) -> Extracted:
             published = find_date(dates[0])
             basis = f"HKMA circular header: {dates[0]}" if published else None
     return Extracted(title=title, status=status, pages=pages, published=published, published_basis=basis,
-                     metadata={"claim_grounding": {"role": "publication",
+                     metadata={"pdf_page_count": len(pages),
+                         "pdf_pages_without_text": missing_pages,
+                         "pdf_pages_with_encoding_issues": encoding_issues,
+                         "claim_grounding": {"role": "publication",
                          "date_scope": "publication" if published else "unknown", "date_basis": basis}})
 
 
@@ -437,9 +443,11 @@ def split_passages(extracted: Extracted, max_chars: int = 1200) -> list[PassageS
 
     Character offsets are into ``extracted.text``; page numbers are set for PDFs.
     """
+    if max_chars < 1:
+        raise ValueError("Passage character limit must be positive")
     ranges: list[tuple[int | None, int, int]] = []
     offset = 0
-    is_pdf = len(extracted.pages) > 1
+    is_pdf = "pdf_page_count" in extracted.metadata or len(extracted.pages) > 1
     for page_index, page in enumerate(extracted.pages):
         page_number = page_index + 1 if is_pdf else None
         chunk: tuple[int, int] | None = None
@@ -449,10 +457,10 @@ def split_passages(extracted: Extracted, max_chars: int = 1200) -> list[PassageS
                 ranges.append((page_number, offset + chunk[0], offset + chunk[1]))
                 chunk = None
             while end - start > max_chars:
-                cut = page.rfind(" ", start, start + max_chars)
-                cut = cut if cut > start else start + max_chars
+                separator = page.rfind(" ", start, start + max_chars + 1)
+                cut = separator if separator > start else start + max_chars
                 ranges.append((page_number, offset + start, offset + cut))
-                start = cut + 1
+                start = cut + 1 if separator > start else cut
             chunk = (chunk[0], end) if chunk else (start, end)
         if chunk:
             ranges.append((page_number, offset + chunk[0], offset + chunk[1]))

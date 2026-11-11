@@ -748,8 +748,9 @@ class _Run:
                                 continue
                             claim = rewritten
                             self._corroborate(claim)
+                            revised_passages = [self.passages[e.passage_id] for e in claim.evidence]
                             outcome = self._check(claim,2,lambda:self.o.verifier.check_fact(
-                                claim,passages,2,**self._verifier_kwargs(self.o.verifier.check_fact,claim)))
+                                claim,revised_passages,2,**self._verifier_kwargs(self.o.verifier.check_fact,claim)))
                         self._decide(claim,outcome)
                     except Exception as exc:
                         collection_error = collection_error or exc

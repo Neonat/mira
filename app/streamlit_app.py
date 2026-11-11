@@ -329,6 +329,7 @@ def _review_research(workspace_id: str, user_id: str, source_by_id: dict[str, di
         st.session_state.console_notice = ("error", "Could not queue the run. Check settings and credentials, then try again.")
     else:
         st.session_state.pop("pending_research", None)
+        st.session_state.pop("research_from_prepared", None)
         st.session_state.selected_run = run_id
         st.session_state.console_notice = ("success", "Research queued. Follow progress in Runs.")
     finally:
@@ -389,14 +390,18 @@ def new_brief_page(workspace_id: str, user_id: str) -> None:
     enabled = os.environ.get("MIRA_ENABLE_BYOK_RUNS") == "1" and bool(os.environ.get("MIRA_BROKER_SOCKET"))
     if not enabled:
         st.warning("Paid launch is disabled by the operator. Existing reports remain available.")
+    handoff = st.session_state.get("research_from_prepared") or {}
+    requested = handoff.get("brief") or {}
     offered_topics = MVP_TOPICS if any(s.get("source_key") == CYBER_SOURCE_KEY for s in sources) else ("AML/CFT",)
-    topic = st.selectbox("Topic", offered_topics)
+    topic = st.selectbox("Topic", offered_topics, index=offered_topics.index(requested["topic"])
+                         if requested.get("topic") in offered_topics else 0)
     if topic == CYBERSECURITY:
         jurisdictions = ["AE"]
         st.caption("Cybersecurity covers UAE federal sources and common threats to financial institutions.")
         source_by_id = {key: value for key, value in source_by_id.items() if value.get("source_key") == CYBER_SOURCE_KEY}
     else:
-        jurisdictions = st.multiselect("Jurisdictions", MVP_JURISDICTIONS, default=["SG", "HK"],
+        jurisdictions = st.multiselect("Jurisdictions", MVP_JURISDICTIONS,
+                                       default=requested.get("jurisdictions", ["SG", "HK"]),
                                        format_func=lambda code: MARKET_NAMES.get(code, code))
     categories = rows(client().table("expected_sources").select(
         "source_id,jurisdiction_code,category,list_version,is_active").eq("is_active", True).eq("topic", topic))
@@ -405,14 +410,19 @@ def new_brief_page(workspace_id: str, user_id: str) -> None:
     focus = st.multiselect("Source focus", ["Regulatory", "Industry", "Other"],
                            default=["Regulatory", "Industry", "Other"])
     focused_ids = [source_id for source_id, group in groups.items() if group.intersection(focus)]
-    period = st.selectbox("Period", ["Last 12 months", "Last 24 months", "Custom"])
-    as_of = st.date_input("As-of date", value=date.today(), max_value=date.today())
-    start = st.date_input("Period start", value=as_of - timedelta(days=365)) if period == "Custom" else as_of - timedelta(days=365 if period == "Last 12 months" else 730)
-    end = st.date_input("Period end", value=as_of, max_value=as_of) if period == "Custom" else as_of
+    period = st.selectbox("Period", ["Last 12 months", "Last 24 months", "Custom"], index=2 if requested else 0)
+    as_of = st.date_input("As-of date", value=date.fromisoformat(requested["as_of_date"]) if requested else date.today(),
+                          max_value=date.today())
+    start = (st.date_input("Period start", value=date.fromisoformat(requested["period_start"])
+                           if requested else as_of - timedelta(days=365))
+             if period == "Custom" else as_of - timedelta(days=365 if period == "Last 12 months" else 730))
+    end = (st.date_input("Period end", value=min(as_of, date.fromisoformat(requested["period_end"]))
+                         if requested else as_of, max_value=as_of) if period == "Custom" else as_of)
     with st.form("brief"):
         if "AE" in jurisdictions:
             st.caption("UAE coverage uses approved federal sources; DFSA is excluded.")
-        selected = st.multiselect("Approved active sources", focused_ids, default=focused_ids,
+        selected = st.multiselect("Approved active sources", focused_ids,
+                                  default=[i for i in focused_ids if i in handoff["source_ids"]] if handoff else focused_ids,
                                   format_func=lambda i: source_by_id[i]["name"] + (" · manual" if source_by_id[i].get("source_type") == "manual" else ""))
         allowance = st.text_input("Maximum estimated cost (USD)", value="10.00")
         approval = st.checkbox("Approve research plan before acquisition")
@@ -893,6 +903,7 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
 def _original_downloads(sb: Client, workspace_id: str, run_id: str, snapshot: dict, signed: bool) -> None:
     """Load private bytes only after a deliberate request under the signed-in client."""
     from mira.original_access import read_original
+    from mira.originals import original_identity
     frozen = (snapshot.get('evidence_bundle') or {}).get('passages',{})
     if signed:
         expected = {p['document_version_id']:p.get('acquisition_provenance',{}).get('retained_original')
@@ -904,25 +915,30 @@ def _original_downloads(sb: Client, workspace_id: str, run_id: str, snapshot: di
                     .eq('workspace_id',workspace_id).eq('analysis_run_id',run_id))})
     versions = rows(sb.table('document_versions').select('id,title,metadata')
                     .eq('workspace_id',workspace_id).in_('id',ids)) if ids else []
-    versions = [v for v in versions if (v.get('metadata') or {}).get('original_retained') is True
-                and (not signed or v['metadata'].get('retained_original') == expected.get(v['id']))]
-    if not versions:
+    originals = [(v, original_identity(v.get('metadata'))) for v in versions]
+    originals = [(v, identity) for v, identity in originals
+                 if identity and (not signed or identity == expected.get(v['id']))]
+    if not originals:
         return
     with st.expander('Original source files'):
         st.caption('Retained copies are available where the source permits them. Access is checked when you open a file.')
-        for version in versions:
+        for version, identity in originals:
             st.write(version['title'])
+            metadata = version['metadata']
+            recovery = metadata.get('recovered_original') or {}
+            attribution = metadata.get('original_attribution') or recovery.get('attribution')
+            if attribution:
+                st.caption(attribution)
             key = f"original-{workspace_id}-{version['id']}"
             if st.button('Prepare download',key=key):
                 try:
                     from mira.artifact_storage import original_store_from_env
                     storage = original_store_from_env(client=sb)
                     data = read_original(sb,uuid.UUID(workspace_id),uuid.UUID(version['id']),storage,
-                                         expected_identity=expected.get(version['id']) if signed else None)
+                                         expected_identity=identity)
                 except (PermissionError,ValueError,OSError):
                     st.info('This original is currently unavailable. You can still review its saved evidence in the report.')
                     continue
-                identity = version['metadata']['retained_original']
                 suffix = '.pdf' if identity.get('media_type') == 'application/pdf' else '.bin'
                 name = re.sub(r'[^\w .-]','',version['title'])[:70].strip() or 'Source'
                 st.download_button('Download original',data,file_name=name+suffix,
@@ -1056,7 +1072,8 @@ def main() -> None:
         st.caption("Draft reports are not compliance conclusions about the bank.")
     if page == "Research":
         if role in ("admin", "analyst"):
-            mode = st.radio("Workflow", ["Prepared archive report", "Full research"], horizontal=True)
+            mode = st.radio("Workflow", ["Prepared archive report", "Full research"], horizontal=True,
+                            key="research-workflow")
             if mode == "Full research":
                 new_brief_page(workspace_id, st.session_state.user_id)
             else:

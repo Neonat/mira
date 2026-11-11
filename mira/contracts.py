@@ -254,6 +254,12 @@ class InferenceCheckDraft(Contract):
     reason: str
 
 
+class InferencePremise(Contract):
+    dependency_finding_id: UUID
+    passage_id: UUID
+    supporting_quote: str
+
+
 class Verdict(Contract):
     """One row of claim_checks."""
 
@@ -264,11 +270,14 @@ class Verdict(Contract):
     reason: str
     model: str | None
     prompt_version: str | None
+    premise_mappings: tuple[InferencePremise, ...] = ()
 
     @model_validator(mode="after")
     def _model_for_llm(self) -> Verdict:
         if self.method != "quote_match" and self.model is None:
             raise ValueError("LLM checks must record the model")
+        if self.premise_mappings and self.method != "inference_check":
+            raise ValueError("premise mappings belong to inference checks")
         return self
 
 

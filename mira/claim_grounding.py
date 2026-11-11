@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date
 import re
 
-from mira.contracts import Contract, InferenceCheckDraft
+from mira.contracts import Contract, InferenceCheckDraft, InferencePremise
 
 
 class Premise(Contract):
@@ -129,27 +129,38 @@ def words(text: str) -> set[str]:
 
 
 def inference_grounding_error(claim, facts, passages, draft: GroundedInferenceDraft) -> str | None:
-    """Validate exact premise references and conservative factual vocabulary coverage."""
-    if not draft.preserves_qualifications or not draft.is_substantive:
-        return 'qualification_lost or topic_relevance_unestablished'
+    error, _ = check_inference_grounding(claim, facts, passages, draft)
+    return error
+
+
+def check_inference_grounding(
+    claim, facts, passages, draft: GroundedInferenceDraft,
+) -> tuple[str | None, tuple[InferencePremise, ...]]:
+    """Return the grounding decision and the exact, resolved premises from the check."""
+    qualification_error = (
+        None if draft.preserves_qualifications and draft.is_substantive
+        else 'qualification_lost or topic_relevance_unestablished'
+    )
     if not draft.premises:
-        return 'premise_evidence_missing'
+        return qualification_error or 'premise_evidence_missing', ()
     fact_map = {f'F{i}': f for i,f in enumerate(facts,1)}
     passage_map = {f'P{i}': p for i,p in enumerate(passages,1)}
-    quotes=[]
-    contexts=[]
+    premises = []
+    contexts = []
     for premise in draft.premises:
         fact, passage = fact_map.get(premise.claim_label), passage_map.get(premise.passage_label)
         if fact is None or passage is None or fact.finding_id not in claim.depends_on:
-            return 'invalid_premise_reference'
+            return qualification_error or 'invalid_premise_reference', ()
         if passage.id not in {e.passage_id for e in fact.evidence}:
-            return 'premise_not_dependency_evidence'
+            return qualification_error or 'premise_not_dependency_evidence', ()
         quote=premise.supporting_quote.strip()
         if not quote or quote not in passage.content:
-            return 'premise_quote_not_found'
+            return qualification_error or 'premise_quote_not_found', ()
         if grounding(passage).get('role') in ('listing','maintenance'):
-            return 'listing_only_premise'
-        quotes.append(quote)
+            return qualification_error or 'listing_only_premise', ()
+        premises.append(InferencePremise(
+            dependency_finding_id=fact.finding_id, passage_id=passage.id, supporting_quote=quote,
+        ))
         # A model cannot evade negation/modality by quoting only a substring.
         # Inspect all enclosing statements when a quotation occurs repeatedly.
         for match in re.finditer(re.escape(quote), passage.content):
@@ -158,19 +169,22 @@ def inference_grounding_error(claim, facts, passages, draft: GroundedInferenceDr
             stops = [pos for mark in ('.', '\n', ';') if (pos := passage.content.find(mark, end)) >= 0]
             right = min(stops) if stops else len(passage.content)
             contexts.append(passage.content[left:right])
-    source=' '.join(quotes)
+    mappings = tuple(premises)
+    if qualification_error:
+        return qualification_error, mappings
+    source=' '.join(premise.supporting_quote for premise in mappings)
     target=f'{claim.draft.title} {claim.draft.content}'
     missing=words(target)-words(source)-_ASSESSMENT
     if missing:
-        return 'unsupported_descriptive_premise: ' + ', '.join(sorted(missing)[:12])
+        return 'unsupported_descriptive_premise: ' + ', '.join(sorted(missing)[:12]), mappings
     # Even matching vocabulary cannot remove a material source qualification.
     qualified_source = ' '.join(contexts)
     for qualifier in ('may','might','could','proposed','some','not','unless','except'):
         if qualifier in words(qualified_source) and qualifier not in words(target):
-            return 'qualification_lost: ' + qualifier
+            return 'qualification_lost: ' + qualifier, mappings
     if 'according to' in qualified_source.lower() and 'according to' not in target.lower():
-        return 'qualification_lost: attribution'
+        return 'qualification_lost: attribution', mappings
     if claim.draft.key_date is not None:
         if not any(f.draft.key_date == claim.draft.key_date and f.draft.key_date_kind == claim.draft.key_date_kind for f in facts):
-            return 'unsupported_inference_date'
-    return None
+            return 'unsupported_inference_date', mappings
+    return None, mappings

@@ -330,6 +330,18 @@ class PreparationStore:
             if '{{PREPARED_REVIEW_WARNING}}' not in html: raise ValueError('report review warning placeholder required')
             html=html.replace('{{PREPARED_REVIEW_WARNING}}',warning,1)
             c['prepared_review_counts']={'accepted':sum(v['decision']=='accepted' for v in reviews),'pending':sum(v['decision'] is None for v in reviews)}
+            from mira.report import MARKET_NAMES
+            pending_markets = sorted({
+                c['selected_findings'][v['finding_id']]['jurisdiction_code']
+                for v in reviews if v['decision'] is None
+                and c['selected_findings'][v['finding_id']]['jurisdiction_code']
+            })
+            if pending_markets:
+                names = ', '.join(MARKET_NAMES.get(market, market) for market in pending_markets)
+                pending_note = f'<p><strong>Human evidence review pending:</strong> {escape(names)}.</p>'
+            else:
+                pending_note = ''
+            html=html.replace('{{PREPARED_MARKET_REVIEWS}}',pending_note,1)
             c['preparation_dispositions']=[{'snapshot_id':str(sid),'analysis_coverage':snap['payload'].get('analysis_coverage'),'reasons':snap['payload'].get('reasons',[])} for sid,snap in pinned.items()]
             html=html.replace('{{PREPARED_FACT_REVIEWS}}',self._fact_review_html(reviews,pinned),1)
             if warning not in html: raise ValueError('report review warning placeholder required')

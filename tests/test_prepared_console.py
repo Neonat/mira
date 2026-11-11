@@ -1,5 +1,6 @@
 """Prepared console behavior with signed-in boundary doubles; no provider calls."""
 from copy import deepcopy
+from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -88,7 +89,14 @@ def screen(data=None, role='analyst'):
 def test_default_prepared_request_is_available_without_byok_gate(monkeypatch):
     monkeypatch.setenv('MIRA_WORKSPACE_SLUG', 'workspace')
     monkeypatch.setenv('MIRA_ENABLE_BYOK_RUNS', '0')
-    app = screen()
+    today = date.today()
+    app = screen({
+        'preparation_scopes': [{'workspace_id': 'w', 'source_id': 'source-1', 'topic': 'AML/CFT',
+                                'latest_snapshot_id': 'snapshot-1'}],
+        'prepared_snapshots': [{'workspace_id': 'w', 'id': 'snapshot-1', 'prepared_through': today.isoformat(),
+                                'brief': {'period_start': (today - timedelta(days=365)).isoformat(),
+                                          'period_end': today.isoformat()}}],
+    })
     assert not app.exception
     assert next(r for r in app.radio if r.label == 'Workflow').value == 'Prepared archive report'
     assert next(s for s in app.selectbox if s.label == 'Topic').options == ['AML/CFT']
@@ -103,6 +111,43 @@ def test_default_prepared_request_is_available_without_byok_gate(monkeypatch):
     assert app.session_state.sb.calls[0][0] == 'request_prepared_report'
     assert app.session_state.sb.calls[0][1]['p_brief']['plan_requires_approval'] is False
     assert len(app.session_state.sb.calls) == 1
+
+
+def test_outside_saved_dates_can_queue_the_covered_portion(monkeypatch):
+    monkeypatch.setenv('MIRA_WORKSPACE_SLUG', 'workspace')
+    today = date.today()
+    prepared_through = (today - timedelta(days=12)).isoformat()
+    first = (today - timedelta(days=180)).isoformat()
+    app = screen({
+        'preparation_scopes': [{'workspace_id': 'w', 'source_id': 'source-1', 'topic': 'AML/CFT',
+                                'latest_snapshot_id': 'snapshot-1'}],
+        'prepared_snapshots': [{'workspace_id': 'w', 'id': 'snapshot-1', 'prepared_through': prepared_through,
+                                'brief': {'period_start': first, 'period_end': prepared_through}}],
+    })
+    next(b for b in app.button if b.label == 'Review request').click().run()
+    assert not any(b.label == 'Queue report' for b in app.button)
+    next(b for b in app.button if b.label == 'Use saved dates').click().run()
+    next(b for b in app.button if b.label == 'Queue report').click().run()
+    brief = app.session_state.sb.calls[0][1]['p_brief']
+    assert brief['period_start'] == first
+    assert brief['period_end'] == brief['as_of_date'] == prepared_through
+
+
+def test_keep_dates_carries_the_request_to_full_research_without_launching(monkeypatch):
+    monkeypatch.setenv('MIRA_WORKSPACE_SLUG', 'workspace')
+    monkeypatch.setenv('MIRA_ENABLE_BYOK_RUNS', '0')
+    app = screen()
+    next(b for b in app.button if b.label == 'Review request').click().run()
+    pending = app.session_state.pending_prepared_request
+    next(b for b in app.button if b.label == 'Keep dates and continue to research').click().run()
+    assert not app.exception
+    assert next(r for r in app.radio if r.label == 'Workflow').value == 'Full research'
+    assert next(s for s in app.selectbox if s.label == 'Period').value == 'Custom'
+    assert next(i for i in app.date_input if i.label == 'Period start').value.isoformat() == pending['brief']['period_start']
+    assert next(i for i in app.date_input if i.label == 'Period end').value.isoformat() == pending['brief']['period_end']
+    assert next(m for m in app.multiselect if m.label == 'Approved active sources').value == pending['source_ids']
+    assert next(b for b in app.button if b.label == 'Review research').disabled
+    assert app.session_state.sb.calls == []
 
 
 def test_prepared_fact_review_is_read_only_for_analyst(monkeypatch):

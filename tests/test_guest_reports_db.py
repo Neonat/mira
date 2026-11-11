@@ -1,4 +1,5 @@
-"""Guest access uses real Postgres roles and the normal prepared report worker."""
+"""Guest access publishes saved reports through real PostgreSQL roles."""
+import hashlib
 import secrets
 from datetime import timedelta
 from uuid import uuid4
@@ -6,7 +7,7 @@ from uuid import uuid4
 import psycopg
 import pytest
 
-from mira.db import acting_as
+from mira.db import acting_as, connect
 from mira.prepared_reporting import execute_prepared_request
 from test_preparation_store_db import DSN, conn, prepared, workspace
 
@@ -35,14 +36,14 @@ def open_window(conn, job, report_id, link):
         return rpc(conn, "open_guest_demo", report_id, link, role="authenticated")
 
 
-def test_guest_access_pins_snapshot_and_uses_prepared_worker(conn, ready):
+def test_guest_access_pins_snapshot_and_publishes_without_external_worker(conn, ready):
     store, job, snapshot, report_id = ready
     link, receipt = secrets.token_hex(32), secrets.token_hex(32)
     ws = job["workspace_id"]
     window = open_window(conn, job, report_id, link)
     timing = conn.execute("select expires_at-opened_at as duration from private.guest_demo_windows where id=%s",
                           (window["id"],)).fetchone()
-    assert timing["duration"] == timedelta(hours=1)
+    assert timing["duration"] == timedelta(minutes=5)
 
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         rpc(conn, "open_guest_demo", report_id, link)
@@ -56,8 +57,10 @@ def test_guest_access_pins_snapshot_and_uses_prepared_worker(conn, ready):
 
     later = store.enqueue_job(ws, job["actor_id"], job["source_ids"], job["brief"], {}, {}, {}, "later")
     assert rpc(conn, "guest_demo_info", link)["jurisdictions"] == ["HK"]
-    assert rpc(conn, "guest_demo_submit", link, receipt) == "queued"
-    assert rpc(conn, "guest_demo_submit", link, receipt) == "queued"
+    opened = rpc(conn, "guest_demo_generate", link, receipt)
+    assert opened["status"] == "ready"
+    assert "human evidence review pending" in opened["html"].lower()
+    assert rpc(conn, "guest_demo_submit", link, receipt) == "ready"
     assert rpc(conn, "guest_demo_result", link, secrets.token_hex(32), True) is None
     guest_requests = conn.execute("select id from public.prepared_report_requests where workspace_id=%s and idempotency_key like 'guest-demo:%%'",
                                   (ws,)).fetchall()
@@ -67,12 +70,15 @@ def test_guest_access_pins_snapshot_and_uses_prepared_worker(conn, ready):
                         (request_id,)).fetchall()
     assert len(pins) == len(job["source_ids"])
     assert all(row["snapshot_id"] == snapshot["id"] and row["job_id"] is None for row in pins)
-    result = execute_prepared_request(conn, "unused", request_id)
-    assert result["status"] == "ready"
     assert rpc(conn, "guest_demo_result", link, receipt, False) == {"status": "ready"}
     report = rpc(conn, "guest_demo_result", link, receipt, True)
     assert set(report) == {"status", "html"}
     assert "human evidence review pending" in report["html"].lower()
+    saved = conn.execute("select * from public.prepared_reports where request_id=%s", (request_id,)).fetchone()
+    assert saved["id"] != report_id
+    assert saved["capture"]["request_id"] == str(request_id)
+    assert saved["capture"]["guest_template_report_id"] == str(report_id)
+    assert saved["content_sha256"] == hashlib.sha256(report["html"].encode()).hexdigest()
     assert conn.execute("select status from public.preparation_jobs where id=%s", (later["id"],)).fetchone()["status"] == "queued"
 
     with acting_as(conn, job["actor_id"]):
@@ -89,14 +95,14 @@ def test_guest_expiry_rotation_and_later_correction(conn, ready):
     link, replacement, receipt = (secrets.token_hex(32) for _ in range(3))
     window = open_window(conn, job, report_id, link)
     conn.execute("""update private.guest_demo_windows
-                    set opened_at=statement_timestamp()-interval '2 hours',
-                        expires_at=statement_timestamp()-interval '1 hour' where id=%s""", (window["id"],))
+                    set opened_at=statement_timestamp()-interval '6 minutes',
+                        expires_at=statement_timestamp()-interval '1 minute' where id=%s""", (window["id"],))
     assert rpc(conn, "guest_demo_submit", link, receipt) is None
     window = open_window(conn, job, report_id, replacement)
     new_link = secrets.token_hex(32)
     open_window(conn, job, report_id, new_link)
     assert rpc(conn, "guest_demo_info", replacement) is None
-    assert rpc(conn, "guest_demo_submit", new_link, receipt) == "queued"
+    assert rpc(conn, "guest_demo_submit", new_link, receipt) == "ready"
     fid = next(iter(snapshot["payload"]["evidence_input"]["findings"]))
     with acting_as(conn, job["actor_id"]):
         conn.execute("select public.review_prepared_fact(%s,%s,'correction_requested','Check original evidence')",
@@ -104,3 +110,72 @@ def test_guest_expiry_rotation_and_later_correction(conn, ready):
     assert rpc(conn, "guest_demo_info", new_link) is None
     assert rpc(conn, "guest_demo_result", new_link, receipt, True) is None
     assert rpc(conn, "guest_demo_submit", new_link, secrets.token_hex(32)) is None
+
+
+def test_guest_hour_window_and_busy_retry(conn, ready):
+    _, job, _, report_id = ready
+    link, receipt = secrets.token_hex(32), secrets.token_hex(32)
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        rpc(conn, "open_guest_demo", report_id, link, 60)
+    with acting_as(conn, job["actor_id"]):
+        with pytest.raises(psycopg.errors.InvalidParameterValue):
+            rpc(conn, "open_guest_demo", report_id, link, 30, role="authenticated")
+        opened = rpc(conn, "open_guest_demo", report_id, link, 60, role="authenticated")
+    duration = conn.execute(
+        "select expires_at-opened_at as duration from private.guest_demo_windows where id=%s", (opened["id"],)
+    ).fetchone()["duration"]
+    assert duration == timedelta(hours=1)
+    with connect(DSN) as blocker, blocker.transaction():
+        blocker.execute("select pg_advisory_xact_lock(20261111, slot) from generate_series(1, 6) as slot")
+        assert rpc(conn, "guest_demo_generate", link, receipt) == {"status": "busy"}
+        assert rpc(conn, "guest_demo_result", link, receipt, True) is None
+    assert rpc(conn, "guest_demo_generate", link, receipt)["status"] == "ready"
+    assert rpc(conn, "guest_demo_generate", link, receipt)["status"] == "ready"
+    assert conn.execute(
+        "select count(*) as used from private.guest_demo_slots where window_id=%s and taken", (opened["id"],)
+    ).fetchone()["used"] == 1
+
+
+def test_guest_rejects_machine_check_changed_after_window_opened(conn, ready):
+    _, job, snapshot, report_id = ready
+    link = secrets.token_hex(32)
+    opened = open_window(conn, job, report_id, link)
+    check_id = next(iter(snapshot["payload"]["verifications"].values()))["check_id"]
+    conn.execute("update public.claim_checks set verdict='unsupported' where id=%s", (check_id,))
+    assert rpc(conn, "guest_demo_generate", link, secrets.token_hex(32)) is None
+    assert conn.execute(
+        "select count(*) as used from private.guest_demo_slots where window_id=%s and taken", (opened["id"],)
+    ).fetchone()["used"] == 0
+
+
+def test_fixed_guest_qr_routes_to_fresh_windows(conn, ready):
+    _, job, _, report_id = ready
+    key = secrets.token_hex(32)
+    conn.execute(
+        "insert into private.guest_demo_portals(key_hash,report_ids) values (private.guest_secret_hash(%s),%s)",
+        (key, [report_id]),
+    )
+    assert rpc(conn, "guest_demo_portal_info", key) == []
+    assert rpc(conn, "guest_demo_portal_info", "invalid") == []
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        rpc(conn, "open_guest_demo_portal", key, 60)
+
+    with acting_as(conn, job["actor_id"]):
+        first = rpc(conn, "open_guest_demo_portal", key, 60, role="authenticated")
+    first_link = rpc(conn, "guest_demo_portal_info", key)[0]["link"]
+    assert first["windows"] == 1
+    receipt = secrets.token_hex(32)
+    assert rpc(conn, "guest_demo_generate", first_link, receipt)["status"] == "ready"
+
+    with acting_as(conn, job["actor_id"]):
+        rpc(conn, "close_guest_demo_portal", key, role="authenticated")
+    assert rpc(conn, "guest_demo_portal_info", key) == []
+    assert rpc(conn, "guest_demo_result", first_link, receipt, True) is None
+
+    with acting_as(conn, job["actor_id"]):
+        rpc(conn, "open_guest_demo_portal", key, 60, role="authenticated")
+    second_link = rpc(conn, "guest_demo_portal_info", key)[0]["link"]
+    assert second_link != first_link
+    assert rpc(conn, "guest_demo_info", first_link) is None
+    assert rpc(conn, "guest_demo_result", second_link, receipt, True) is None
+    assert rpc(conn, "guest_demo_generate", second_link, secrets.token_hex(32))["status"] == "ready"

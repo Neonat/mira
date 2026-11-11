@@ -86,6 +86,15 @@ def _passage_priority(passage: PassageRecord, brief: Brief) -> tuple[int, int]:
     return (int(topical), int(operative))
 
 
+def _cyber_fraud_priority(passage: PassageRecord) -> int:
+    phishing = re.search(r"\bphish(?:ing|ed)?\b", passage.content, re.I)
+    voice_scam = re.search(
+        r"\b(?:vishing|(?:phone|telephone|voice) scams?|scam (?:phone |telephone )?calls?)\b",
+        passage.content, re.I,
+    )
+    return int(bool(phishing)) + int(bool(voice_scam))
+
+
 def plan_batches(passages: Sequence[PassageRecord], limits: AnalysisLimits,
                  brief: Brief | None = None) -> BatchPlan:
     seen: dict[UUID, PassageRecord] = {}
@@ -99,31 +108,39 @@ def plan_batches(passages: Sequence[PassageRecord], limits: AnalysisLimits,
         documents = sources.setdefault(passage.source_id, {})
         documents.setdefault(passage.document_id, deque()).append(passage)
 
-    # Publications and unknown document kinds go first. Affirmative saved roles
-    # and conservative list-page titles
-    # remain candidates and get truthful capacity dispositions, never exclusions.
+    # Keep source and document rotation within each group. Put direct fraud
+    # evidence first for cybersecurity and leave navigation behind publications.
     source_queues = deque()
-    for navigation in (False, True):
+    cyber = brief is not None and brief.topic == CYBERSECURITY
+    priorities = {
+        p.id: _cyber_fraud_priority(p) for p in seen.values()
+    } if cyber else {}
+    groups = [(False, 2), (False, 1)] if cyber else []
+    groups.extend([(False, 0), (True, 0)])
+    for navigation, priority in groups:
         source_queue = deque()
         for documents in sources.values():
             ranked_documents = deque()
             for document in documents.values():
                 if all(_navigation_passage(p) for p in document) != navigation:
                     continue
-                ordered = list(document)
+                ordered = [p for p in document if navigation or priorities.get(p.id, 0) == priority]
+                if not ordered:
+                    continue
                 if brief is not None:
                     ordered.sort(key=lambda p: _passage_priority(p, brief), reverse=True)
                 ranked_documents.append(deque(ordered))
             if ranked_documents:
                 source_queue.append(ranked_documents)
         if source_queue:
-            source_queues.append(source_queue)
+            source_queues.append((source_queue, priority > 0))
     batches: list[list[PassageRecord]] = []
     deferred: dict[UUID, str] = {}
     current_chars = 0
+    previous_isolated = False
     exhausted = False
     while source_queues:
-        source_queue = source_queues[0]
+        source_queue, isolate = source_queues[0]
         if not source_queue:
             source_queues.popleft()
             continue
@@ -141,7 +158,10 @@ def plan_batches(passages: Sequence[PassageRecord], limits: AnalysisLimits,
         if exhausted:
             deferred[passage.id] = "batch_limit"
             continue
-        if not batches or len(batches[-1]) >= limits.max_passages or current_chars + size > limits.max_characters:
+        # A long or inconclusive request for other passages should never take
+        # a priority passage down with it. Keep these requests to one passage.
+        if (not batches or isolate or previous_isolated
+                or len(batches[-1]) >= limits.max_passages or current_chars + size > limits.max_characters):
             if len(batches) >= limits.max_batches:
                 exhausted = True
                 deferred[passage.id] = "batch_limit"
@@ -150,6 +170,7 @@ def plan_batches(passages: Sequence[PassageRecord], limits: AnalysisLimits,
             current_chars = 0
         batches[-1].append(passage)
         current_chars += size
+        previous_isolated = isolate
     return BatchPlan(tuple(tuple(batch) for batch in batches), deferred)
 
 

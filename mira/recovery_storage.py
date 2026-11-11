@@ -14,7 +14,7 @@ import re
 import stat
 from uuid import UUID, uuid4
 
-from mira.originals import PrivateOriginalStore, RetentionPolicy
+from mira.originals import PrivateOriginalStore, RetentionPolicy, original_identity
 from mira.private_objects import ObjectIdentity, PrivateObjectStore
 
 _MAX_BYTES = 20_000_000
@@ -138,10 +138,10 @@ class ArchiveObjects:
             found.setdefault(key, item)
 
         originals = conn.execute("""select workspace_id, metadata from public.document_versions
-            where metadata->'original_retained' = 'true'::jsonb""").fetchall()
+            where metadata->'original_retained' = 'true'::jsonb or metadata ? 'recovered_original'""").fetchall()
         for row in originals:
             metadata = row['metadata']
-            value = metadata.get('retained_original') if isinstance(metadata, Mapping) else None
+            value = original_identity(metadata)
             if not isinstance(value, Mapping):
                 raise ValueError('Malformed retained original metadata')
             value = dict(value)

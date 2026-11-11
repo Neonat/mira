@@ -231,10 +231,20 @@ def test_full_run_on_postgres(conn, workspace, tmp_path):
     assert pdf["extraction_status"] == "failed" and pdf["metadata"]["error"]
 
     checks = conn.execute(
-        "select method, verdict from public.claim_checks where analysis_run_id = %s order by checked_at", (ctx.analysis_run_id,)
+        """select finding_id, method, verdict, input_snapshot, premise_mappings
+           from public.claim_checks where analysis_run_id = %s order by checked_at""", (ctx.analysis_run_id,)
     ).fetchall()
     assert [(c["method"], c["verdict"]) for c in checks] == [
         ("quote_match", "supported"), ("llm", "supported"), ("inference_check", "supported")]
+    assert all(c["premise_mappings"] is None for c in checks[:2])
+    inference = checks[-1]
+    dependency_id = str(checks[1]["finding_id"])
+    dependency = inference["input_snapshot"]["findings"][dependency_id]
+    passage_id = dependency["evidence"][0]["passage_id"]
+    assert inference["premise_mappings"] == [{
+        "dependency_finding_id": dependency_id, "passage_id": passage_id, "supporting_quote": CIRCULAR_TEXT,
+    }]
+    assert CIRCULAR_TEXT in inference["input_snapshot"]["passages"][passage_id]["content"]
     coverage = conn.execute(
         "select status, count(*) as n from public.coverage_results where analysis_run_id = %s group by status",
         (ctx.analysis_run_id,),
