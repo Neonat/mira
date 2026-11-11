@@ -12,7 +12,7 @@ from uuid import UUID
 
 import psycopg
 
-from mira.config import REPORTS_DIR
+from mira.config import REPORTS_DIR, report_artifact_path
 from mira.contracts import ClaimDraft, ReportSnapshot
 from mira.db import acting_as
 from mira.render import SavedFinding, render_signed_off
@@ -108,7 +108,7 @@ def render_one(conn: psycopg.Connection, workspace_id: UUID, pending: dict[str, 
     if bundle.reviewed_at != pending["reviewed_at"]:
         raise ValueError("frozen sign-off date does not match the report row")
     html = render_signed_off(snapshot, generated_at=pending["generated_at"])
-    relative = Path(str(bundle.analysis_run_id)) / f"report-v{pending['report_version']}-reviewed.html"
+    relative = report_artifact_path(bundle.analysis_run_id, pending["report_version"], reviewed=True)
     path = reports_dir / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(html, encoding="utf-8")

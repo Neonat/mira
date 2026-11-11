@@ -24,11 +24,11 @@ def read_report(client,workspace_id,report_id,*,reports_dir=REPORTS_DIR,objects=
             if identity.get('purpose')!='report' or identity.get('sha256')!=ref['content_sha256']:raise ValueError('binding')
             return (objects or PrivateObjectStore(client)).read(workspace_id,identity)
         revision=_row(client,'analysis_revisions','analysis_run_id',id=report['analysis_revision_id'],workspace_id=workspace_id)
-        run=str(UUID(revision['analysis_run_id']))
-        suffix='-reviewed' if report['review_status']=='reviewed' else ''
-        expected=f"{run}/report-v{int(report['report_version'])}{suffix}.html"
-        if report['artifact_storage_path']!=expected:raise ValueError('path binding')
-        path=report_file(expected,reports_dir)
+        path = report_file(
+            report['artifact_storage_path'], run_id=revision['analysis_run_id'],
+            version=report['report_version'], reviewed=report['review_status'] == 'reviewed',
+            reports_dir=reports_dir,
+        )
         if path is None or path.stat().st_size>20_000_000:raise ValueError('file')
         body=path.read_bytes()
         if ref and sha256(body).hexdigest()!=ref['content_sha256']:raise ValueError('digest')

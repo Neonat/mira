@@ -8,11 +8,16 @@ gets its own throwaway workspace, so a local development database stays usable.
 
 import os
 import uuid
+from datetime import date
 
 import psycopg
 import pytest
 
+from mira.budget import RunBudget
+from mira.config import report_file
+from mira.contracts import CONTRACT_VERSION, Brief, ReportSnapshot
 from mira.db import NotAuthorisedError, acting_as, connect, require_role
+from mira.pg_store import PostgresStore, create_run
 
 DSN = os.environ.get("MIRA_TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DSN, reason="MIRA_TEST_DATABASE_URL not set")
@@ -127,6 +132,54 @@ def as_app_user(conn, user_id):
         (str(user_id), '{"sub": "%s", "role": "authenticated"}' % user_id),
     )
     conn.execute("set local role authenticated")
+
+
+def test_report_visibility_and_files_for_two_workspaces(conn, tmp_path):
+    # The fixture and its queued runs are never committed or visible to a worker.
+    with conn.transaction(force_rollback=True):
+        demo_viewer = make_user(conn, None, None)
+        store = PostgresStore(conn, tmp_path)
+        report_by_member = {}
+        html_by_report = {}
+        for market in ("SG", "HK"):
+            workspace_id = conn.execute(
+                "insert into public.workspaces (slug, name) values (%s, %s) returning id",
+                (f"t-{uuid.uuid4().hex[:12]}", f"Test {market}"),
+            ).fetchone()["id"]
+            member = make_user(conn, workspace_id, "analyst")
+            conn.execute(
+                "insert into public.workspace_members (workspace_id, user_id, role) values (%s, %s, 'viewer')",
+                (workspace_id, demo_viewer),
+            )
+            brief = Brief(topic="AML/CFT", jurisdictions=[market], period_start=date(2025, 1, 1),
+                          period_end=date(2025, 12, 31), as_of_date=date(2026, 1, 1), plan_requires_approval=False)
+            ctx = create_run(conn, workspace_id, member, brief, RunBudget(), {})
+            snapshot = ReportSnapshot(contract_version=CONTRACT_VERSION, analysis_run_id=ctx.analysis_run_id,
+                                      analysis_revision_id=ctx.analysis_revision_id, sections=[], coverage=[],
+                                      unresolved_finding_ids=[])
+            html = f"<p>{market} test report</p>"
+            report_id = store.save_report(ctx, snapshot, html)
+            report_by_member[member] = {report_id}
+            html_by_report[report_id] = html
+
+        report_by_member[demo_viewer] = set(html_by_report)
+        for user_id, expected_reports in report_by_member.items():
+            with conn.transaction(force_rollback=True):
+                as_app_user(conn, user_id)
+                reports = conn.execute(
+                    """select r.id, r.artifact_storage_path, r.report_version, r.review_status, a.analysis_run_id
+                       from public.reports r join public.analysis_revisions a
+                         on (a.id, a.workspace_id) = (r.analysis_revision_id, r.workspace_id)
+                       where r.id = any(%s)""",
+                    (list(html_by_report),),
+                ).fetchall()
+                assert {row["id"] for row in reports} == expected_reports
+                for row in reports:
+                    path = report_file(row["artifact_storage_path"], run_id=row["analysis_run_id"],
+                                       version=row["report_version"], reviewed=row["review_status"] == "reviewed",
+                                       reports_dir=tmp_path)
+                    assert path is not None
+                    assert path.read_text(encoding="utf-8") == html_by_report[row["id"]]
 
 
 def make_plan(conn, workspace_id, user_id):

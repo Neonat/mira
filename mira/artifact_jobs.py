@@ -47,15 +47,21 @@ def publish_configured_report(conn,ws,report_id,actor,body):
 
 
 def retry_publications(conn,ws,*,reports_dir=REPORTS_DIR,objects=None):
-    rows=conn.execute('''select a.report_id,a.created_by,r.artifact_storage_path
+    rows=conn.execute('''select a.report_id,a.created_by,r.artifact_storage_path,
+        r.report_version,r.review_status,ar.analysis_run_id
         from public.report_artifacts a join public.reports r on r.id=a.report_id and r.workspace_id=a.workspace_id
+        join public.analysis_revisions ar on ar.id=r.analysis_revision_id and ar.workspace_id=r.workspace_id
         where a.workspace_id=%s and a.state in ('pending','failed')
         and exists(select 1 from public.workspace_members m where m.workspace_id=a.workspace_id and m.user_id=a.created_by and m.role in ('admin','analyst','reviewer'))
         order by a.updated_at limit 20''',(ws,)).fetchall()
     ready=[]
     for row in rows:
-        path=report_file(row['artifact_storage_path'],reports_dir)
         try:
+            path = report_file(
+                row['artifact_storage_path'], run_id=row['analysis_run_id'],
+                version=row['report_version'], reviewed=row['review_status'] == 'reviewed',
+                reports_dir=reports_dir,
+            )
             if path is None:
                 with acting_as(conn,row['created_by']):
                     conn.execute("update public.report_artifacts set state='failed',error_code='LocalFileUnavailable',attempts=attempts+1 where workspace_id=%s and report_id=%s",(ws,row['report_id']))

@@ -1,11 +1,11 @@
 """Report durability survives upload failure and local-file loss, without rebinding."""
 import os
 from hashlib import sha256
-from uuid import uuid4
 
 import pytest
 from psycopg.types.json import Jsonb
 
+from mira.db import acting_as
 from test_durable_storage_db import conn,workspace,artifact
 
 pytestmark=pytest.mark.skipif(not os.environ.get('MIRA_TEST_DATABASE_URL'),reason='local DB required')
@@ -75,15 +75,18 @@ def test_remote_original_obeys_same_configured_byte_cap_as_local(tmp_path):
 
 
 def test_unavailable_oldest_reports_do_not_starve_newer_publication(conn,artifact,tmp_path):
-    from mira.artifact_jobs import retry_publications,publish_report
-    from mira.db import acting_as
+    from mira.artifact_jobs import retry_publications
     ws,user,rid,_=artifact; objects=Objects();objects.blobs={}
     reports=tmp_path/'reports';reports.mkdir()
     original=conn.execute('select * from public.reports where id=%s',(rid,)).fetchone()
+    run_id = conn.execute(
+        'select analysis_run_id from public.analysis_revisions where id=%s and workspace_id=%s',
+        (original['analysis_revision_id'], ws),
+    ).fetchone()['analysis_run_id']
     ids=[]
     with acting_as(conn,user):
         for n in range(2,23):
-            path=f"{uuid4()}/report-v{n}.html"
+            path=f"{run_id}/report-v{n}.html"
             row=conn.execute('''insert into public.reports(workspace_id,analysis_revision_id,report_version,format,review_status,template_version,evidence_snapshot,artifact_storage_path,generated_by)
                 values(%s,%s,%s,'html','draft',%s,%s,%s,%s) returning id''',
                 (ws,original['analysis_revision_id'],n,original['template_version'],Jsonb(original['evidence_snapshot']),path,user)).fetchone()

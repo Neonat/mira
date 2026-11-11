@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import uuid4
 
 import pytest
 
@@ -52,17 +53,35 @@ def test_document_allowance_never_goes_negative():
     assert tracker.remaining_documents() == 0
 
 
-def test_report_file_stays_inside_the_reports_folder(tmp_path):
+def test_report_file_is_bound_to_the_selected_run_version_and_review_status(tmp_path):
     from mira.config import report_file
 
     reports = tmp_path / "reports"
-    (reports / "run").mkdir(parents=True)
-    (reports / "run" / "report-v1.html").write_text("<p>ok</p>")
-    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=secret")
+    run_id = uuid4()
+    draft = reports / str(run_id) / "report-v1.html"
+    signed = reports / str(run_id) / "report-v2-reviewed.html"
+    draft.parent.mkdir(parents=True)
+    draft.write_text("<p>draft</p>")
+    signed.write_text("<p>reviewed</p>")
     (tmp_path / "outside.html").write_text("<p>outside</p>")
-    assert report_file("run/report-v1.html", reports) == (reports / "run" / "report-v1.html").resolve()
-    for path in ("../.env", "../outside.html", "/etc/passwd", "run/missing.html", "", None):
-        assert report_file(path, reports) is None
+
+    def lookup(path, *, run=run_id, version=1, reviewed=False):
+        return report_file(path, run_id=run, version=version, reviewed=reviewed, reports_dir=reports)
+
+    draft_relative = draft.relative_to(reports).as_posix()
+    signed_relative = signed.relative_to(reports).as_posix()
+    assert lookup(draft_relative) == draft.resolve()
+    assert lookup(signed_relative, version=2, reviewed=True) == signed.resolve()
+    assert lookup(draft_relative, run=uuid4()) is None
+    assert lookup(draft_relative, version=2) is None
+    assert lookup(signed_relative, version=2) is None
+    for path in ("../outside.html", str(draft), "", None):
+        assert lookup(path) is None
+
+    missing = f"{run_id}/report-v3.html"
+    assert lookup(missing, version=3) is None
+    (reports / missing).symlink_to(draft)
+    assert lookup(missing, version=3) is None
 
 
 def test_blank_budget_values_fall_back_to_defaults():

@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from collections.abc import Collection
 from pathlib import Path
+from uuid import UUID
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 REPORTS_DIR = REPO_ROOT / "reports"
@@ -19,19 +20,27 @@ def workspace_slug() -> str:
     return os.environ.get("MIRA_WORKSPACE_SLUG", "mira").strip() or "mira"
 
 
-def report_file(relative: str | None, reports_dir: Path = REPORTS_DIR) -> Path | None:
-    """The saved HTML report at ``relative``, or None if it is missing or outside ``reports_dir``.
+def report_artifact_path(run_id: UUID, version: int, *, reviewed: bool = False) -> Path:
+    """Return the relative HTML path for a report from a specific run."""
+    suffix = "-reviewed" if reviewed else ""
+    return Path(str(run_id)) / f"report-v{version}{suffix}.html"
 
-    ``reports.artifact_storage_path`` is written by app users too, so a stored
-    path is never trusted to stay inside the reports folder.
-    """
+
+def report_file(
+    relative: str | None, *, run_id: UUID | str, version: int, reviewed: bool,
+    reports_dir: Path = REPORTS_DIR,
+) -> Path | None:
+    """Find the artifact for the run and report already authorized by the database."""
     if not relative:
         return None
-    root = reports_dir.resolve()
-    path = (root / relative).resolve()
-    if path.suffix != ".html" or not path.is_relative_to(root) or not path.is_file():
+    try:
+        expected = report_artifact_path(UUID(str(run_id)), version, reviewed=reviewed)
+        if Path(relative) != expected:
+            return None
+        path = reports_dir.resolve() / expected
+        return path if path.is_file() and path.resolve() == path else None
+    except (OSError, RuntimeError, ValueError):
         return None
-    return path
 
 
 def load_env(path: Path | None = None, keys: Collection[str] | None = None) -> None:
