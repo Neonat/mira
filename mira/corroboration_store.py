@@ -46,12 +46,16 @@ class CorroborationStore:
                 raise ValueError('corroboration candidate version is stale')
         with acting_as(self.conn,ctx.user_id):
             require_role(self.conn,ctx.workspace_id)
+            # Keep the worker's completion time unless its clock leads the
+            # database clock that validates and stamps this insert.
             row = self.conn.execute('''insert into public.corroboration_assessments
                 (workspace_id,analysis_run_id,analysis_revision_id,finding_id,base_input,result,created_by)
-                values (%s,%s,%s,%s,%s,%s,%s) returning id,sequence''',
+                values (%s,%s,%s,%s,%s,jsonb_set(%s::jsonb,'{checked_at}',
+                    to_jsonb(least(%s::timestamptz,clock_timestamp()))),%s)
+                returning id,sequence,result''',
                 (ctx.workspace_id,ctx.analysis_run_id,ctx.analysis_revision_id,claim.finding_id,
-                 Jsonb(base_input),Jsonb(result),ctx.user_id)).fetchone()
-        return {'assessment_id':str(row['id']),'sequence':row['sequence'],'assessment':result}
+                 Jsonb(base_input),Jsonb(result),assessment.checked_at,ctx.user_id)).fetchone()
+        return {'assessment_id':str(row['id']),'sequence':row['sequence'],'assessment':row['result']}
 
     def candidates(self, ctx, claim, *, max_documents=5, max_passages=20):
         """Choose latest eligible versions before FTS, document or passage caps."""
