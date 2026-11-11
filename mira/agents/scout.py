@@ -204,7 +204,7 @@ def distinct_links(links: list[Link]) -> list[Link]:
 
 class WebScout:
     def __init__(self, dsn: str, client: LLMClient, fetcher: Fetcher, *, max_rounds: int = 2,
-                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None, hybrid=None) -> None:
+                 links_per_round: int = 8, discovery=None, browser=None, live_browser=None, hybrid=None, frontier=None) -> None:
         self.dsn = dsn
         self.client = client
         self.fetcher = fetcher
@@ -214,6 +214,7 @@ class WebScout:
         self.browser_adapter = browser
         self.live_browser_adapter = live_browser
         self.hybrid = hybrid
+        self.frontier = frontier
         self._fetch_lock = threading.Lock()
         # Futures let concurrent tasks share one fetch/save, scoped to workspace and run.
         self._pages: dict[tuple[UUID, UUID, str], Future] = {}
@@ -268,6 +269,8 @@ class _ScoutRun:
         self.origins: dict[int, tuple[Link, dict]] = {}
 
     def _record_discovery(self, links: list[Link], request_url: str, version_id: UUID | None) -> None:
+        if self.scout.frontier is not None:
+            self.scout.frontier.record(links, request_url, version_id)
         for link in links:
             origin = {"request_url": _safe_url(request_url), "document_version_id": str(version_id) if version_id else None}
             record = {"url": _safe_url(link.url), "date": link.published.isoformat() if link.published else None,
@@ -611,6 +614,23 @@ class _ScoutRun:
                 source_queues, source_others = seed_plan(source.connector_config, categories, years)
                 queues.extend(source_queues)
                 other_indexes.extend(source_others)
+        # Give previously discovered, unconsumed work a bounded share before
+        # refreshing indexes. The store checks the current attempt's fence.
+        if self.scout.frontier is not None and self.allowance > 1:
+            pending = self.scout.frontier.pending(self.task.source_ids, self.allowance // 2,
+                start_date=self.ctx.brief.period_start - timedelta(days=31), as_of_date=self.ctx.brief.as_of_date)
+            for link in pending:
+                if link.published and (link.published > self.ctx.brief.as_of_date or link.published < self.ctx.brief.period_start - timedelta(days=31)):
+                    continue
+                if self.allowance <= 0:
+                    break
+                start = len(self.log)
+                self._fetch_document(link.url, link, reserved=0)
+                attempts = self.log[start:]
+                if attempts:
+                    attempt = attempts[0]
+                    status = 'acquired' if attempt.outcome in ('saved', 'unchanged', 'reused') and not attempt.error else 'failed'
+                    self.scout.frontier.finish(link.url, status, error=attempt.error)
         # Open each assigned category's index in turn, most recent year first.
         # Bound seed pages to roughly half the allowance, preserving room for
         # the publications themselves when the task can fetch multiple pages.
@@ -900,6 +920,10 @@ class _ScoutRun:
             start = len(self.log)
             allowance_before = self.allowance
             self._fetch_document(link.url, link, reserved=reserved_for_later + len(result.output.link_labels) - index - 1)
+            if self.scout.frontier is not None and len(self.log) > start:
+                attempt = self.log[start]
+                status = 'acquired' if attempt.outcome in ('saved', 'unchanged', 'reused') and not attempt.error else 'failed'
+                self.scout.frontier.finish(link.url, status, error=attempt.error)
             item.setdefault("fetch_attempts", []).extend(
                 {"url": _safe_url(a.url), "outcome": a.outcome,
                  "document_version_id": str(a.document_version_id) if a.document_version_id else None}

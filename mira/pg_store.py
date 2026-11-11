@@ -179,6 +179,7 @@ def claim_next_run(conn: psycopg.Connection, workspace_id: UUID) -> UUID | None:
         row = conn.execute(
             """select r.id, r.created_by from public.analysis_runs r
                where r.workspace_id = %s and r.status = 'queued'
+                 and coalesce(r.retrieval_settings->>'execution_mode','research') <> 'preparation'
                  and (coalesce(r.retrieval_settings->'research'->>'credential_mode','operator')='operator'
                       or (r.retrieval_settings->'research'->>'credential_mode'='byok'
                           and r.retrieval_settings->'research'->>'credential_handle' ~ '^[A-Za-z0-9_-]{32,128}$'))
@@ -219,6 +220,27 @@ class PostgresStore:
         self.artifact_store = artifact_store
 
     # --- Reads ----------------------------------------------------------------
+
+    def previously_prepared_passages(self, ctx: RunContext) -> set[UUID]:
+        """Reuse completed analysis only for the same brief/profile and exact text.
+
+        Deferred/failed passages remain candidates for catch-up. A correction
+        request reopens its underlying evidence instead of silently reusing it.
+        Original checks remain in their original snapshot, never copied here.
+        """
+        rows=self.conn.execute('''select distinct e.passage_id from public.prepared_snapshots s
+            join public.analysis_runs r on r.id=(s.payload->'evidence_input'->>'analysis_run_id')::uuid
+                and r.workspace_id=s.workspace_id
+            join public.analysis_passage_events e on e.analysis_run_id=r.id and e.workspace_id=s.workspace_id
+            where s.workspace_id=%s and s.payload->'brief'=%s::jsonb and r.model_settings=%s::jsonb
+              and e.status='analysed' and e.created_at<=s.published_at
+              and not exists(select 1 from public.prepared_fact_reviews v
+                  where v.snapshot_id=s.id and v.decision='correction_requested'
+                    and not exists(select 1 from public.prepared_fact_reviews later where later.snapshot_id=v.snapshot_id
+                        and later.finding_id=v.finding_id and later.sequence>v.sequence)
+                    and (s.payload->'verifications'->v.finding_id::text->'input_snapshot'->'passages') ? e.passage_id::text)''',
+            (ctx.workspace_id,Jsonb(ctx.brief.model_dump(mode='json')),Jsonb(dict(ctx.model_settings or {})))).fetchall()
+        return {r['passage_id'] for r in rows}
 
     def begin_analysis_coverage(self, ctx: RunContext, source_ids: Sequence[UUID]) -> None:
         with acting_as(self.conn, ctx.user_id):

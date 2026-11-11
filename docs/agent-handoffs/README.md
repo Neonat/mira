@@ -1,4 +1,4 @@
-> Current Hong Kong quality/latency repair: [implementation and acceptance](hk-quality-and-latency.md). Older dated checkpoints below remain historical evidence.
+> Current workflow: [scheduled evidence and prepared reports](scheduled-evidence-reporting.md). The [Hong Kong live quality and latency checkpoint](hk-quality-and-latency.md) and older measurements remain historical evidence.
 
 # Agent handoffs
 

@@ -128,7 +128,7 @@ def models_from_env() -> dict[str, str]:
 
 
 def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, client: LLMClient | None = None,
-                       *,settings=None,api_keys=None,ctx=None) -> Orchestrator:
+                       *,settings=None,api_keys=None,ctx=None,frontier=None) -> Orchestrator:
     client = client or ProviderClient()
     store = PostgresStore(conn)
     from mira.generation import GenerationClient
@@ -141,7 +141,8 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
     if settings is not None and settings.enable_browser and browser is None and live_browser is None:
         raise ValueError('Browser operator capability unavailable')
     scout = WebScout(dsn, client, fetcher, discovery=discovery, browser=browser, live_browser=live_browser,
-                     hybrid=hybrid_from_env(shared_budget,settings=settings,api_keys=api_keys))
+                     hybrid=hybrid_from_env(shared_budget,settings=settings,api_keys=api_keys),
+                     **({'frontier':frontier} if frontier is not None else {}))
     return Orchestrator(store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client),
                         max_parallel_analysis=4,max_parallel_checks=4,
                         analysis_limits=replace(AnalysisLimits.from_env(),max_batches=settings.max_analysis_batches)
@@ -166,23 +167,27 @@ def build_single_agent_orchestrator(
 
 def execute_run(
     conn: psycopg.Connection, dsn: str, run_id: UUID, client: LLMClient | None = None, arm: Arm = "multi_agent",
+    *, preparation=False, preparation_guard=None, frontier=None,
 ) -> RunOutcome:
     """Run a saved run, after checking the user who queued it still holds a run role (§5.1)."""
     # A session lock spans journal commits and the whole invocation, including cleanup.
     locked=conn.execute("select pg_try_advisory_lock(hashtextextended(%s,0)) locked",(str(run_id),)).fetchone()['locked']
     if not locked:return RunOutcome('busy',['Run already executing'],None,None)
     try:
-        return _execute_locked(conn,dsn,run_id,client,arm)
+        return _execute_locked(conn,dsn,run_id,client,arm,preparation=preparation,
+                               preparation_guard=preparation_guard,frontier=frontier)
     finally:
         conn.execute("select pg_advisory_unlock(hashtextextended(%s,0))",(str(run_id),))
 
 
-def _execute_locked(conn,dsn,run_id,client,arm):
+def _execute_locked(conn,dsn,run_id,client,arm,*,preparation=False,preparation_guard=None,frontier=None):
     ctx = load_run(conn, run_id)
     status=conn.execute("select status from public.analysis_runs where id=%s",(run_id,)).fetchone()['status']
     if status not in ('queued','running'):
         return RunOutcome(status,['Run no longer available for execution'],None,None)
     store = PostgresStore(conn)
+    if preparation_guard is not None:
+        preparation_guard()
     try:
         with acting_as(conn, ctx.user_id):
             require_role(conn, ctx.workspace_id)
@@ -196,15 +201,30 @@ def _execute_locked(conn,dsn,run_id,client,arm):
             conn.execute("""update public.analysis_runs set retrieval_settings=jsonb_set(retrieval_settings,
                 '{worker_invocation}',to_jsonb(%s::text)) where id=%s and workspace_id=%s
                 and status in ('queued','running')""",(invocation,run_id,ctx.workspace_id))
-        return _execute_byok(conn,dsn,ctx,arm=arm,external_client=client,invocation=invocation)
+        return _execute_byok(conn,dsn,ctx,arm=arm,external_client=client,invocation=invocation,
+                             preparation=preparation,preparation_guard=preparation_guard,frontier=frontier)
+    if preparation and client is None:
+        if preparation_guard is None:
+            raise ValueError('Scheduled preparation requires a current job lease')
+        from uuid import uuid4
+        invocation=str(uuid4())
+        with acting_as(conn,ctx.user_id):
+            conn.execute("update public.analysis_runs set retrieval_settings=jsonb_set(retrieval_settings,'{worker_invocation}',to_jsonb(%s::text)) where id=%s and workspace_id=%s",
+                         (invocation,run_id,ctx.workspace_id))
+        return _execute_byok(conn,dsn,ctx,arm=arm,invocation=invocation,enterprise=True,
+                             preparation=True,preparation_guard=preparation_guard,frontier=frontier)
     build = build_single_agent_orchestrator if arm == "single_agent" else build_orchestrator
     from mira.generation import GenerationBudget,GenerationClient
     if client is None or (not isinstance(client,GenerationClient) and callable(getattr(client,'structured_bounded',None))):
         client=GenerationClient(client or ProviderClient(),GenerationBudget(ctx.budget.max_llm_tokens,ctx.budget.max_run_minutes*60))
     if ctx.research_settings is not None:
         if arm!='multi_agent':raise ValueError('Per-request controls require the research console execution path')
-        return build(conn,dsn,ctx.workspace_id,client,settings=ctx.research_settings,ctx=ctx).run(ctx)
-    return build(conn, dsn, ctx.workspace_id, client).run(ctx)
+        worker=build(conn,dsn,ctx.workspace_id,client,settings=ctx.research_settings,ctx=ctx,
+                     **({'frontier':frontier} if frontier is not None else {}))
+    else:
+        worker=build(conn, dsn, ctx.workspace_id, client,
+                     **({'frontier':frontier} if frontier is not None else {}))
+    return worker.run(ctx,**({'preparation':True,'preparation_guard':preparation_guard} if preparation else {}))
 
 
 def _journal_usage(dsn,ctx,snapshot,invocation):
@@ -240,7 +260,8 @@ def _clear_credential_handle(conn,ctx):
             (ctx.analysis_run_id,ctx.workspace_id,ctx.research_settings.credential_handle))
 
 
-def _execute_byok(conn,dsn,ctx,*,arm,external_client=None,invocation):
+def _execute_byok(conn,dsn,ctx,*,arm,external_client=None,invocation,enterprise=False,
+                  preparation=False,preparation_guard=None,frontier=None):
     from mira.credential_worker import claim_keys
     from mira.credentials import CredentialError
     from mira.generation import GenerationBudget,GenerationClient
@@ -250,9 +271,16 @@ def _execute_byok(conn,dsn,ctx,*,arm,external_client=None,invocation):
     try:
         settings=ctx.research_settings
         try:
-            keys=claim_keys(settings.credential_handle,str(ctx.workspace_id),str(ctx.user_id),str(ctx.analysis_run_id),
-                socket_path=os.environ.get('MIRA_BROKER_WORKER_SOCKET',''),
-                capability_path=os.environ.get('MIRA_BROKER_CAPABILITY_PATH',''))
+            if enterprise:
+                if os.environ.get('MIRA_ENABLE_SCHEDULED_PREPARATION')!='1' or preparation_guard is None:
+                    raise ValueError('Scheduled enterprise preparation is disabled')
+                preparation_guard()
+                names={'openai':'OPENAI_API_KEY','anthropic':'ANTHROPIC_API_KEY','deepseek':'DEEPSEEK_API_KEY','exa':'EXA_API_KEY'}
+                keys={p:os.environ[n] for p,n in names.items() if os.environ.get(n)}
+            else:
+                keys=claim_keys(settings.credential_handle,str(ctx.workspace_id),str(ctx.user_id),str(ctx.analysis_run_id),
+                    socket_path=os.environ.get('MIRA_BROKER_WORKER_SOCKET',''),
+                    capability_path=os.environ.get('MIRA_BROKER_CAPABILITY_PATH',''))
         except CredentialError:
             if store.cancel_requested(ctx):return RunOutcome('cancelled',['Run cancelled'],None,None)
             with acting_as(conn,ctx.user_id):
@@ -263,7 +291,7 @@ def _execute_byok(conn,dsn,ctx,*,arm,external_client=None,invocation):
                     ('Temporary keys expired or unavailable. Attach fresh keys to continue.',settings.credential_handle,ctx.analysis_run_id,invocation))
             return RunOutcome('awaiting_credentials',['Attach fresh temporary keys to continue'],None,None)
         if store.cancel_requested(ctx):return RunOutcome('cancelled',['Run cancelled'],None,None)
-        if os.environ.get('MIRA_ENABLE_BYOK_RUNS')!='1':raise ValueError('BYOK launch is disabled by the operator')
+        if not enterprise and os.environ.get('MIRA_ENABLE_BYOK_RUNS')!='1':raise ValueError('BYOK launch is disabled by the operator')
         if arm!='multi_agent' or external_client is not None:raise ValueError('Unsupported BYOK execution path')
         models=models_from_env()
         if not all(models.values()) or dict(ctx.model_settings or {})!=models:
@@ -291,8 +319,12 @@ def _execute_byok(conn,dsn,ctx,*,arm,external_client=None,invocation):
             known_usd=Decimal(old.get('known_estimated_usd','0')),
             unknown_usd=Decimal(old.get('unknown_reserved_usd','0'))+Decimal(old.get('pending_usd','0')))
         old['elapsed_seconds']=float(old.get('elapsed_seconds',0))+(time.monotonic()-began)
+        def journal(value):
+            if preparation_guard is not None:
+                preparation_guard()
+            _journal_usage(dsn,ctx,value,invocation)
         budget=GenerationBudget(ctx.budget.max_llm_tokens,ctx.budget.max_run_minutes*60,
-            spending=ledger,models=models,initial_usage=old,on_change=lambda value:_journal_usage(dsn,ctx,value,invocation))
+            spending=ledger,models=models,initial_usage=old,on_change=journal)
         with acting_as(conn,ctx.user_id):
             require_role(conn,ctx.workspace_id)
             started=conn.execute("""update public.analysis_runs set status='running',failure_summary=null,
@@ -302,7 +334,9 @@ def _execute_byok(conn,dsn,ctx,*,arm,external_client=None,invocation):
         _journal_usage(dsn,ctx,budget.snapshot(),invocation)
         provider=ProviderClient(models=models,api_keys=keys)
         wrapped=GenerationClient(provider,budget)
-        return build_orchestrator(conn,dsn,ctx.workspace_id,wrapped,settings=settings,api_keys=keys,ctx=ctx).run(ctx)
+        return build_orchestrator(conn,dsn,ctx.workspace_id,wrapped,settings=settings,api_keys=keys,ctx=ctx,
+            **({'frontier':frontier} if frontier is not None else {})).run(ctx,
+            **({'preparation':True,'preparation_guard':preparation_guard} if preparation else {}))
     except Exception:
         # Provider/credential exceptions can contain request internals. Persist a safe
         # operational message rather than exception strings or request bodies.
@@ -317,7 +351,8 @@ def _execute_byok(conn,dsn,ctx,*,arm,external_client=None,invocation):
             except Exception:pass  # the last durable reservation remains conservative
         if provider is not None:provider.close()
         keys.clear()
-        _clear_credential_handle(conn,ctx)
+        if not enterprise:
+            _clear_credential_handle(conn,ctx)
 
 
 def usage_by_role(conn: psycopg.Connection, run_id: UUID) -> list[dict[str, object]]:

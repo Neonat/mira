@@ -15,6 +15,7 @@ Australia uses Federal Register API metadata and direct publication files, along
 | Define the research | Topic, jurisdictions, reporting period, as-of date and run allowances, with optional plan approval |
 | Gather relevant developments | Regulatory and industry scouts search approved saved evidence, publication indexes and scoped Exa discovery; permitted dynamic pages can use browser acquisition |
 | Preserve article detail | Permitted document text and searchable passages stay alongside derived findings; bounded analysis batches record progress across saved passages |
+| Request a report from prepared evidence | Scheduled jobs prepare evidence ahead of time. Requests use a fixed set of completed snapshots and wait if a selected source is refreshing |
 | Check source support | Exact passage quotations, numeric checks and a separate-context semantic verifier; facts and inferences remain distinct |
 | Inspect corroboration | Claim-level assessments show source independence, supporting or conflicting evidence, quotations and reasons |
 | Follow the evidence | Readable source links, direct links to known PDF pages, and private original-file access where separately approved |
@@ -22,6 +23,12 @@ Australia uses Federal Register API metadata and direct publication files, along
 | Research again | Re-run the saved brief and inspect new, amended and no-longer-supported findings |
 
 Auditors retain ownership of professional judgement, audit actions and sign-off. Mira supplies the sourced developments and contextual risks and trends that support that work.
+
+**Prepared archive report** is the default workflow in Research. A fresh draft
+uses saved claims and their original evidence checks. It flags any included facts
+that still need human review, both in the console and in the downloaded HTML.
+Final approval is a separate reviewer action. **Full research** remains available
+for new acquisition and analysis.
 
 The research console lets analysts choose markets, custom dates, approved sources, discovery/browser options, keyword or experimental hybrid retrieval, analysis depth and optional plan approval. A separate review shows the selected request and current price units before masked API-key entry. Temporary per-request keys and a USD allowance support BYOK; provider prices are checked again by the worker and no rate catalogue is stored. Token, time and document limits remain additional safeguards. Users sign in through Supabase Auth with workspace access; a dedicated local demo login needs no hosted paid account. See the [console and BYOK runbook](docs/research-console.md).
 
@@ -56,7 +63,7 @@ Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External 
 
 ## Validation
 
-The latest integrated engineering validation passed **1,272 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover temporary credential handoff, request isolation, USD admission and durable usage, approval continuation, concurrent-run guards, source/method controls, bounded generation, evidence continuity and review. The local console was inspected at desktop and mobile sizes; public price sources and local Auth were checked without paid research requests. See the [console validation](docs/agent-handoffs/research-console-byok.md) for scope and remaining live validation.
+The [prepared-report validation](docs/agent-handoffs/scheduled-evidence-reporting.md) covers refresh coordination, evidence review and asynchronous report assembly. A [local benchmark](eval/evidence/2026-11-10-prepared-report-benchmark.md) preserved all 20 expected facts from four synthetic publications in about 0.09 seconds per report once evidence was ready, with zero provider calls. The measurement excludes evidence preparation and does not measure live country coverage. The earlier [BYOK console validation](docs/agent-handoffs/research-console-byok.md) documents temporary keys, request isolation and spending controls.
 
 The latest scoped Australia/UAE exercise saved a partial draft through the live pipeline, with continuous database availability and exact usage accounting. Its [validation record](eval/evidence/2026-11-10-au-ae-uninterrupted-validation.md) distinguishes acquisition, verified country coverage, bounded analysis and remaining generation limits. The [previous interrupted run and recovered draft](eval/evidence/2026-11-10-generation-reliability-validation.md) remain preserved separately.
 

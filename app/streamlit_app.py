@@ -1032,7 +1032,7 @@ def main() -> None:
     role = member[0]["role"] if member else "none"
     with st.sidebar:
         st.markdown(f"**Mira** · {workspace[0]['name']}  \n{st.session_state.email} · {role}")
-        page = st.radio("Page", ["Research", "Runs", "Reports & review", "Country methods"], label_visibility="collapsed")
+        page = st.radio("Page", ["Research", "Prepared reports", "Prepared evidence", "Runs", "Reports & review", "Country methods"], label_visibility="collapsed")
         if st.button("Sign out"):
             sb.auth.sign_out()
             st.session_state.clear()
@@ -1040,9 +1040,24 @@ def main() -> None:
         st.caption("Draft reports are not compliance conclusions about the bank.")
     if page == "Research":
         if role in ("admin", "analyst"):
-            new_brief_page(workspace_id, st.session_state.user_id)
+            mode = st.radio("Workflow", ["Prepared archive report", "Full research"], horizontal=True)
+            if mode == "Full research":
+                new_brief_page(workspace_id, st.session_state.user_id)
+            else:
+                from mira.prepared_console import request_page
+                st.header("Research")
+                sources = eligible_sources(rows(sb.table("sources").select(
+                    "id,name,source_key,source_type,jurisdiction_code,is_active,permitted_operations"
+                ).eq("workspace_id", workspace_id).eq("is_active", True)))
+                request_page(sb, workspace_id, sources)
         else:
-            st.info("Only analysts and admins can start runs.")
+            st.info("Only analysts and admins can request reports or start research.")
+    elif page == "Prepared reports":
+        from mira.prepared_console import reports_page
+        reports_page(sb, workspace_id, role)
+    elif page == "Prepared evidence":
+        from mira.prepared_console import evidence_page
+        evidence_page(sb, workspace_id, role)
     elif page == "Runs":
         runs_page(workspace_id, role)
     elif page == "Reports & review":

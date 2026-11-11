@@ -1,4 +1,4 @@
-<!-- Current implementation update: 10 November 2026. Historical measured-run sections remain dated. -->
+<!-- Current implementation update: 11 November 2026. Historical measured-run sections remain dated. -->
 # Mira Product Requirements v3 — implementation and pilot requirements
 
 ## Research console and temporary BYOK — 10 November 2026
@@ -13,12 +13,16 @@ Console validation: **1,272 tests +8 subtests, zero skips**, including local Pos
 
 ## Hong Kong quality and demo latency — 10 November 2026
 
-**Proposed next architecture:** scheduled evidence acquisition and machine
-preparation, human checking of completed evidence snapshots, and asynchronous
-report requests using those snapshots. Requests arriving during a refresh wait
-for its completion and may receive a prominently labelled human-review-pending
-draft. Enterprise credentials are assumed provisioned outside the demo workflow.
-This design is not implemented yet; see the [proposed workflow and race/review
+**Prepared evidence workflow (implemented 11 November):** operators can
+schedule evidence acquisition and machine checks independently of reporting.
+Analysts request a draft from completed snapshots; each request pins the source
+scopes and waits for the exact refresh already scheduled or running for those
+sources. Failed refreshes require an explicit choice to use previous evidence.
+Reviewers can accept, reject or request a correction to a fact. Reports
+prominently flag any included facts awaiting human review and preserve the
+captured decisions. Final approval is separate. Prepared report assembly uses
+saved evidence without provider calls; enterprise credentials are provisioned
+outside the demo for preparation. See the [workflow and review
 contracts](superpowers/specs/2026-11-10-scheduled-evidence-reporting-design.md).
 
 **User timing clarification:** the demonstration has a maximum wait of five
@@ -28,9 +32,11 @@ Normal requests already allow 1–240 minutes and 1–64 analysis batches; the d
 time ceiling remains 15 minutes unless configured otherwise. Preserve the USD
 allowance and evidence checks while allowing adequate time for substantive
 coverage. The earlier ten-minute validation was a coordinator-selected test
-bound, not a normal-run product requirement. Five-minute useful fresh generation
-is still an acceptance target, not a measured capability. No new paid run is
-authorized by this clarification.
+bound, not a normal-run product requirement. With evidence ready, a local
+[synthetic benchmark](../eval/evidence/2026-11-10-prepared-report-benchmark.md)
+preserved 20/20 expected facts from four documents in about 0.09 seconds per
+report. The five-minute target applies to the ready-evidence path; live country
+coverage and preparation latency were not remeasured.
 
 New report generation distinguishes operative publication dates from container revisions, checks exact inference premises against retained dependency context, and prioritizes dated native publications and substantive passages. Conservative guards cover new captures and recognizable legacy category indexes without changing historical reviewed reports. Independent analysis/checks use at most four lanes under one dollar/token/time allowance; three-passage/4,500-character batches retain explicit deferred coverage. Saved corroboration evaluation can overlap; fresh acquisition remains serial. Role models and source grants stay unchanged. The authorized ten-minute/USD10 observation ended partial at9.1minutes with5/18 acquired and1/18 cited; it failed demo acceptance. The latest smaller-batch and scheduling corrections pass1,360 tests +8 subtests but remain live-unvalidated; no replacement paid run occurred. [Implementation, acceptance and measured follow-up](agent-handoffs/hk-quality-and-latency.md).
 

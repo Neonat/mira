@@ -133,10 +133,11 @@ class Orchestrator:
         # arm passes a code-built plan (mira.single_agent.code_plan), so no planner model is called.
         self.plan_strategy: PlanStrategy = plan_strategy or planner.plan
 
-    def run(self, ctx: RunContext) -> RunOutcome:
+    def run(self, ctx: RunContext, *, preparation: bool = False,
+            preparation_guard: Callable[[], None] | None = None) -> RunOutcome:
         check_brief_scope(ctx.brief)
         try:
-            return _Run(self, ctx).execute()
+            return _Run(self, ctx, preparation=preparation, preparation_guard=preparation_guard).execute()
         finally:
             close = getattr(self.corroborator, "close", None)
             if close is not None:
@@ -163,10 +164,13 @@ def _latest_rows(rows: Sequence[CoverageRow]) -> list[CoverageRow]:
 
 
 class _Run:
-    def __init__(self, orchestrator: Orchestrator, ctx: RunContext) -> None:
+    def __init__(self, orchestrator: Orchestrator, ctx: RunContext, *, preparation=False,
+                 preparation_guard=None) -> None:
         self.o = orchestrator
         self.store = orchestrator.store
         self.ctx = ctx
+        self.preparation = preparation
+        self.preparation_guard = preparation_guard
         self.budget = BudgetTracker(ctx.budget, orchestrator.clock)
         if ctx.resource_usage:
             old=ctx.resource_usage
@@ -197,6 +201,7 @@ class _Run:
         self.store.set_run_status(ctx, "running", None)
         try:
             try:
+                self._preparation_phase('planning')
                 self._plan()
                 if ctx.brief.plan_requires_approval and not ctx.plan_approved:
                     # PRD v2 §4: the auditor approves the plan before any scouting. The run goes back to
@@ -206,16 +211,29 @@ class _Run:
                 if self.o.analysis_limits is not None:
                     self.store.begin_analysis_coverage(ctx, list(self.sources))
                     self.analysis_started = True
+                self._preparation_phase('acquiring')
                 self._scout(self.tasks)
                 self._check_coverage()
                 self._fill_gaps()
+                self._preparation_phase('analysing')
                 self._analyse()
+                self._preparation_phase('verifying')
                 self._verify()
             except BudgetExhausted as exc:
                 self.reasons.append(str(exc))
             for claim in self.claims:
                 if claim.finding_id not in self.verified and claim.finding_id not in self.unresolved:
                     self.unresolved[claim.finding_id] = "not checked: the run stopped before this claim"
+            if self.preparation:
+                self._check_cancel()
+                self._finalize_analysis()
+                coverage = self.store.analysis_coverage(ctx) if self.analysis_started else None
+                reused=sum(d.reason_counts.get('prepared_snapshot_reuse',0) for d in coverage.documents) if coverage else 0
+                if coverage and (coverage.deferred_passages>reused or coverage.failed_passages or coverage.pending_passages):
+                    self.reasons.append('Preparation analysis is incomplete; passage dispositions were retained.')
+                status = 'partial' if self.reasons or self.unresolved else 'draft'
+                self.store.set_run_status(ctx,status,'; '.join(self.reasons) or None)
+                return RunOutcome(status,self.reasons,None,None)
             report_id, snapshot, status = self._write()
         except RunCancelled:
             self._finalize_analysis("cancelled")
@@ -233,8 +251,14 @@ class _Run:
     # --- Steps --------------------------------------------------------------------
 
     def _check_cancel(self) -> None:
+        if self.preparation_guard is not None:
+            self.preparation_guard()
         if self.store.cancel_requested(self.ctx):
             raise RunCancelled()
+
+    def _preparation_phase(self, phase):
+        if self.preparation_guard is not None and 'phase' in inspect.signature(self.preparation_guard).parameters:
+            self.preparation_guard(phase=phase)
 
     def _start(
         self, role: AgentRole, *, jurisdiction: str | None = None, gap_round: int = 0,
@@ -590,6 +614,9 @@ class _Run:
             # bounded opportunity, retaining every expanded passage/disposition.
             pool.sort(key=lambda p:(p.id not in preferred,preferred.get(p.id,0)))
             self.passages = {p.id:p for p in pool}
+            if self.preparation and hasattr(self.store,'previously_prepared_passages'):
+                reused=self.store.previously_prepared_passages(self.ctx)
+                self._defer_analysis([p for p in pool if p.id in reused],'prepared_snapshot_reuse')
             self.analysis_loaded = True
 
     def _defer_analysis(self, passages: Sequence[PassageRecord], reason: str) -> None:
@@ -605,7 +632,7 @@ class _Run:
     def _analyse_batches(self) -> None:
         self._load_analysis()
         limits = self.o.analysis_limits
-        plan = plan_batches(list(self.passages.values()), limits, self.ctx.brief)
+        plan = plan_batches([p for p in self.passages.values() if p.id not in self.analysis_terminal], limits, self.ctx.brief)
         for pid, reason in plan.deferred.items():
             self._defer_analysis([self.passages[pid]], reason)
         # Provider work overlaps; starts, dispositions, claims and steps are written

@@ -122,6 +122,7 @@ def test_research_controls_use_usd_and_approved_sources(monkeypatch):
     screen.session_state.email = 'user@example.test'
     screen.session_state.sb = SB()
     screen.run()
+    next(r for r in screen.radio if r.label == 'Workflow').set_value('Full research').run()
     assert not screen.exception
     labels = [x.label for x in screen.text_input]
     assert 'Maximum estimated cost (USD)' in labels
@@ -186,6 +187,7 @@ def test_launch_queues_selected_settings_without_storing_key(monkeypatch):
     screen.session_state.email = 'user@example.test'
     screen.session_state.sb = SB()
     screen.run()
+    next(r for r in screen.radio if r.label == 'Workflow').set_value('Full research').run()
     next(b for b in screen.button if b.label == 'Check current prices').click().run()
     next(x for x in screen.selectbox if x.label == 'Period').select('Custom').run()
     from datetime import date

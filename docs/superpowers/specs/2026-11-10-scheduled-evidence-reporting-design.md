@@ -1,8 +1,10 @@
 # Scheduled evidence preparation and asynchronous reporting
 
-Status: proposed design reflecting the user's workflow clarification; not yet
-implemented. Audience: product owner, demo team and implementers. The product
-serves internal-audit analysts and senior reviewers.
+Status: implemented and validated locally as of 11 November 2026. Audience:
+product owner, demo team and implementers. The product serves internal-audit
+analysts and senior reviewers. See the [implementation
+handoff](../../agent-handoffs/scheduled-evidence-reporting.md) for validation and
+deployment boundaries.
 
 ## User-selected workflow
 
@@ -163,10 +165,11 @@ generated; any previously prepared evidence is identified honestly.
 - Benchmark the ready-evidence path against substantive reference material and
   critical-fact coverage, as well as the five-minute ceiling. A fast two-fact
   report is not sufficient acceptance.
-- Existing evidence storage, queued runs and report rendering are reusable, but
-  the current orchestrator still couples discovery/analysis/checking/writing.
-  New preparation/snapshot/review contracts and an archive-backed report path are
-  implementation work, not existing capabilities.
+- Preparation uses the existing research pipeline through machine checks and
+  stops before the writer. A separate report worker assembles HTML from frozen
+  findings and their original check records. It can serve ready scopes while
+  preparation is busy elsewhere. The console downloads HTML for browser print;
+  there is no separate prepared-report PDF renderer.
 - MAS/Malaysia/DFSA remain disabled and hybrid experimental. This document does
   not create a scheduled task, enable a worker, authorize paid validation, change
   credential persistence, or deploy a migration.

@@ -17,18 +17,72 @@ restrictions and truthful coverage. A longer ceiling does not guarantee complete
 coverage. The previous ten-minute HK validation ceiling was a test-specific
 coordinator choice, not a user requirement for normal research.
 
-Useful fresh report generation within five minutes remains unproven. A demo must
-state its source/date scope and whether acquisition or an existing archive was
-used; previously generated output must be identified as such. This timing
-clarification does not authorize another paid validation.
+In **Research → Prepared archive report**, choose the jurisdictions, date range
+and approved sources, review the request and queue it. Open **Prepared reports**
+and refresh its status. A ready draft uses saved evidence and its original
+checks. If a selected source is refreshing, the request waits for that refresh;
+the status separates evidence wait from report generation. If the refresh
+fails, the request shows the failure and offers previous evidence where
+available.
 
-Analysts sign in, choose **Research**, set markets and dates, restrict the approved source set, choose discovery/browser and archive-search options, and set a USD allowance. Advanced controls set documents, active run time and whole-passage analysis batches. **Review research** shows the submitted request and current price units before temporary masked keys are entered. The configured model profile is unchanged. Plan approval is optional; when selected, acquisition waits for review and fresh keys.
+Reviewers check facts under **Prepared evidence**. A draft that includes
+unchecked facts shows **Human evidence review pending** in the console and the
+downloaded HTML. Review decisions captured with that draft stay visible; later
+rejections or correction requests appear as separate alerts. Request a new
+revision after the evidence check for final approval.
+
+The [synthetic timing check](../eval/evidence/2026-11-10-prepared-report-benchmark.md)
+preserved 20/20 expected facts in about 0.09 seconds once evidence was ready.
+The five-minute demo target applies after preparation; report scope, snapshot
+freshness and any synthetic content should be clear during the demo.
+
+For new acquisition, choose **Research → Full research**. Set markets and dates, restrict the approved source set, choose discovery/browser and archive-search options, and set a USD allowance. Advanced controls set documents, active run time and whole-passage analysis batches. **Review research** shows the submitted request and current price units before temporary masked keys are entered. The configured model profile is unchanged. Plan approval is optional; when selected, acquisition waits for review and fresh keys.
 
 **Runs** shows steps, source and passage coverage, known estimated charges, unknown reservations and pending admissions. **Reports & review** retains evidence navigation and finding-level sign-off. New console reports include methods and cost estimates in the coverage appendix. **Country methods** shows approved engineering comparisons separately from workspace evidence. The dedicated local sample is visibly synthetic; its one fact is not a measured Hong Kong result.
 
 ## Local service setup
 
-Keep the existing Supabase database, Auth, REST and gateway running. Apply all local migrations, including `20261110160000_mira_byok_resources.sql`; do not reset an evidence database. Existing local Auth accounts work without buying a hosted Supabase plan. The worker-only database credential remains separate from the anon key and must never be passed to Streamlit.
+Keep the existing Supabase database, Auth, REST and gateway running. Apply all local migrations, including `20261110180000_mira_prepared_evidence.sql`; do not reset an evidence database. Existing local Auth accounts work without buying a hosted Supabase plan. The worker-only database credential remains separate from the anon key and must never be passed to Streamlit.
+
+## Prepared report and preparation services
+
+Run the report worker with only the trusted database connection and workspace
+slug. It polls once per second by default and does not require provider keys or
+the BYOK broker. Use `--once` to process at most one ready request.
+
+```sh
+python -m mira prepared-report-worker
+```
+
+Operators can register a schedule without enabling it:
+
+```sh
+python -m mira configure-schedule preparation.json \
+  --frequency-seconds 86400 --next-due 2026-12-01T01:00:00+08:00
+```
+
+The file has five fields: `source_ids` (approved source UUIDs), `brief`
+(topic, jurisdictions and date bounds), `budget` (document, token, time and USD
+limits), `models` (the existing operator role profile) and `settings`
+(research settings with the same source IDs and operator credential mode).
+Configure the approved brief, limits and dates for the deployment. `prepare
+preparation.json` queues one explicit refresh. Both commands use the configured
+development actor, who must have access to the selected workspace.
+
+Each due cycle advances the as-of date to the current UTC date, keeping the
+initial period start and the configured lag between period end and as-of.
+Missed cycles are coalesced without shifting the configured time of day.
+Schedule the first run on or after the brief's initial as-of date.
+
+Activation requires an explicit schedule enablement and a separate
+`preparation-worker` process with `MIRA_ENABLE_SCHEDULED_PREPARATION=1`.
+This process uses the operator's existing credentials and spending limits;
+running the report worker alone never starts preparation. Scheduled refreshes
+catch up on discovered links and retain prior eligible facts when an incremental
+refresh finds nothing new. They do not automatically revisit every acquired
+publication for silent edits.
+
+## Full research service
 
 Start the explicit local broker on the same trusted machine as the UI and worker:
 
