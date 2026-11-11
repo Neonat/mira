@@ -2,11 +2,35 @@
 
 Mira turns public regulatory and industry developments into cited research reports for bank internal auditors. An auditor sets the topic, markets and reporting period; Mira plans the research, gathers approved evidence, checks claims and source independence, and prepares a report for review and sign-off.
 
-**Audience:** competition judges, DBS Internal Audit stakeholders and pilot auditors.
+**Programme:** built for the SMU run of the
+[Young Talent Programme for AI in Finance (YTP-AIF)](https://www.ibf.org.sg/home/for-financial-institutions/talent-development-and-training-support/develop-young-talent),
+responding to DBS Bank Internal Audit's *Agentic AI for Audit: External Driver
+Researcher* problem statement. [SMU's programme overview](https://computing.smu.edu.sg/news/2026/aug/11/smu-unveils-new-courses-prepare-graduates-ai-enabled-future)
+describes the applied industry-project context.
+
+**Audience:** programme assessors, DBS Internal Audit stakeholders and pilot auditors.
 
 **Scope:** an AML/CFT research prototype supporting Singapore, Hong Kong and scoped Australian/UAE federal research, with a demonstrated Hong Kong research case. The current workflow includes expanded ingestion, Exa-assisted discovery, permitted browser acquisition, claim-level corroboration and passage-level analysis tracking.
 
 Australia uses Federal Register API metadata and direct publication files, alongside AUSTRAC public guidance subject to live access checks. UAE federal research follows approved CBUAE publication hubs to same-host documents. Malaysia and DIFC/DFSA are outside the enabled source set, and MAS remains inactive.
+
+## Engineering highlights
+
+Mira is a collaborative project, with development from
+[@Neonat](https://github.com/Neonat), [@ewvnn](https://github.com/ewvnn) and
+[@SaaiAravindhRaja](https://github.com/SaaiAravindhRaja) in the recorded history.
+
+Three choices explain the project's engineering direction:
+
+- **Traceable findings:** preserve source passages and connect generated claims
+  to their evidence so an auditor can inspect the support.
+- **Bounded research:** use typed outputs, explicit allowances and deterministic
+  orchestration to make acquisition and follow-up work inspectable.
+- **Reviewable releases:** preserve reviewer decisions and frozen evidence with
+  reviewed report versions, keeping sign-off with the auditor.
+
+The [validation section](#validation-and-prototype-status) separates recorded
+engineering checks from the measured coverage of live research runs.
 
 ## From research brief to reviewed evidence
 
@@ -48,11 +72,11 @@ The experimental hybrid profile uses OpenAI `text-embedding-3-small` with 384-di
 
 Native API records and complete permitted extracted text stay in the evidence store independently of findings. Australian registration and effective dates remain separate; discovery metadata and viewer shells do not become legal-text citation passages. Source reuse notices travel with frozen report evidence. CBUAE text remains outside external embedding under the current grant.
 
-## Alignment with the competition brief
+## Alignment with the project brief
 
 Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External Driver Researcher*.
 
-| Judging area | What to inspect |
+| Review area | What to inspect |
 |---|---|
 | Feasibility, value and application | The complete brief-to-reviewed-report workflow for the AML/CFT pilot |
 | Governance, risk and ethics | Approved-source acquisition, workspace access controls, traceable evidence and human sign-off |
@@ -61,19 +85,37 @@ Sponsor: **DBS Bank, Internal Audit**. Project: *Agentic AI for Audit: External 
 | Communication and presentation | Readable reports, direct source navigation, [presentation slides](slides/Mira_DBS_Presentation_v2.pptx) and a [recorded workflow showcase](docs/demo/launch-production-handoff.md) |
 | Content quality and evidence | Publication-recall scoring, human citation-precision worksheets and preserved run evidence |
 
-## Validation
+## Validation and prototype status
+
+The [recorded engineering validation](docs/agent-handoffs/evidence-completeness.md) reports **691 tests plus 8 subtests, with no skips**, including local PostgreSQL and actual Chromium. Checks cover passage batching, frozen coverage and review, authenticated original-file access, source navigation and optional hybrid retrieval. The report's coverage layout was also inspected at desktop and mobile sizes.
 
 The [prepared-report validation](docs/agent-handoffs/scheduled-evidence-reporting.md) covers refresh coordination, evidence review and asynchronous report assembly. A [local benchmark](eval/evidence/2026-11-10-prepared-report-benchmark.md) preserved all 20 expected facts from four synthetic publications in about 0.09 seconds per report once evidence was ready, with zero provider calls. The measurement excludes evidence preparation and does not measure live country coverage. The earlier [BYOK console validation](docs/agent-handoffs/research-console-byok.md) documents temporary keys, request isolation and spending controls.
+
+The [8 November Hong Kong research follow-up](eval/evidence/2026-11-08-hk-authorized-followup-7be59cdf.md) acquired **6 of 18 benchmark publications** and cited **5 of 18**.
 
 The latest scoped Australia/UAE exercise saved a partial draft through the live pipeline, with continuous database availability and exact usage accounting. Its [validation record](eval/evidence/2026-11-10-au-ae-uninterrupted-validation.md) distinguishes acquisition, verified country coverage, bounded analysis and remaining generation limits. The [previous interrupted run and recovered draft](eval/evidence/2026-11-10-generation-reliability-validation.md) remain preserved separately.
 
 Research evaluation uses scoped publication-recall scoring and human-labelled citation checks. The [evaluation record](docs/mira_PRD_v3_draft.md#7-evaluation-and-release-evidence) documents the measurement method and dated results; the [implementation handoff](docs/agent-handoffs/evidence-completeness.md) records engineering verification.
 
+## Architecture and local setup
+
+A Python orchestration layer coordinates specialist research agents and typed evidence contracts. Supabase/PostgreSQL stores workspace evidence and review history; a worker processes research runs, and the authenticated Streamlit app presents reports and review controls. The separate root `app.py` is a local staging workbench.
+
+Start with **Python 3.11+**, a local Supabase/PostgreSQL stack and the [development guide](docs/development.md). From the repository root:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev,llm,ui]"
+cp .env.example .env
+```
+
+Configure the ignored `.env` and apply the database setup in [the database guide](supabase/README.md) before running `.venv/bin/python -m mira seed`. Start `.venv/bin/python -m mira worker` and `.venv/bin/streamlit run app/streamlit_app.py` in separate terminals. Provider credentials, run allowances and source permissions are required for live research. MAS automated acquisition remains inactive in the documented pilot configuration; original-file retention and hybrid retrieval are opt-in.
+
 ## Explore the project
 
 | Reader | Starting point |
 |---|---|
-| Judges, sponsors and pilot auditors | The [DBS brief](docs/dbs_project_statement.md), [slides](slides/Mira_DBS_Presentation_v2.pptx) and [workflow showcase](docs/demo/launch-production-handoff.md) |
+| Programme assessors, sponsors and pilot auditors | The [DBS brief](docs/dbs_project_statement.md), [slides](slides/Mira_DBS_Presentation_v2.pptx) and [workflow showcase](docs/demo/launch-production-handoff.md) |
 | Product owner and technical reviewers | [Current PRD](docs/mira_PRD_v3_draft.md) and [feature status](docs/presentation/feature-status-2026-11-08.md) |
 | Developers and source curators | [Setup, configuration and code reference](docs/development.md), [database guide](supabase/README.md) and [ingestion quickstart](docs/ingestion-quickstart.md) |
 | Maintainers checking design history | [PRD v2](docs/mira_PRD_v2.md), [archived v1](docs/archive/mira_PRD_v1.md), [change proposal](docs/mira_prd_changes.md) and [coordinator handoff](docs/agent-handoffs/README.md) |
