@@ -14,6 +14,8 @@ from mira.budget import RunBudget
 from mira.contracts import Brief, Topic
 from mira.research_settings import ResearchSettings
 
+from mira.topics import CYBERSECURITY
+
 MVP_TOPICS: tuple[str, ...] = get_args(Topic)
 MVP_JURISDICTIONS: tuple[str, ...] = ("SG", "HK", "AU", "AE")
 
@@ -25,6 +27,8 @@ def check_brief_scope(brief: Brief) -> None:
     unknown = sorted(set(brief.jurisdictions) - set(MVP_JURISDICTIONS))
     if unknown:
         raise ValueError(f"jurisdictions not offered: {unknown}")
+    if brief.topic == CYBERSECURITY and brief.jurisdictions != ["AE"]:
+        raise ValueError("Cybersecurity currently covers UAE federal sources. Select UAE only.")
     if len(set(brief.jurisdictions)) != len(brief.jurisdictions):
         raise ValueError("jurisdictions are repeated")
 

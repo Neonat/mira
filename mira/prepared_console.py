@@ -13,6 +13,9 @@ import uuid
 import streamlit as st
 import streamlit.components.v1 as components
 
+from mira.brief import MVP_TOPICS
+from mira.topics import CYBERSECURITY, CYBER_SOURCE_KEY
+
 
 def _rows(query) -> list[dict[str, Any]]:
     return query.execute().data or []
@@ -86,8 +89,15 @@ def request_page(sb, workspace_id: str, sources: list[dict]) -> None:
         return
     st.caption("Generate a new draft from prepared evidence. Coverage and human-review status are shown with each report.")
     available = sorted({str(s["jurisdiction_code"]).strip() for s in sources if s.get("jurisdiction_code")})
-    markets = st.multiselect("Jurisdictions", available, default=["HK"] if "HK" in available else available[:1],
-                            format_func=lambda code: MARKET_NAMES.get(code, code), key="prepared-markets")
+    cyber_sources = [s for s in sources if s.get("source_key") == CYBER_SOURCE_KEY]
+    topic = st.selectbox("Topic", MVP_TOPICS if cyber_sources else ("AML/CFT",), key="prepared-topic")
+    if topic == CYBERSECURITY:
+        markets = ["AE"]
+        sources = cyber_sources
+        st.caption("Cybersecurity covers UAE federal sources and common threats to financial institutions.")
+    else:
+        markets = st.multiselect("Jurisdictions", available, default=["HK"] if "HK" in available else available[:1],
+                                format_func=lambda code: MARKET_NAMES.get(code, code), key="prepared-markets")
     scoped = {str(s["id"]): s for s in sources if not s.get("jurisdiction_code") or str(s["jurisdiction_code"]).strip() in markets}
     if "AE" in markets:
         st.caption("UAE coverage uses approved federal sources; DFSA is excluded.")
@@ -96,7 +106,6 @@ def request_page(sb, workspace_id: str, sources: list[dict]) -> None:
     start = st.date_input("Period start", value=as_of - timedelta(days=365), key="prepared-start") if period == "Custom" else as_of - timedelta(days=365 if period == "Last 12 months" else 730)
     end = st.date_input("Period end", value=as_of, max_value=as_of, key="prepared-end") if period == "Custom" else as_of
     with st.form("prepared-request"):
-        topic = st.selectbox("Topic", ["AML/CFT"])
         selected = st.multiselect("Approved active sources", list(scoped), default=list(scoped),
                                   format_func=lambda i: scoped[i]["name"])
         submitted = st.form_submit_button("Review request", type="primary", disabled=not scoped)
@@ -233,15 +242,22 @@ def _manifest(sb, workspace_id: str, request_id: str, *, can_choose: bool) -> No
     if not manifest:
         return
     sources = {str(s["id"]): s["name"] for s in _rows(sb.table("sources").select("id,name").eq("workspace_id", workspace_id))}
+    scope_ids = [entry["scope_id"] for entry in manifest if str(entry["scope_id"]) not in sources]
+    source_by_scope = {}
+    if scope_ids:
+        scope_rows = _rows(sb.table("preparation_scopes").select("id,source_id")
+                           .eq("workspace_id", workspace_id).in_("id", scope_ids))
+        source_by_scope = {str(row["id"]): str(row["source_id"]) for row in scope_rows}
     st.subheader("Evidence freshness by source")
     for entry in manifest:
         scope_id = entry["scope_id"]
+        source_id = source_by_scope.get(str(scope_id), str(scope_id))
         failed = False
-        st.markdown(f"**{sources.get(str(scope_id), 'Source')}**")
+        st.markdown(f"**{sources.get(source_id, 'Source')}**")
         if entry.get("snapshot_id"):
             snapshots = _rows(sb.table("prepared_snapshots").select("*").eq("workspace_id", workspace_id).eq("id", entry["snapshot_id"]))
             if snapshots:
-                _snapshot_summary(sb, workspace_id, snapshots[0], source_id=scope_id)
+                _snapshot_summary(sb, workspace_id, snapshots[0], source_id=source_id)
         elif entry.get("job_id"):
             jobs = _rows(sb.table("preparation_jobs").select("*").eq("workspace_id", workspace_id).eq("id", entry["job_id"]))
             if jobs:
@@ -435,8 +451,7 @@ def _report(sb, workspace_id: str, report: dict, role: str, request: dict) -> No
                 st.rerun()
     if role in {"admin", "analyst"} and st.button("Request new report revision", key=f"revise-{report['id']}"):
         try:
-            manifest = _rows(sb.table("prepared_report_request_scopes").select("scope_id").eq("workspace_id", workspace_id).eq("request_id", request["id"]))
-            request_id = submit_request(sb, workspace_id, request["brief"], [r["scope_id"] for r in manifest], str(uuid.uuid4()))
+            request_id = submit_request(sb, workspace_id, request["brief"], request["source_ids"], str(uuid.uuid4()))
         except Exception:
             st.error("Could not queue a new revision. Start a new request from Research.")
         else:

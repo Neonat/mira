@@ -562,3 +562,24 @@ def test_dependency_alias_requires_identical_fact_and_verification(prepared,diff
     elif difference=='fingerprint': actual['verifications'][str(dep)]['input_fingerprint']='0'*64
     else: actual['verifications'][str(dep)].pop('input_fingerprint')
     assert not PreparationStore._dependency_binding_matches(snapshots,[(alias,dep)],origin,dep)
+
+
+def test_shared_source_preparation_and_requests_are_isolated_by_topic(conn, workspace):
+    from mira.preparation_store import PreparationStore
+
+    ws, actor = workspace
+    cbuae = conn.execute("select id from public.sources where workspace_id=%s and source_key='cbuae'",
+                         (ws,)).fetchone()["id"]
+    store = PreparationStore(conn)
+    aml_brief = {"topic": "AML/CFT", "jurisdictions": ["AE"]}
+    cyber_brief = {"topic": "Cybersecurity", "jurisdictions": ["AE"]}
+    aml = store.enqueue_job(ws, actor, [cbuae], aml_brief, {}, {}, {}, "topic-aml")
+    cyber = store.enqueue_job(ws, actor, [cbuae], cyber_brief, {}, {}, {}, "topic-cyber")
+    assert store.claim_job(ws, uuid4())["id"] == aml["id"]
+    assert store.claim_job(ws, uuid4())["id"] == cyber["id"]
+    for job, brief in ((aml, aml_brief), (cyber, cyber_brief)):
+        request = store.request_report(ws, actor, brief, [cbuae], job["idempotency_key"])
+        pin = conn.execute("""select r.job_id,s.topic,s.source_id from public.prepared_report_request_scopes r
+            join public.preparation_scopes s on s.id=r.scope_id where r.request_id=%s""",
+            (request["id"],)).fetchone()
+        assert pin == {"job_id": job["id"], "topic": brief["topic"], "source_id": cbuae}

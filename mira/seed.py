@@ -19,6 +19,8 @@ from uuid import UUID
 import psycopg
 from psycopg.types.json import Jsonb
 
+from mira.topics import CYBERSECURITY, CYBER_SOURCE_ROUTES
+
 ALL_OPERATIONS = ("metadata", "fetch", "store_text", "quote", "embed")
 FETCH_ONLY = ("metadata", "fetch")
 MANUAL = ("metadata",)
@@ -210,6 +212,14 @@ EXPECTED: tuple[ExpectedSeed, ...] = (
 )
 
 
+CYBER_EXPECTED = (
+    ExpectedSeed("AE", "guideline", "CBUAE Financial Stability Reports on UAE financial-sector cyber risk",
+                 "cbuae", CYBER_SOURCE_ROUTES["guideline"][0]),
+    ExpectedSeed("AE", "industry", "CBUAE annual reports on cyber threats and financial-sector resilience",
+                 "cbuae", CYBER_SOURCE_ROUTES["industry"][0]),
+)
+
+
 @dataclass
 class SeedResult:
     sources: int = 0
@@ -240,7 +250,7 @@ def seed(conn: psycopg.Connection, workspace_id: UUID, topic: str = "AML/CFT") -
             ).fetchone()
             result.source_ids[source.key] = row["id"]
             result.sources += 1
-        for item in EXPECTED:
+        for item in (CYBER_EXPECTED if topic == CYBERSECURITY else EXPECTED):
             conn.execute(
                 """insert into public.expected_sources
                      (workspace_id, list_version, topic, jurisdiction_code, category, source_id, document_hint, url_hint)

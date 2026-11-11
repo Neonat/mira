@@ -4,7 +4,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict,dataclass,fields
 import re
+from urllib.parse import urlsplit
 from uuid import UUID
+
+from mira.topics import CYBERSECURITY, CYBER_SOURCE_HOST
 
 
 @dataclass(frozen=True)
@@ -56,12 +59,18 @@ class ResearchSettings:
         return value
 
 
-def restrict_sources(sources,settings: ResearchSettings | None,jurisdictions):
-    """Intersect an active workspace allow-list with requested markets and source IDs."""
-    if settings is None:return list(sources)
-    eligible=[s for s in sources if s.jurisdiction_code is None or s.jurisdiction_code in jurisdictions]
-    if settings.source_ids is None:return eligible
-    selected=set(settings.source_ids)
-    if not selected<={str(s.id) for s in eligible}:
-        raise ValueError('Selected source is inactive, unavailable or outside the requested markets')
-    return [s for s in eligible if str(s.id) in selected]
+def restrict_sources(sources, settings: ResearchSettings | None, jurisdictions, *, topic="AML/CFT"):
+    """Intersect an active workspace allow-list with the selected topic, markets and sources."""
+    if topic == CYBERSECURITY:
+        sources = [source for source in sources if source.jurisdiction_code == "AE"
+                   and urlsplit(source.base_url or "").hostname == CYBER_SOURCE_HOST]
+    if settings is None:
+        return list(sources)
+    eligible = [source for source in sources
+                if source.jurisdiction_code is None or source.jurisdiction_code in jurisdictions]
+    if settings.source_ids is None:
+        return eligible
+    selected = set(settings.source_ids)
+    if not selected <= {str(source.id) for source in eligible}:
+        raise ValueError('Selected source is inactive, unavailable or outside the requested topic and markets')
+    return [source for source in eligible if str(source.id) in selected]

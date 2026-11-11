@@ -110,6 +110,14 @@ fetches, Exa, browser acquisition, embeddings and corroboration search.
 It still uses the configured models for planning, passage analysis and
 verification under the supplied allowance.
 
+Cybersecurity covers common threats to financial institutions using the
+approved UAE federal CBUAE source. Run `python -m mira seed --topic Cybersecurity`
+to install its source checklist in the selected workspace. Select the
+observation period and an as-of date that includes any later reports you want
+to consider. A retrospective finding needs evidence that explicitly dates
+the observation. Cybersecurity and AML/CFT each have their own prepared
+snapshot for a shared source.
+
 ## Full research service
 
 Start the explicit local broker on the same trusted machine as the UI and worker:

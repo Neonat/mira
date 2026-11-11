@@ -1,8 +1,11 @@
 """Date checks on saved evidence; publication dates are not retrieval dates."""
 from collections.abc import Sequence
+from datetime import date
+import re
 
 from mira.contracts import Brief, ClaimDraft
 from mira.store import PassageRecord
+from mira.topics import CYBERSECURITY
 
 TEMPORAL_RULE = (
     "Use saved publication dates, never import/retrieval dates, to assess recency. "
@@ -36,6 +39,22 @@ def check_claim_period(claim: ClaimDraft, brief: Brief, evidence: Sequence[Passa
         and (brief.period_start <= claim.key_date <= brief.period_end
              or (claim.change_type == "upcoming" and claim.key_date > brief.period_end))
     )
-    if outside and not dated_obligation:
+    # Annual sector reports can be published after the events they document.
+    # Require explicit temporal evidence and keep the source publication date.
+    retrospective = False
+    if outside and brief.topic == CYBERSECURITY and any(
+        p.published_at and p.published_at > brief.period_end for p in evidence
+    ):
+        if claim.key_date_kind == "event" and claim.key_date is not None:
+            from mira.claim_grounding import date_in_text
+
+            retrospective = any(date_in_text(claim.key_date, c.supporting_quote) for c in claim.citations)
+        elif claim.key_date is None:
+            years = {str(year) for year in range(brief.period_start.year, brief.period_end.year + 1)
+                     if brief.period_start <= date(year, 1, 1) and date(year, 12, 31) <= brief.period_end}
+            reported = set(re.findall(r"\b(?:19|20)\d{2}\b", claim.content))
+            quoted = set(re.findall(r"\b(?:19|20)\d{2}\b", " ".join(c.supporting_quote for c in claim.citations)))
+            retrospective = bool(reported and reported <= years & quoted)
+    if outside and not (dated_obligation or retrospective):
         raise ValueError("only out-of-period publications cited; use as background, not a current development")
     check_date_grounding(claim, brief, evidence)

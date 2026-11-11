@@ -11,6 +11,7 @@ from uuid import UUID
 
 from mira.contracts import Brief, ClaimDraft
 from mira.store import NewClaim, PassageRecord
+from mira.topics import CYBERSECURITY
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,10 @@ def _passage_priority(passage: PassageRecord, brief: Brief) -> tuple[int, int]:
         r"\b(?:aml|cft|money laundering|terroris[mt] financ\w*|"
         r"financing of terrorism|customer due diligence|suspicious transactions?)\b",
         passage.content, re.I)) if brief.topic == "AML/CFT" else False
+    if brief.topic == CYBERSECURITY:
+        topical = bool(re.search(
+            r"\b(?:phishing|impersonation|ransomware|malware|ddos|denial of service|supply.chain|third.party|cyber\w*)\b",
+            passage.content, re.I))
     operative = bool(re.search(
         r"\b(?:must|shall|requir\w*|prohibit\w*|oblig\w*|penalt\w*|"
         r"sanction\w*|disciplin\w*|effective|commencement)\b", passage.content, re.I))

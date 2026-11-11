@@ -118,7 +118,10 @@ def select_prepared_facts(snapshots,brief,source_snapshots,allowed_source_ids,re
     allowed=set(map(str,allowed_source_ids));pins={str(k):str(v) for k,v in source_snapshots.items()}
     candidates={};origins={};evidence_by_snapshot={}
     for row in snapshots:
-        sid=str(row['id']);payload=row['payload'];e=EvidenceInput.model_validate(payload['evidence_input'])
+        sid=str(row['id']);payload=row['payload']
+        if (payload.get('brief') or {}).get('topic','AML/CFT') != brief.topic:
+            continue
+        e=EvidenceInput.model_validate(payload['evidence_input'])
         admitted=set(map(str,row.get('admitted_source_ids',[]))) if 'admitted_source_ids' in row else {s for s,p in pins.items() if p==sid}
         local_pins={s:sid for s in admitted if s in allowed}
         excluded=set(map(str,row.get('excluded_finding_ids',[])))
@@ -320,11 +323,12 @@ def execute_prepared_request(conn,dsn,request_id=None,client=None,*,workspace_id
         sources={str(s.id):s for s in PostgresStore(conn).list_sources(workspace_id)}
         allowed={sid for sid in map(str,request['source_ids']) if sid in sources and
                  {'fetch','store_text','quote'}<=set(sources[sid].permitted_operations)}
-        entries=conn.execute('''select e.*,s.name as source_name,p.published_at from public.prepared_report_request_scopes e
-            join public.sources s on s.id=e.scope_id and s.workspace_id=e.workspace_id
+        entries=conn.execute('''select e.*,scope.source_id,s.name as source_name,p.published_at from public.prepared_report_request_scopes e
+            join public.preparation_scopes scope on scope.id=e.scope_id and scope.workspace_id=e.workspace_id
+            join public.sources s on s.id=scope.source_id and s.workspace_id=e.workspace_id
             left join public.prepared_snapshots p on p.id=e.snapshot_id and p.workspace_id=e.workspace_id
             where e.request_id=%s and e.workspace_id=%s order by e.scope_id''',(request['id'],workspace_id)).fetchall()
-        pins={str(e['scope_id']):str(e['snapshot_id']) for e in entries if e['snapshot_id']}
+        pins={str(e['source_id']):str(e['snapshot_id']) for e in entries if e['snapshot_id']}
         snapshots=store.load_request_snapshots(request['id'])
         reviews=conn.execute('''select distinct on(snapshot_id,finding_id) snapshot_id,finding_id,decision
             from public.prepared_fact_reviews where workspace_id=%s and snapshot_id=any(%s::uuid[])

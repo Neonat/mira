@@ -24,8 +24,10 @@ import streamlit as st
 import streamlit.components.v1 as components
 from supabase import Client, create_client
 
+from mira.topics import CYBERSECURITY, CYBER_SOURCE_KEY
 from mira.brief import (
     MVP_JURISDICTIONS,
+    MVP_TOPICS,
     RERUNNABLE_STATUSES,
     analysis_run_fields,
     check_brief_scope,
@@ -258,6 +260,9 @@ def _review_research(workspace_id: str, user_id: str, source_by_id: dict[str, di
                      models: dict[str, str], defaults: RunBudget) -> None:
     pending = st.session_state.pending_research
     source_by_id = sources_for_markets(source_by_id, pending["jurisdictions"])
+    topic = pending.get("topic", "AML/CFT")
+    if topic == CYBERSECURITY:
+        source_by_id = {key: value for key, value in source_by_id.items() if value.get("source_key") == CYBER_SOURCE_KEY}
     settings = pending["settings"]
     quote_key = (tuple(sorted(models.items())), settings["retrieval"], settings["enable_exa"])
     quote = st.session_state.get("console_quote")
@@ -268,7 +273,7 @@ def _review_research(workspace_id: str, user_id: str, source_by_id: dict[str, di
                  and (not settings["enable_browser"] or any(os.environ.get(k) == "1" for k in
                       ("MIRA_ENABLE_LIVE_BROWSER", "MIRA_ENABLE_OFFLINE_BROWSER"))))
     st.subheader("Review research")
-    st.write(f"AML/CFT · {', '.join(pending['jurisdictions'])} · {pending['start']} to {pending['end']} · as of {pending['as_of']}")
+    st.write(f"{topic} · {', '.join(pending['jurisdictions'])} · {pending['start']} to {pending['end']} · as of {pending['as_of']}")
     st.write("Sources: " + ", ".join(source_by_id.get(i, {}).get("name", "Unavailable source") for i in settings["source_ids"]))
     st.write(f"Retrieval: {settings['retrieval']} · Exa: {'on' if settings['enable_exa'] else 'off'} · Browser: {'on' if settings['enable_browser'] else 'off'}")
     st.write(f"Limit: {pending['documents']} documents · {pending['minutes']} minutes · {settings['max_analysis_batches']} whole-passage batches · USD {pending['allowance']}")
@@ -313,7 +318,7 @@ def _review_research(workspace_id: str, user_id: str, source_by_id: dict[str, di
     try:
         if not providers or any(not key.strip() for key in keys.values()):
             raise ValueError("Missing credentials")
-        brief = Brief(topic="AML/CFT", jurisdictions=pending["jurisdictions"], period_start=pending["start"],
+        brief = Brief(topic=topic, jurisdictions=pending["jurisdictions"], period_start=pending["start"],
                       period_end=pending["end"], as_of_date=pending["as_of"], plan_requires_approval=pending["approval"])
         check_brief_scope(brief)
         budget = RunBudget(max_fetched_documents=pending["documents"], max_llm_tokens=defaults.max_llm_tokens,
@@ -384,10 +389,17 @@ def new_brief_page(workspace_id: str, user_id: str) -> None:
     enabled = os.environ.get("MIRA_ENABLE_BYOK_RUNS") == "1" and bool(os.environ.get("MIRA_BROKER_SOCKET"))
     if not enabled:
         st.warning("Paid launch is disabled by the operator. Existing reports remain available.")
-    jurisdictions = st.multiselect("Jurisdictions", MVP_JURISDICTIONS, default=["SG", "HK"],
-                                   format_func=lambda code: MARKET_NAMES.get(code, code))
+    offered_topics = MVP_TOPICS if any(s.get("source_key") == CYBER_SOURCE_KEY for s in sources) else ("AML/CFT",)
+    topic = st.selectbox("Topic", offered_topics)
+    if topic == CYBERSECURITY:
+        jurisdictions = ["AE"]
+        st.caption("Cybersecurity covers UAE federal sources and common threats to financial institutions.")
+        source_by_id = {key: value for key, value in source_by_id.items() if value.get("source_key") == CYBER_SOURCE_KEY}
+    else:
+        jurisdictions = st.multiselect("Jurisdictions", MVP_JURISDICTIONS, default=["SG", "HK"],
+                                       format_func=lambda code: MARKET_NAMES.get(code, code))
     categories = rows(client().table("expected_sources").select(
-        "source_id,jurisdiction_code,category,list_version,is_active").eq("is_active", True))
+        "source_id,jurisdiction_code,category,list_version,is_active").eq("is_active", True).eq("topic", topic))
     source_by_id = sources_for_markets(source_by_id, jurisdictions)
     groups = source_groups(list(source_by_id), categories, jurisdictions)
     focus = st.multiselect("Source focus", ["Regulatory", "Industry", "Other"],
@@ -398,7 +410,6 @@ def new_brief_page(workspace_id: str, user_id: str) -> None:
     start = st.date_input("Period start", value=as_of - timedelta(days=365)) if period == "Custom" else as_of - timedelta(days=365 if period == "Last 12 months" else 730)
     end = st.date_input("Period end", value=as_of, max_value=as_of) if period == "Custom" else as_of
     with st.form("brief"):
-        topic = st.selectbox("Topic", ["AML/CFT"])
         if "AE" in jurisdictions:
             st.caption("UAE coverage uses approved federal sources; DFSA is excluded.")
         selected = st.multiselect("Approved active sources", focused_ids, default=focused_ids,
@@ -423,7 +434,7 @@ def new_brief_page(workspace_id: str, user_id: str) -> None:
                   max_run_minutes=int(minutes), max_gap_rounds=defaults.max_gap_rounds, max_cost_usd=str(amount))
         settings = ResearchSettings(source_ids=tuple(selected), enable_exa=exa, enable_browser=browser,
                                     retrieval=retrieval, max_analysis_batches=int(batches), credential_mode="byok")
-        st.session_state.pending_research = {"jurisdictions": jurisdictions, "start": start, "end": end,
+        st.session_state.pending_research = {"topic": topic, "jurisdictions": jurisdictions, "start": start, "end": end,
             "as_of": as_of, "allowance": str(amount), "approval": approval, "documents": int(documents),
             "minutes": int(minutes), "settings": settings.as_dict()}
     except (ValueError, InvalidOperation) as exc:

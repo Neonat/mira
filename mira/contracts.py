@@ -37,7 +37,7 @@ CONTRACT_VERSION = "1.4"
 # --- Enums (mirror the database check constraints) ---------------------------
 
 JurisdictionCode = Annotated[str, StringConstraints(pattern=r"^[A-Z]{2}$")]
-Topic = Literal["AML/CFT"]
+Topic = Literal["AML/CFT", "Cybersecurity"]
 
 FindingType = Literal[
     "external_fact", "regulatory_requirement", "applicability_assessment", "risk_implication",

@@ -42,6 +42,7 @@ from mira.llm import LLMClient, LLMError, LLMResult, call_checked
 from mira.pg_store import PostgresStore
 from mira.store import PassageRecord, RunContext
 from mira.sfc import search_payload
+from mira.topics import AML_TERMS, CYBER_TERMS, CYBERSECURITY, CYBER_SOURCE_ROUTES
 
 PROMPT_VERSION = "scout/7"
 MAX_LINKS_SHOWN = 120
@@ -615,7 +616,11 @@ class _ScoutRun:
         for source_id in self.task.source_ids:
             source = sources.get(source_id)
             if source is not None and {"fetch", "store_text"} <= set(source.permitted_operations):
-                source_queues, source_others = seed_plan(source.connector_config, categories, years)
+                config = source.connector_config
+                if self.ctx.brief.topic == CYBERSECURITY:
+                    config = {"category_urls": CYBER_SOURCE_ROUTES,
+                              "start_urls": [url for routes in CYBER_SOURCE_ROUTES.values() for url in routes]}
+                source_queues, source_others = seed_plan(config, categories, years)
                 queues.extend(source_queues)
                 other_indexes.extend(source_others)
         # Give previously discovered, unconsumed work a bounded share before
@@ -792,7 +797,7 @@ class _ScoutRun:
         if not fresh:
             diagnostic.update(stop_reason="no_candidates", remaining_allowance=self.allowance)
             return
-        terms = _terms(self.task.question + " money laundering terrorism financing AML CFT")
+        terms = _terms(f"{self.task.question} {self._topic_terms()}")
         fresh.sort(key=lambda link: (link.published is None,
                                      -len(terms & _terms(link.text + " " + link.context)),
                                      -(link.published.toordinal() if link.published else 0)))
@@ -968,6 +973,9 @@ class _ScoutRun:
         diagnostic.update(stop_reason="selected" if result.output.link_labels else "no_selection",
                           remaining_allowance=self.allowance)
 
+    def _topic_terms(self) -> str:
+        return CYBER_TERMS if self.ctx.brief.topic == CYBERSECURITY else AML_TERMS
+
     def _passages(self, max_chars: int | None = None) -> list[PassageRecord]:
         max_chars = MAX_PASSAGE_CHARS if max_chars is None else max_chars
         ids = [passage_id for visit in self.visits for passage_id in visit.passage_ids]
@@ -1003,7 +1011,8 @@ class _ScoutRun:
         # Match the public search function's ranking, but only after version
         # and source eligibility, so obsolete passages cannot consume its cap.
         words = sorted(_terms(self.task.question))[:12]
-        query = " or ".join(['"money laundering"', *words])
+        defaults = ['"money laundering"'] if brief.topic != CYBERSECURITY else CYBER_TERMS.split()
+        query = " or ".join([*defaults, *words])
         found = self.conn.execute(
             eligible + """select p.id as passage_id
                 from public.document_passages p
@@ -1061,7 +1070,7 @@ class _ScoutRun:
         passages = [p for p in self.store.get_passages(self.ctx.workspace_id, ids)
                     if p.id in selected_ids and p.source_id in self.task.source_ids
                     and (p.published_at is None or p.published_at <= brief.as_of_date)]
-        terms = _terms(f"{self.ctx.brief.topic} money laundering terrorism financing {self.task.question}")
+        terms = _terms(f"{self.ctx.brief.topic} {self._topic_terms()} {self.task.question}")
         feed_urls = {p.source_url for p in passages if p.source_url.endswith(".xml") or "/rss" in p.source_url.lower()}
         # Documents first; feed lines (titles and dates only) rank below them.
         passages.sort(key=lambda p: (p.source_url in feed_urls,
