@@ -23,6 +23,16 @@ from mira.report import ReportContext,render_html
 from mira.store import ClaimEvidence,ExpectedSourceRecord,PassageRecord,StoredClaim
 
 
+def _scope_analysis_coverage(summary, source_ids):
+    if summary is None:
+        return None
+    documents = [row for row in summary['documents'] if row['source_id'] in source_ids]
+    fields = ('candidate', 'attempted', 'analysed', 'failed', 'deferred', 'pending')
+    totals = {f'{state}_passages': sum(row[f'{state}_passages'] for row in documents)
+              for state in fields}
+    return {**summary, **totals, 'documents': documents}
+
+
 def build_prepared_payload(conn,run_id,source_ids):
     """Freeze exact current support from a completed preparation run."""
     ctx=load_run(conn,UUID(str(run_id)))
@@ -33,6 +43,7 @@ def build_prepared_payload(conn,run_id,source_ids):
     with acting_as(conn,ctx.user_id):require_role(conn,ctx.workspace_id)
     findings=conn.execute('select id,is_inference from public.analysis_findings where workspace_id=%s and analysis_run_id=%s',
                          (ctx.workspace_id,ctx.analysis_run_id)).fetchall()
+    source_scope=set(map(str,source_ids))
     valid={};verifications={}
     for f in findings:
         c=conn.execute('''select * from public.claim_checks where workspace_id=%s and analysis_run_id=%s
@@ -44,7 +55,7 @@ def build_prepared_payload(conn,run_id,source_ids):
             (ctx.workspace_id,ctx.analysis_run_id,ctx.analysis_revision_id,[f['id']])).fetchone()['v']
         if current!=c['input_snapshot'] or not c['input_fingerprint'] or not c['model']:
             continue
-        if not all(str(p['source_id']) in set(map(str,source_ids)) for p in current['passages'].values()):
+        if not all(str(p['source_id']) in source_scope for p in current['passages'].values()):
             continue
         valid[str(f['id'])]=current
         verifications[str(f['id'])]={**FrozenVerification(check_id=c['id'],method=c['method'],verdict=c['verdict'],
@@ -63,15 +74,17 @@ def build_prepared_payload(conn,run_id,source_ids):
     coverage=conn.execute('''select distinct on(expected_source_id) * from public.coverage_results
         where workspace_id=%s and analysis_run_id=%s order by expected_source_id,gap_round desc''',
         (ctx.workspace_id,ctx.analysis_run_id)).fetchall()
-    coverage_rows=[CoverageRow(expected_source_id=r['expected_source_id'],status=r['status'],
-        document_version_id=r['document_version_id'],gap_round=r['gap_round'],note=r['note']).model_dump(mode='json') for r in coverage]
     summary=PostgresStore(conn).analysis_coverage(ctx)
     expected={str(e.id):{**asdict(e),'id':str(e.id),'source_id':str(e.source_id)} for e in
         PostgresStore(conn).list_expected_sources(ctx.workspace_id,ctx.brief.topic,ctx.brief.jurisdictions)
-        if str(e.source_id) in set(map(str,source_ids))}
+        if str(e.source_id) in source_scope}
+    coverage_rows=[CoverageRow(expected_source_id=r['expected_source_id'],status=r['status'],
+        document_version_id=r['document_version_id'],gap_round=r['gap_round'],note=r['note']).model_dump(mode='json')
+        for r in coverage if str(r['expected_source_id']) in expected]
     return {'schema_version':1,'brief':ctx.brief.model_dump(mode='json'),'source_ids':list(map(str,source_ids)),
         'evidence_input':evidence,'verifications':verifications,'coverage':coverage_rows,
-        'analysis_coverage':summary.model_dump(mode='json') if summary else None,'expected_sources':expected,
+        'analysis_coverage':_scope_analysis_coverage(summary.model_dump(mode='json'),source_scope) if summary else None,
+        'expected_sources':expected,
         'reasons':[row['failure_summary']] if row['failure_summary'] else [],
         'prepared_through':ctx.brief.as_of_date.isoformat(),'prepared_at':datetime.now(UTC).isoformat()}
 
@@ -110,20 +123,25 @@ def select_prepared_facts(snapshots,brief,source_snapshots,allowed_source_ids,re
         local_pins={s:sid for s in admitted if s in allowed}
         excluded=set(map(str,row.get('excluded_finding_ids',[])))
         evidence_by_snapshot[sid]=e
-        selected.snapshots[sid]={'published_at':str(row['published_at']),'prepared_through':payload.get('prepared_through'),
-            'brief':payload.get('brief'),'source_ids':payload['source_ids'],'coverage':payload.get('coverage',[]),
-            'analysis_coverage':payload.get('analysis_coverage'),'reasons':payload.get('reasons',[]),
-            'expected_sources':payload.get('expected_sources',{}),
-            'evidence_input':payload['evidence_input'],'verifications':payload['verifications']}
-        for eid,raw in payload.get('expected_sources',{}).items():
+        expected_sources=payload.get('expected_sources')
+        scoped_expected={}
+        for eid,raw in (expected_sources or {}).items():
             item=FrozenExpectedSource.model_validate(raw)
-            if str(item.source_id) in allowed and pins.get(str(item.source_id))==sid:
+            if str(item.source_id) in allowed and pins.get(str(item.source_id))==sid and item.jurisdiction_code in brief.jurisdictions:
                 selected.expected[item.id]=ExpectedSourceRecord(**item.model_dump())
+                scoped_expected[eid]=raw
+        scoped_coverage=[]
         for raw in payload.get('coverage',[]):
             coverage=CoverageRow.model_validate(raw)
-            item=payload.get('expected_sources',{}).get(str(coverage.expected_source_id))
-            if item and (str(item['source_id']) not in allowed or pins.get(str(item['source_id']))!=sid):continue
+            if expected_sources is not None and str(coverage.expected_source_id) not in scoped_expected:
+                continue
             selected.coverage.append(coverage)
+            scoped_coverage.append(raw)
+        selected.snapshots[sid]={'published_at':str(row['published_at']),'prepared_through':payload.get('prepared_through'),
+            'brief':payload.get('brief'),'source_ids':payload['source_ids'],'coverage':scoped_coverage,
+            'analysis_coverage':_scope_analysis_coverage(payload.get('analysis_coverage'),local_pins),
+            'reasons':payload.get('reasons',[]),'expected_sources':scoped_expected,
+            'evidence_input':payload['evidence_input'],'verifications':payload['verifications']}
         for fid,f in e.findings.items():
             key=str(fid)
             try:

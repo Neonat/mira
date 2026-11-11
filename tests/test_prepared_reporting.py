@@ -120,3 +120,47 @@ def test_inherited_identical_fact_prefers_original_accepted_review_once():
         {(str(old_id),str(fid)):'accepted'},max_facts=2)
     assert len(selected.claims)==1
     assert selected.bindings==[{'snapshot_id':str(old_id),'finding_id':str(fid)}]
+
+
+def test_prepared_coverage_is_scoped_to_admitted_report_sources():
+    from mira.prepared_reporting import compose_prepared_report, select_prepared_facts
+
+    row, brief, source, snapshot, _ = sample()
+    excluded_source, included, excluded, orphan = [str(uuid4()) for _ in range(4)]
+    payload = row["payload"]
+    payload["expected_sources"] = {
+        identifier: {
+            "id": identifier, "source_id": source_id, "list_version": 1,
+            "jurisdiction_code": market, "category": "Guidance", "document_hint": market,
+        }
+        for identifier, source_id, market in (
+            (included, str(source), "HK"), (excluded, excluded_source, "AE"),
+        )
+    }
+    payload["coverage"] = [
+        {"expected_source_id": identifier, "status": "found", "gap_round": 0,
+         "document_version_id": None, "note": None}
+        for identifier in (included, excluded, orphan)
+    ]
+    dispositions = ("candidate", "attempted", "analysed", "failed", "deferred", "pending")
+    hk_counts = dict(zip(dispositions, (5, 2, 2, 0, 3, 0)))
+    ae_counts = dict(zip(dispositions, (20, 7, 6, 1, 13, 0)))
+    payload["analysis_coverage"] = {
+        "documents": [
+            {"source_id": source_id, **{f"{key}_passages": value for key, value in counts.items()}}
+            for source_id, counts in ((str(source), hk_counts), (excluded_source, ae_counts))
+        ],
+        **{f"{key}_passages": hk_counts[key] + ae_counts[key] for key in dispositions},
+    }
+    selected = select_prepared_facts([row], brief, {source: snapshot}, {source}, {})
+    html, capture = compose_prepared_report(uuid4(), brief, selected)
+
+    assert [str(item.expected_source_id) for item in selected.coverage] == [included]
+    scoped = capture["snapshots"][str(snapshot)]
+    assert list(scoped["expected_sources"]) == [included]
+    assert [item["expected_source_id"] for item in scoped["coverage"]] == [included]
+    assert len(scoped["analysis_coverage"]["documents"]) == 1
+    for key, count in hk_counts.items():
+        assert scoped["analysis_coverage"][f"{key}_passages"] == count
+    assert "2 of 5 candidate passages analysed" in html
+    assert payload["analysis_coverage"]["candidate_passages"] == 25
