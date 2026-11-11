@@ -3,14 +3,12 @@ from mira.agents.writer import WRITER_SECTIONS
 from test_orchestrator import FakeVerifier, context, make, steps
 
 
-def test_rejected_inference_cannot_return_as_writer_prose_with_valid_fact_citation():
+def test_rejected_inference_cannot_return_in_writer_plan_with_valid_fact_label():
     def malicious_writer(prompt):
-        sections = [{"section": key, "sentences": [], "no_verified_items": True}
+        sections = [{"section": key, "groups": []}
                     for key in WRITER_SECTIONS]
         for index in (0, 6):
-            sections[index].update(sentences=[{
-                "text": "The bank must rebuild onboarding controls by 2027 or face a penalty.",
-                "claim_labels": ["C1"], "structural": False}], no_verified_items=False)
+            sections[index]['groups']=[["C1"]]
         return {"sections": sections}
 
     orchestrator, store, *_ = make({"writer": [malicious_writer]},
@@ -20,7 +18,7 @@ def test_rejected_inference_cannot_return_as_writer_prose_with_valid_fact_citati
     assert body[0].sentences[0].text == "C1 content"
     assert body[6].no_verified_items and not body[6].sentences
     assert "2027" not in store.reports[0].html
-    assert steps(store)[-1].output_refs["grounded_sentences"] == 2
+    assert steps(store)[-1].output_refs["grounded_sentences"] == 1
 
 
 def test_grounding_keeps_full_condition_and_negation_not_a_supported_substring():

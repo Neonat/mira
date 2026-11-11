@@ -21,7 +21,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from uuid import UUID
 
-from mira.config import REPORTS_DIR, load_env
+from mira.config import REPORTS_DIR, load_env, workspace_slug
 
 
 def _table(rows: list[dict[str, object]]) -> str:
@@ -35,10 +35,17 @@ def _table(rows: list[dict[str, object]]) -> str:
 
 
 def main() -> None:
-    load_env()
+    import sys
+    command = sys.argv[1] if len(sys.argv)>1 else ''
+    load_env(keys={'SUPABASE_URL','SUPABASE_ANON_KEY'} if command=='broker' else
+             {'MIRA_WORKER_DATABASE_URL','MIRA_WORKSPACE_SLUG'} if command=='prepared-report-worker' else None)
     parser = argparse.ArgumentParser(prog="mira")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("seed")
+    broker=commands.add_parser('broker',help='start the private local in-memory BYOK service; no research worker')
+    broker.add_argument('--directory',type=Path,help='new short private directory, normally under /tmp')
+    from mira.recovery_cli import add_backup_commands
+    add_backup_commands(commands)
     run = commands.add_parser("run")
     run.add_argument("--jurisdictions", nargs="+", default=["SG", "HK"])
     run.add_argument("--as-of", type=date.fromisoformat, default=date.today())
@@ -50,6 +57,19 @@ def main() -> None:
     worker = commands.add_parser("worker")
     worker.add_argument("--once", action="store_true")
     worker.add_argument("--poll-seconds", type=float, default=5.0)
+    prep_worker = commands.add_parser('preparation-worker', help='poll explicitly enabled scheduled preparation')
+    prep_worker.add_argument('--once', action='store_true')
+    prep_worker.add_argument('--poll-seconds', type=float, default=5.0)
+    report_worker = commands.add_parser('prepared-report-worker', help='assemble ready reports independently of preparation')
+    report_worker.add_argument('--once', action='store_true')
+    report_worker.add_argument('--poll-seconds', type=float, default=1.0)
+    prepare = commands.add_parser('prepare', help='queue one explicit preparation from a JSON configuration')
+    prepare.add_argument('configuration', type=Path)
+    schedule = commands.add_parser('configure-schedule', help='register a schedule; disabled unless explicitly enabled')
+    schedule.add_argument('configuration', type=Path)
+    schedule.add_argument('--frequency-seconds', type=int, required=True)
+    schedule.add_argument('--next-due', required=True, help='ISO 8601 timestamp with timezone')
+    schedule.add_argument('--enable', action='store_true')
     usage = commands.add_parser("usage")
     usage.add_argument("run_id", type=UUID)
     manual = commands.add_parser("import", help="load documents you downloaded by hand into a source")
@@ -60,8 +80,16 @@ def main() -> None:
     manual.add_argument("--published", type=date.fromisoformat, help="publication date, YYYY-MM-DD")
     manual.add_argument("--manifest", type=Path, help="CSV of file,url,title,published for several files")
     args = parser.parse_args()
+    if args.command=='broker':
+        from mira.credential_broker import run_broker
+        run_broker(args.directory)
+        return
     if args.command == "import" and not args.manifest and (len(args.files) != 1 or not args.url):
         parser.error("import one file with --url, or several with --manifest")
+
+    if args.command == "backup":
+        from mira.recovery_cli import execute_backup
+        raise SystemExit(execute_backup(args))
 
     from mira.db import connect
 
@@ -103,6 +131,60 @@ def main() -> None:
             if outcome.report_id:
                 print(f"report: {REPORTS_DIR / str(ctx.analysis_run_id)}")
             print(_table(usage_by_role(conn, ctx.analysis_run_id)))
+        elif args.command in ('prepare', 'configure-schedule'):
+            import json
+            from datetime import datetime
+            from uuid import uuid4
+            from mira.preparation_store import PreparationStore
+            from mira.runner import workspace_id, dev_user_id
+            config = json.loads(args.configuration.read_text())
+            required = {'source_ids', 'brief', 'budget', 'models', 'settings'}
+            if set(config) != required:
+                raise ValueError('Configuration must contain source_ids, brief, budget, models and settings')
+            store = PreparationStore(conn)
+            workspace, actor = workspace_id(conn, workspace_slug()), dev_user_id(conn)
+            if args.command == 'prepare':
+                result = store.enqueue_job(workspace, actor, **config, idempotency_key=str(uuid4()))
+            else:
+                next_due = datetime.fromisoformat(args.next_due)
+                if next_due.tzinfo is None or args.frequency_seconds <= 0:
+                    raise ValueError('A positive frequency and timezone-aware next due are required')
+                result = store.configure_schedule(workspace, actor, **config,
+                    frequency_seconds=args.frequency_seconds, next_due=next_due, enabled=args.enable)
+            print(result)
+        elif args.command == 'preparation-worker':
+            from uuid import uuid4
+            from mira.preparation_runtime import run_claimed_job
+            from mira.preparation_store import PreparationStore
+            from mira.runner import workspace_id
+            if os.environ.get('MIRA_ENABLE_SCHEDULED_PREPARATION')!='1':
+                raise SystemExit('Scheduled preparation is disabled')
+            if args.poll_seconds <= 0:
+                raise ValueError('poll interval must be positive')
+            workspace, owner = workspace_id(conn,workspace_slug()), uuid4()
+            store = PreparationStore(conn)
+            while True:
+                store.tick_schedules(workspace)
+                job = store.claim_job(workspace, owner)
+                if job:
+                    print(f"preparation {job['id']}: {run_claimed_job(conn, dsn, store, job)}")
+                if args.once:
+                    break
+                time.sleep(args.poll_seconds)
+        elif args.command == 'prepared-report-worker':
+            from mira.runner import workspace_id
+            from mira.prepared_reporting import execute_prepared_request
+            if args.poll_seconds<=0:raise ValueError('poll interval must be positive')
+            workspace=workspace_id(conn,workspace_slug())
+            while True:
+                try:
+                    outcome=execute_prepared_request(conn,dsn,workspace_id=workspace)
+                    if outcome.get('status') not in ('idle','waiting'):print(f"report request: {outcome}")
+                except Exception as exc:
+                    if args.once:raise
+                    print(f"Prepared report worker error: {type(exc).__name__}")
+                if args.once:break
+                time.sleep(args.poll_seconds)
         elif args.command == "worker":
             from mira.pg_store import claim_next_run
             from mira.runner import execute_run, workspace_id
@@ -117,6 +199,12 @@ def main() -> None:
                         print(f"rendered reviewed report {report_id}")
                 except Exception as exc:  # one bad sign-off must not stop the worker or other sign-offs
                     print(f"render failed with {type(exc).__name__}: {exc}")
+                if os.environ.get('MIRA_ARTIFACT_STORAGE','local')!='local':
+                    from mira.artifact_jobs import retry_publications
+                    try:
+                        retry_publications(conn,workspace)
+                    except Exception as exc:
+                        print(f"artifact publication retry failed: {type(exc).__name__}")
                 run_id = claim_next_run(conn, workspace)
                 if run_id:
                     print(f"running {run_id}")

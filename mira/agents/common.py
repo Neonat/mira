@@ -40,6 +40,12 @@ def quote_passage(label: str, passage: PassageRecord) -> str:
         "url": passage.source_url,
         "published": passage.published_at.isoformat() if passage.published_at else "unknown",
     }
+    from mira.claim_grounding import grounding
+    basis = grounding(passage)
+    if basis:
+        attributes["date_scope"] = basis.get("date_scope", "unknown")
+        attributes["evidence_role"] = basis.get("role", "unknown")
+        attributes["date_basis"] = basis.get("date_basis") or "unknown"
     header = " ".join(f"{key}={json.dumps(value)}" for key, value in attributes.items())
     body = re.sub(r"</(passage)", r"<\\/\1", passage.content, flags=re.IGNORECASE)
     return f"<passage {header}>\n{body}\n</passage>"

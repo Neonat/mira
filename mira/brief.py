@@ -12,9 +12,10 @@ from typing import get_args
 
 from mira.budget import RunBudget
 from mira.contracts import Brief, Topic
+from mira.research_settings import ResearchSettings
 
 MVP_TOPICS: tuple[str, ...] = get_args(Topic)
-MVP_JURISDICTIONS: tuple[str, ...] = ("SG", "HK")
+MVP_JURISDICTIONS: tuple[str, ...] = ("SG", "HK", "AU", "AE")
 
 
 def check_brief_scope(brief: Brief) -> None:
@@ -42,9 +43,9 @@ def project_revision_fields(brief: Brief, change_reason: str) -> dict[str, objec
     }
 
 
-def analysis_run_fields(brief: Brief, budget: RunBudget, models: Mapping[str, str]) -> dict[str, object]:
+def analysis_run_fields(brief: Brief, budget: RunBudget, models: Mapping[str, str], *, settings: ResearchSettings | None = None) -> dict[str, object]:
     """Columns for public.analysis_runs that pin the brief and settings for this run."""
-    return {
+    values = {
         "query_mode": "current",
         "as_of_date": brief.as_of_date,
         "resolved_markets": list(brief.jurisdictions),
@@ -52,6 +53,9 @@ def analysis_run_fields(brief: Brief, budget: RunBudget, models: Mapping[str, st
         "model_settings": dict(models),
         "retrieval_settings": {"plan_requires_approval": brief.plan_requires_approval},
     }
+    if settings is not None:
+        values['retrieval_settings']['research'] = settings.as_dict()
+    return values
 
 
 def brief_from_rows(revision: Mapping[str, object], run: Mapping[str, object]) -> Brief:

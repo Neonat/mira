@@ -62,15 +62,27 @@ def test_database_filters_before_limit_and_reuses_content_bound_cache(monkeypatc
         first = retriever.retrieve(conn,ctx,task,remaining_tokens=20000,remaining_seconds=10)
         assert {p.content for p in first.passages} == {'eligible', 'manual eligible'}
         second = retriever.retrieve(conn,ctx,task,remaining_tokens=20000,remaining_seconds=10)
-        assert set(embedder.calls[0]) == {'eligible', 'manual eligible'}
-        assert embedder.calls[1] == ['eligible']
+        assert embedder.calls[0] == ['eligible']  # query first, separately budgeted
+        assert set(embedder.calls[1]) == {'eligible', 'manual eligible'}
+        assert embedder.calls[2] == ['eligible']
         assert second.tokens == 1
+        # Shared generation admission can refuse before any embedding request.
+        # The archive result must not report this as attempted provider work.
+        from mira.generation import GenerationBudget,GenerationEmbedder
+        refused=HybridRetriever(GenerationEmbedder(embedder,GenerationBudget(10,1500)),
+                                EmbeddingIdentity('fixture','1'),HybridLimits())
+        before=len(embedder.calls)
+        declined=refused.retrieve(conn,ctx,task,remaining_tokens=20000,remaining_seconds=10)
+        assert len(embedder.calls)==before
+        assert (declined.tokens,declined.reserved_tokens,declined.embedding_requests,
+                declined.input_bytes,declined.input_characters)==(0,0,0,0,0)
+        assert {p.content for p in declined.passages}=={'eligible','manual eligible'}
         from mira.db import acting_as
         with pytest.raises(psycopg.Error), acting_as(conn,user_id):
             conn.execute("update public.hybrid_passage_vectors set content_sha256=%s where workspace_id=%s", ('b'*64, ws))
         revised = HybridRetriever(embedder, EmbeddingIdentity('fixture','2'), HybridLimits(max_index_passages=2))
         revised.retrieve(conn,ctx,task,remaining_tokens=20000,remaining_seconds=10)
-        assert len(embedder.calls[-1]) == 3
+        assert len(embedder.calls[-1]) == 2
         assert conn.execute("select count(*) as n from public.audit_events where workspace_id=%s and entity_type='hybrid_passage_vectors' and actor_id=%s",(ws,user_id)).fetchone()['n'] == 4
         international = source(ws,ops,True,None)
         document(ws,international,[(1,'2020-01-01','international eligible')])
@@ -78,13 +90,13 @@ def test_database_filters_before_limit_and_reuses_content_bound_cache(monkeypatc
         international_result = retriever.retrieve(conn,ctx,intl_task,remaining_tokens=20000,remaining_seconds=10)
         assert [p.content for p in international_result.passages] == ['international eligible']
         import time
-        from mira.pg_store import PostgresStore
-        original_get = PostgresStore.get_passages
-        def slow_get(self, *args):
+        from mira import hybrid_archive
+        original_counts = hybrid_archive.counts
+        def slow_counts(*args):
             time.sleep(0.1)
-            return original_get(self, *args)
+            return original_counts(*args)
         with monkeypatch.context() as patch:
-            patch.setattr(PostgresStore, 'get_passages', slow_get)
+            patch.setattr(hybrid_archive, 'counts', slow_counts)
             retriever.retrieve(conn,ctx,intl_task,remaining_tokens=20000,remaining_seconds=0.5)
         assert 0 < embedder.timeouts[-1] < 0.45
         with pytest.raises(psycopg.errors.QueryCanceled), conn.transaction():
@@ -125,7 +137,7 @@ def test_database_filters_before_limit_and_reuses_content_bound_cache(monkeypatc
         run.conn, run.ctx, run.task = conn, ctx, task
         run.store = PostgresStore(conn)
         run.visits, run.hybrid_diagnostics = [], None
-        run.tokens_in = run.tokens_out = run.hybrid_tokens = run.hybrid_reserved_tokens = 0
+        run.tokens_in = run.tokens_out = run.hybrid_tokens = run.hybrid_reserved_tokens = run.generation_reserved_tokens = 0
         run._started = 0
         contents = {p.content for p in run._passages()}
         assert contents == {'eligible', 'excluded', 'manual eligible'}

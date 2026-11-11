@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "date_singapore": "2026-11-10",
+  "package": "reports/au-ae-clean-20261110/Mira_Australia_UAE_Live_Reports_2026-11-10.zip",
+  "package_sha256": "7e70767c0e1064a20c932df5304a2a6207db5329d11948383e9d814927dc29ea",
+  "package_bytes": 484908,
+  "members": {
+    "Australia_UAE_Validation.html": {
+      "sha256": "8b114e5f2b01a4c8e6d08fa915d5b2936475248df5506388a68351fe20b46910",
+      "bytes": 17580
+    },
+    "Australia_UAE_Validation.pdf": {
+      "sha256": "da1b239ebda218c08470551ac2c493987fc2d18f24e719879a86455489275942",
+      "bytes": 256039,
+      "pages": 6
+    },
+    "Mira_Australia_UAE_Research_Draft.pdf": {
+      "sha256": "4a5b758e8cb445de3c226f5d3f7d2aa1f246340a4e5ca926abdb7f34322d07ac",
+      "bytes": 482429,
+      "pages": 8
+    },
+    "Validation_Metadata.json": {
+      "sha256": "c34df48ad1176a2db45097c4c0322dea96b6a525616707984a86b2ba385dc7d7",
+      "bytes": 18784
+    },
+    "Mira_Australia_UAE_Research_Draft.html": {
+      "sha256": "a1f0a35a845a893e0098089d85e62cc19ea1f24cdb8146bc34c89196c3e6f826",
+      "bytes": 34618
+    },
+    "README.txt": {
+      "sha256": "370cb8f1737f81f215cc6781106aa67d5b82b1399301f906c0ad95c2b4a882fb",
+      "bytes": 2629
+    },
+    "SHA256SUMS.txt": {
+      "sha256": "60ca5dfe4df581ff5f0f1977201ae35b8843f911d2a4333642c50af629197823",
+      "bytes": 568
+    }
+  },
+  "private_artifact_sha256": {
+    "pr13-conflict-check-after-run.json": "eaba7a7ba4036c5102de34240ca65ae7ed89e53176f5a169b45907ae71b9fe9c",
+    "audit.py": "d33a34f22d58df7d6e9cbbee96ba4c5d0082a628e3eafc3af8b909dab62b87ae",
+    "generation-ledger.json": "62cd1a29a53dbf1397328417e6982b79d0f6a2206543594306507056a1498297",
+    "process.log": "43450276c1667b8eb172e6de9a43cd8ffaa6e167f6cccaa1c3284bfa76263579",
+    "supervisor.py": "72a298aa0954d5c252e216e981e0641b26e7d8fd8ac9caba0545ff26f31905d9",
+    "process-exit.json": "2b7f0999c2694ace9228954c5be650835c3097bb9d4249870591999d48841e5e",
+    "search-calls.json": "957751b3c6785dc106ef9e64824f5ca29368f45303f0aa0eb9c7e068569a6b35",
+    "live-harness.py": "7708a138412babe8abc6cc3af1e03704770e028229df4da78b0bbdee68cfeef2",
+    "report-snapshot.json": "b1864b013ba44e9826a0487f5e05d289ba6ae89793998e3f606fa7bdd51e21d6",
+    "live-manifest.json": "77d157cbde485a76ffd0dd47ce927fad3b0b2edc5e2eae4edca7b0bbbade0fd4",
+    "focused-checks.json": "05cb1a28f1dd6b2c9451a6274d2d0ac19873b4a391121f0ce2fdbe3428bf1749",
+    "embedding-calls.json": "a478c427a28096cdf1703c4f11ac45f37d5743a72659bf12424f9f0646d93f39",
+    "live-outcome.json": "3aeccb91c9b195ea244da2a29b8285216d7431cc4d0172ba49d2ec0195f82563",
+    "database-container-before.json": "af00a47a0b7889c6271eb73dc2790b9e7ed9011e57eee394d159638aa9c001fa",
+    "database-health.json": "79ef3bf8298136a100a6b32bd2484b1804ba69041bc9951298994a551d392157",
+    "supervisor.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "database-audit.json": "9235e183e05accde049dbb4c0c5080be4c70432f12a9419bd5081d4874046d85",
+    "supervisor-start.json": "61e3d66d4f95e54ebff0faeebd8cdc5147ab799065642fa0f7fb77771f0c1f87",
+    "database-container-after.json": "02c7bb2b0220053e5faba11df8d62013d7c98c65d8429a91d29a638da1306fff"
+  },
+  "original_html_preserved": true,
+  "pdf_presentation_only_change": "Reference header abbreviated to Ref.; source facts/citations/outcomes unchanged.",
+  "layout_verification": "All14 final PDF pages rendered and visually checked in contact sheets; detailed timeline/coverage/corroboration and validation pages inspected. Final research header abbreviation rerendered across all pages. Text/link checks and ZIP CRC passed.",
+  "no_paid_resume_or_replacement": true
+}

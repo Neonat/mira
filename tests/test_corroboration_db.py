@@ -16,7 +16,7 @@ from test_evidence_integrity_db import sign_off, reverify_current_inputs
 pytestmark = pytest.mark.skipif(not DSN, reason='MIRA_TEST_DATABASE_URL not set')
 
 
-def saved_assessment(conn, ctx, tmp_path):
+def saved_assessment(conn, ctx, tmp_path, **service_options):
     from mira.corroboration import CorroborationService
     from mira.corroboration_store import CorroborationStore
     from mira.budget import BudgetTracker
@@ -27,11 +27,24 @@ def saved_assessment(conn, ctx, tmp_path):
     store = PostgresStore(conn, reports_dir=tmp_path)
     passages = {p.id: p for p in store.get_passages(ctx.workspace_id, [e.passage_id for e in fact.evidence])}
     base = build_verification_input(ctx, fact, claims, passages).model_dump(mode='json')
-    result = CorroborationService().assess(ctx=ctx, claim=fact, base_evidence_input=base,
+    result = CorroborationService(**service_options).assess(ctx=ctx, claim=fact, base_evidence_input=base,
         saved_candidates=[], sources=store.list_sources(ctx.workspace_id), budget=BudgetTracker(ctx.budget),
         authoritative_primary=True)
     ledger = CorroborationStore(conn)
     return ledger, fact, base, ledger.save(ctx, fact, base, result.model_dump(mode='json'))
+
+
+def test_corroboration_save_caps_worker_clock_ahead_of_postgres(conn, workspace, tmp_path):
+    from datetime import datetime, timedelta
+
+    ctx, _ = run_hk(conn, workspace, tmp_path, analyst)
+    server_time = conn.execute('select clock_timestamp() as t').fetchone()['t']
+    _, _, _, saved = saved_assessment(conn, ctx, tmp_path, now=lambda: server_time + timedelta(minutes=1))
+    row = conn.execute('select result,created_at from public.corroboration_assessments where id=%s',
+                       (saved['assessment_id'],)).fetchone()
+    checked_at = datetime.fromisoformat(row['result']['checked_at'])
+    assert server_time <= checked_at <= row['created_at']
+    assert saved['assessment'] == row['result']
 
 
 def test_append_only_and_workspace_read_isolation(conn, workspace, tmp_path):

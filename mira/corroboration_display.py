@@ -42,9 +42,15 @@ def provenance_html(passage):
     browser=provenance.get('browser_context')
     import json
     context=('<dt>Browser context</dt><dd><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+escape(json.dumps(browser,ensure_ascii=False,indent=2))+'</pre></dd>') if browser else ''
+    reuse=provenance.get('source_reuse') or {}
+    reuse_html=''
+    if isinstance(reuse,dict) and isinstance(reuse.get('notice'),str):
+        links=' '.join(_link(reuse[k],label) for k,label in (('reference','Source terms'),('licence','Licence'))
+                       if isinstance(reuse.get(k),str))
+        reuse_html=f'<p class="source-reuse">{escape(reuse["notice"])} {links}</p>'
     return '<details><summary>Capture and extraction provenance</summary><dl>'+''.join(
         f'<dt>{escape(key)}</dt><dd>{escape(str(value) if value is not None else "unknown")}</dd>'
-        for key,value in items.items())+context+'</dl></details>'
+        for key,value in items.items())+context+'</dl></details>'+reuse_html
 
 
 def assessment_html(envelope, *, title=None):

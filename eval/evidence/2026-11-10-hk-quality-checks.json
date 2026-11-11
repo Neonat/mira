@@ -1,0 +1,61 @@
+{
+  "kind": "offline_hk_quality_and_latency_checks",
+  "base_sha": "cece3939941c0b7b016e88f0d066a4655639e2e6",
+  "final_integrated_suite": {
+    "command": "python -m pytest tests eval -q -p no:cacheprovider",
+    "passed": 1360,
+    "subtests_passed": 8,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 78.0,
+    "local_postgresql": true,
+    "actual_chromium": true
+  },
+  "first_integrated_suite": {
+    "passed": 1285,
+    "failed": 34,
+    "errors": 16,
+    "subtests_passed": 8,
+    "resolution": "Updated scripted inference fixtures to exercise actual premise labels, exact quotations and retained source context; retained original sign-off/security assertions. Preserved explicit manual import publication-date provenance. All affected modules and final integrated suite pass."
+  },
+  "reviews": {
+    "quality": "Reproduced historical-effective-date and related-link classification blockers fixed and independently rechecked.",
+    "concurrency": "Saved-candidate eligibility fallback and truthful discovery stop reasons fixed and rechecked; cancellation drainage and shared admission reviewed."
+  },
+  "paid_calls_in_implementation_checks": 0,
+  "restrictions": {
+    "MAS": "disabled",
+    "Malaysia_DFSA": "disabled",
+    "hybrid": "experimental",
+    "role_models": "unchanged",
+    "source_grants": "unchanged",
+    "remote_migration_or_deployment": false
+  },
+  "limitations": [
+    "Scripted guards and concurrency controls do not establish live semantic accuracy or throughput.",
+    "Conservative vocabulary grounding may reject supported paraphrases.",
+    "One separately authorized USD10 Hong Kong observation follows offline acceptance; no paid replacement run."
+  ],
+  "before_live_integrated_suite": {
+    "command": "python -m pytest tests eval -q -p no:cacheprovider",
+    "passed": 1353,
+    "subtests_passed": 8,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 75.32,
+    "local_postgresql": true,
+    "actual_chromium": true
+  },
+  "post_run_corrections": {
+    "paid_calls": 0,
+    "live_validated": false,
+    "changes": [
+      "Restore 3 passages/4500 content characters while retaining priority and four lanes",
+      "Minimum useful analysis window120 seconds, clamped to explicit shorter request timeout;180 seconds protected for verification/writer",
+      "Native automatic selection requires subject overlap; publisher/document-kind words and years alone cannot qualify"
+    ],
+    "focused_review": "No blockers; lexical relevance and live throughput remain unvalidated."
+  }
+}

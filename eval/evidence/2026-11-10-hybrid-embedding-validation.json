@@ -1,0 +1,133 @@
+{
+  "kind": "controlled_live_embedding_validation",
+  "started_at": "2026-11-09T16:08:43.893469+00:00",
+  "model": "text-embedding-3-small",
+  "cache_revision": "mira-te3-small-384-v1",
+  "dimensions": 384,
+  "caps": {
+    "provider_requests": 2,
+    "actual_plus_unknown_tokens": 8000,
+    "input_bytes": 6000,
+    "seconds": 90
+  },
+  "configured_limits": {
+    "max_index_passages": 40,
+    "max_characters": 60000,
+    "max_tokens": 20000,
+    "timeout_seconds": 20,
+    "result_limit": 20
+  },
+  "validation_limits": {
+    "max_index_passages": 4,
+    "max_characters": 4000,
+    "max_tokens": 4000,
+    "timeout_seconds": 20,
+    "result_limit": 1
+  },
+  "calls": [
+    {
+      "text_count": 5,
+      "input_bytes": 249,
+      "text_sha256": [
+        "b122d05000c3fb9d0e0fc16711ed6a2fb5cfe935a3ca35e916f41268df09344f",
+        "60e0885628a9701278875391d71458e465cc741a62b9b693c69fb63bf60e51b2",
+        "3286a2434464965be1418d727190a387a243852c66b7e84ad6d3c251def01033",
+        "5c76ced3d4df741935ce0d846a3f75a71fb34bb3b04cc128aa53a48f8703069b",
+        "b1b1defba0610e8d9f4516a81aed7e6c8189310768c57410299a6869599e2c85"
+      ],
+      "status": "completed",
+      "actual_tokens": 42,
+      "dimensions": [
+        384,
+        384,
+        384,
+        384,
+        384
+      ],
+      "seconds": 2.339
+    },
+    {
+      "text_count": 1,
+      "input_bytes": 20,
+      "text_sha256": [
+        "b122d05000c3fb9d0e0fc16711ed6a2fb5cfe935a3ca35e916f41268df09344f"
+      ],
+      "status": "completed",
+      "actual_tokens": 3,
+      "dimensions": [
+        384
+      ],
+      "seconds": 1.252
+    }
+  ],
+  "mas": {
+    "active": false,
+    "provider_inputs": 0,
+    "fetches": 0
+  },
+  "research_run_executed": false,
+  "exa_calls": 0,
+  "browser_calls": 0,
+  "publisher_requests": 0,
+  "role_model_calls": 0,
+  "database_fixture_rolled_back": true,
+  "status": "passed",
+  "lexical_matches": 0,
+  "semantic_top1_correct": true,
+  "cached_passage_vectors": 4,
+  "cold_request_texts": 5,
+  "warm_request_texts": 1,
+  "scout_repeated_selection_no_extra_request": true,
+  "scout_charged_embedding_tokens": 3,
+  "scout_remaining_tokens": 19997,
+  "excluded_controls": [
+    "inactive MAS",
+    "wrong workspace",
+    "future version",
+    "superseded version",
+    "missing embed permission"
+  ],
+  "mas_probe_no_request": true,
+  "cache_metadata_verified": true,
+  "actual_plus_unknown_tokens": 45,
+  "input_bytes": 269,
+  "seconds": 3.719,
+  "source_sha": "39a5fae5004015f58a1a6e51ae124257068896f2",
+  "runtime_changes": false,
+  "local_configuration": {
+    "enabled": true,
+    "model": "text-embedding-3-small",
+    "dimensions": 384,
+    "cache_revision": "mira-te3-small-384-v1",
+    "revision_kind": "application-managed cache generation, not an immutable provider model snapshot",
+    "environment_files_updated": 2,
+    "role_model_settings_unchanged": true,
+    "source_grants_unchanged": true,
+    "private_storage_backend_unchanged": true,
+    "worker_started": false
+  },
+  "validation_scope": "Controlled synthetic passages through the configured factory, actual isolated embedding SDK requests, PostgreSQL cache and scout retrieval/accounting; no Hong Kong end-to-end research.",
+  "limitations": [
+    "Default40-passage eligible pool bound remains; larger pools use recorded lexical fallback.",
+    "No full-corpus backfill, live publication-recall gain, human precision result or hosted deployment is established.",
+    "Fixture cache rows are visible to warm retrieval within the validation transaction and rolled back on exit; no historical evidence was changed."
+  ],
+  "evidence_directory": "reports/hybrid-validation-20261110",
+  "evidence_sha256": {
+    "validate.py": "930b25a4c03254d7c02d31870d831524a5135676350cd1336cb7f3b2f20ec33a",
+    "result.json": "9b970fdfe015a7a43b89f32aad00181265f18618c9e6ca14b6d1bd96b67adeb4",
+    "execution.lock": "1c5029c1111d81575ec60330d1971e381bd0e2f5c913323321e7d07f94d64e0c",
+    "full-suite-result.json": "de1ea279309f6525308ab7516ba9bb8f5b695dc56c99e519df952c64f24be7cc",
+    "full-suite-pytest.log": "b031bbd83c3fb5f47b4e3f2dec8e26096e5176f0a64df9cec9c3d640b31b4021"
+  },
+  "verification": {
+    "focused_tests": 16,
+    "full_tests": 939,
+    "subtests": 8,
+    "skipped": 0,
+    "pytest_seconds": 72.35,
+    "wrapper_seconds": 73.53,
+    "full_suite_runs": 1,
+    "full_suite_api_opt_ins": false
+  }
+}

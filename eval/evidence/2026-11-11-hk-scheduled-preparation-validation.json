@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "kind": "single_live_scheduled_preparation_validation",
+  "run_id": "52f87456-6b22-49d6-81f2-4ffc6565a8ef",
+  "tested_commit": "e414ded93c8c51a827cdbdd6c6700192a524a2dd",
+  "baseline_run_id": "489c2889-40f0-4ba9-b87c-5e592bbbabfa",
+  "preparation_brief": {
+    "topic": "AML/CFT",
+    "as_of_date": "2026-11-11",
+    "period_end": "2026-11-04",
+    "period_start": "2025-11-04",
+    "jurisdictions": [
+      "HK"
+    ],
+    "plan_requires_approval": false
+  },
+  "report_brief": {
+    "topic": "AML/CFT",
+    "jurisdictions": [
+      "HK"
+    ],
+    "period_start": "2025-11-04",
+    "period_end": "2026-11-04",
+    "as_of_date": "2026-11-04",
+    "plan_requires_approval": false
+  },
+  "limits": {
+    "max_fetched_documents": 30,
+    "max_llm_tokens": 600000,
+    "max_run_minutes": 25,
+    "max_gap_rounds": 2,
+    "max_cost_usd": "10",
+    "max_exa_searches": 6
+  },
+  "scope": [
+    "hk-elegislation",
+    "hkma",
+    "sfc"
+  ],
+  "preparation_status": "partial",
+  "preparation_seconds": 105.03799387486652,
+  "initial_request_status": "waiting",
+  "report_status": "failed",
+  "report_seconds": null,
+  "report_reason": "No eligible machine-supported evidence for this request; preparation or review is needed",
+  "counts": {
+    "analysis_runs": 1,
+    "preparation_jobs": 1,
+    "prepared_snapshots": 1,
+    "prepared_reports": 0,
+    "analysis_findings": 0,
+    "document_passages": 0,
+    "corroboration_assessments": 0
+  },
+  "acquired_benchmark": {
+    "found": 0,
+    "total": 18
+  },
+  "cited_benchmark": null,
+  "baseline_acquired_benchmark": {
+    "found": 5,
+    "total": 18
+  },
+  "baseline_cited_benchmark": {
+    "found": 1,
+    "total": 18
+  },
+  "baseline_model_supported_facts": 2,
+  "scout_attempts": 16,
+  "scout_failures": 16,
+  "root_cause": "Frontier query bound ScoutTask source tuple as a PostgreSQL record instead of uuid array",
+  "model_calls_completed": 3,
+  "exa_calls_started": 0,
+  "browser_attempts": 0,
+  "usage_usd": {
+    "known_estimated_usd": "0.131996",
+    "unknown_reserved_usd": "0.000000",
+    "pending_usd": "0.000000",
+    "allowance_used_usd": "0.131996"
+  },
+  "tokens": {
+    "known_tokens": 11073,
+    "unknown_reserved_tokens": 0,
+    "pending_tokens": 0,
+    "allowance_used": 11073
+  },
+  "cleanup": {
+    "enabled_schedules": 0,
+    "mas_active": false,
+    "temporary_hkma_browser_grant_removed": true
+  },
+  "separate_provider_free_layout_check": {
+    "body_facts_preserved": 20,
+    "matching_quotes": 20,
+    "explicit_deadline": "2026-12-15",
+    "viewport_widths": [
+      320,
+      390,
+      1440
+    ]
+  },
+  "scope_differences": [
+    "25-minute scheduled preparation vs prior 10-minute end-to-end run",
+    "Prepared scope limited to approved text-storage and citation sources",
+    "Preparation as-of advanced to current UTC date; report and scoring use prior brief"
+  ],
+  "live_resume_or_replacement": false
+}

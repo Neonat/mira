@@ -43,6 +43,7 @@ class HybridLimits:
     max_tokens: int = 20000
     timeout_seconds: float = 20
     result_limit: int = 20
+    max_index_batches: int = 4
 
 
 @dataclass(frozen=True)
@@ -55,9 +56,10 @@ class HybridResult:
 
 
 class EmbeddingError(Exception):
-    def __init__(self, message: str, reserved_tokens: int = 0, *, tokens: int | None = None):
+    def __init__(self, message: str, reserved_tokens: int = 0, *, tokens: int | None = None, request_sent: bool | None = None):
         super().__init__(message)
         self.tokens = tokens
+        self.request_sent = request_sent
         self.reserved_tokens = reserved_tokens if tokens is None else 0
 
 

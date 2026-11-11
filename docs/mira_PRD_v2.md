@@ -1,3 +1,5 @@
+> **Current console addendum, 10 November 2026:** temporary per-request BYOK, USD admission, source/date/method/depth controls and measured country-method results are specified in [current PRD v3](mira_PRD_v3_draft.md). Product users remain audit analysts and senior reviewers; this dated baseline retains its historical requirements and evidence.
+
 # Mira Product Requirements v2
 
 > **Evidence-completeness addendum, 8 November 2026:** the user-approved passage coverage/batch analysis, permitted originals/page navigation and opt-in hybrid retrieval are documented in current PRD v3. This historical baseline keeps its original requirements and measurements. Intended product users remain internal-audit analysts and senior reviewers.

@@ -1,0 +1,1143 @@
+{
+  "live_result": {
+    "kind": "live_archive_embedding_validation",
+    "started_at": "2026-11-09T16:59:05.534014+00:00",
+    "model": "text-embedding-3-small",
+    "dimensions": 384,
+    "cache_revision": "mira-te3-small-384-v1",
+    "frozen_queries_sha256": "3323d3709f5a09c0f5293832eb02ee2bbb711fec693520d1254c53e9b9b4cf48",
+    "limits": {
+      "requests": 20,
+      "actual_plus_unknown_tokens": 50000,
+      "input_bytes": 200000,
+      "seconds": 300
+    },
+    "acquisition_calls": 0,
+    "generative_role_calls": 0,
+    "mas_enabled": false,
+    "saved": {
+      "workspace_id": "78c61096-1753-4c05-9435-21050db1404f",
+      "eligible": 153,
+      "indexed": 153,
+      "pending": 0,
+      "index_tokens": 29443,
+      "index_batches": 5,
+      "mas_active": false,
+      "mas_vectors": 0,
+      "corpus_id": "751f8751b90897f8d3984a44289170e25f7b4228d259b7456335e87a3bdedcc0",
+      "comparison_file": "saved-comparison.json",
+      "timings": [
+        {
+          "query": "aml-01",
+          "lexical_seconds": 0.0109,
+          "hybrid_seconds": 0.8636,
+          "embedding_tokens": 12
+        },
+        {
+          "query": "aml-02",
+          "lexical_seconds": 0.0086,
+          "hybrid_seconds": 0.796,
+          "embedding_tokens": 10
+        },
+        {
+          "query": "aml-03",
+          "lexical_seconds": 0.0078,
+          "hybrid_seconds": 0.7866,
+          "embedding_tokens": 8
+        },
+        {
+          "query": "aml-04",
+          "lexical_seconds": 0.0072,
+          "hybrid_seconds": 0.8181,
+          "embedding_tokens": 13
+        },
+        {
+          "query": "aml-05",
+          "lexical_seconds": 0.0085,
+          "hybrid_seconds": 0.8202,
+          "embedding_tokens": 11
+        },
+        {
+          "query": "aml-06",
+          "lexical_seconds": 0.0083,
+          "hybrid_seconds": 0.7937,
+          "embedding_tokens": 14
+        }
+      ]
+    },
+    "controlled": {
+      "passages": 47,
+      "indexed": 47,
+      "index_batches": 2,
+      "index_tokens": 428,
+      "timings": [
+        {
+          "query": "synonym",
+          "lexical_seconds": 0.0065,
+          "hybrid_seconds": 1.0604,
+          "embedding_tokens": 2
+        },
+        {
+          "query": "identifier",
+          "lexical_seconds": 0.0067,
+          "hybrid_seconds": 0.9781,
+          "embedding_tokens": 3
+        },
+        {
+          "query": "no-answer",
+          "lexical_seconds": 0.008,
+          "hybrid_seconds": 0.8854,
+          "embedding_tokens": 5
+        }
+      ],
+      "rolled_back": true
+    },
+    "status": "passed",
+    "seconds": 16.797,
+    "requests": 16,
+    "actual_plus_unknown_tokens": 29949,
+    "input_bytes": 137040
+  },
+  "tested_runtime_commit": "eb83d0eb164c5b2b992cf371d45658b570e3df11",
+  "source_note": "Live validation executed on the identical runtime working tree immediately before this implementation commit; final regression proof is recorded separately.",
+  "runtime_sha256": {
+    "mira/hybrid_archive.py": "be96337051caa8fe45a0550e38607149945cf98fa1c9b23e3aef36de4aaa3abd",
+    "mira/hybrid_runtime.py": "78a06b6fec69ab88be627f301cc80b445633b6825bb4218399393391de71e2d6",
+    "mira/hybrid.py": "53b27a48fb3eed781f710107e7fda03b719fc6f2e072624dc1c7ff353247eefb",
+    "mira/hybrid_index.py": "643b5717d681142ecafb4c4b19649b06da837d19030464b64eaac2f9010b8770",
+    "mira/runner.py": "73632304d1a577b3bfe60479547eb467e34f5c08de05dd693c15a63d322d3986",
+    "mira/agents/scout.py": "2d8d5fbd3022c2f19fc5061854dea06b9ba2f72ca6476c02632e6ee961603ce2"
+  },
+  "saved_comparison": {
+    "schema_version": 1,
+    "kind": "saved_archive",
+    "k": 10,
+    "interpretation": "descriptive_only_no_usefulness_winner",
+    "comparison_identity": {
+      "scope": {
+        "workspace_id": "78c61096-1753-4c05-9435-21050db1404f",
+        "jurisdiction": "HK",
+        "as_of": "2026-11-04",
+        "source_set_sha256": "55b8e3ca42563d2c39e9e2ca96daf7826d57ce3e91eb7690945bae1bfc4a9c29",
+        "mas_enabled": false
+      },
+      "corpus_id": "751f8751b90897f8d3984a44289170e25f7b4228d259b7456335e87a3bdedcc0",
+      "index_id": "62b6d659b59bb820f7386b0cea30a1ed3f48681353b921b9f1feaa5ad52763e0"
+    },
+    "queries": [
+      {
+        "id": "aml-01",
+        "text": "What checks identify the people who ultimately control a corporate customer?",
+        "label_provenance": null,
+        "denominators": {
+          "precision": 10,
+          "recall": null,
+          "mrr_and_hit": null
+        },
+        "lexical": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "hybrid": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "rankings": {
+          "lexical": [
+            "0cb23ed5-ae0a-45c9-90d1-6858c3e2227a",
+            "acec2cc4-7ab6-467a-8a06-ffbedff7f00b",
+            "bd80263b-efc2-4934-a98c-17d81904b445",
+            "bfb37869-6f72-45e4-bc65-6225de40b65b",
+            "1a3c0f8e-66ea-4d66-9caf-a07b9f96b777",
+            "3e9be88f-7c76-453f-8f93-5f355fccd7c0",
+            "2f417ab1-c192-4740-974f-abe459d27b73",
+            "3a1c940d-af8b-4e68-97ed-4b3ad54c2a04",
+            "4bf00ee9-e867-4af1-97c0-f8eefe02022e",
+            "6b355410-5f8f-4be5-a1cd-fb3b5644129d"
+          ],
+          "hybrid": [
+            "acec2cc4-7ab6-467a-8a06-ffbedff7f00b",
+            "6b355410-5f8f-4be5-a1cd-fb3b5644129d",
+            "ecc44cf5-8837-4d63-b600-7c36e48432de",
+            "1a3c0f8e-66ea-4d66-9caf-a07b9f96b777",
+            "0cb23ed5-ae0a-45c9-90d1-6858c3e2227a",
+            "2f417ab1-c192-4740-974f-abe459d27b73",
+            "bef1fa25-14ed-4b35-b837-ead8326d920f",
+            "3d27c72f-937d-4825-9c9c-bf0a7f2d4841",
+            "329fa849-1e9c-4f59-bae1-22aaaa6201f6",
+            "6ff237e4-d70e-4443-a467-ed2e4b9edde2"
+          ]
+        },
+        "returned_counts": {
+          "lexical": 10,
+          "hybrid": 10
+        },
+        "overlap_count": 5,
+        "overlap_at_k": 0.5,
+        "jaccard": 0.3333333333333333,
+        "rank_movement": [
+          {
+            "passage_id": "acec2cc4-7ab6-467a-8a06-ffbedff7f00b",
+            "lexical_rank": 2,
+            "hybrid_rank": 1,
+            "improvement": 1
+          },
+          {
+            "passage_id": "6b355410-5f8f-4be5-a1cd-fb3b5644129d",
+            "lexical_rank": 10,
+            "hybrid_rank": 2,
+            "improvement": 8
+          },
+          {
+            "passage_id": "1a3c0f8e-66ea-4d66-9caf-a07b9f96b777",
+            "lexical_rank": 5,
+            "hybrid_rank": 4,
+            "improvement": 1
+          },
+          {
+            "passage_id": "0cb23ed5-ae0a-45c9-90d1-6858c3e2227a",
+            "lexical_rank": 1,
+            "hybrid_rank": 5,
+            "improvement": -4
+          },
+          {
+            "passage_id": "2f417ab1-c192-4740-974f-abe459d27b73",
+            "lexical_rank": 7,
+            "hybrid_rank": 6,
+            "improvement": 1
+          }
+        ],
+        "lexical_only": [
+          "bd80263b-efc2-4934-a98c-17d81904b445",
+          "bfb37869-6f72-45e4-bc65-6225de40b65b",
+          "3e9be88f-7c76-453f-8f93-5f355fccd7c0",
+          "3a1c940d-af8b-4e68-97ed-4b3ad54c2a04",
+          "4bf00ee9-e867-4af1-97c0-f8eefe02022e"
+        ],
+        "hybrid_only": [
+          "ecc44cf5-8837-4d63-b600-7c36e48432de",
+          "bef1fa25-14ed-4b35-b837-ead8326d920f",
+          "3d27c72f-937d-4825-9c9c-bf0a7f2d4841",
+          "329fa849-1e9c-4f59-bae1-22aaaa6201f6",
+          "6ff237e4-d70e-4443-a467-ed2e4b9edde2"
+        ]
+      },
+      {
+        "id": "aml-02",
+        "text": "Which platform is used to submit suspicious transaction reports?",
+        "label_provenance": null,
+        "denominators": {
+          "precision": 10,
+          "recall": null,
+          "mrr_and_hit": null
+        },
+        "lexical": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "hybrid": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "rankings": {
+          "lexical": [
+            "75a2ca04-7323-437f-929c-45c0bf947ccc",
+            "f4e90aff-cfa3-4c3e-8f03-4862fc8e2cbb",
+            "0a0fec4b-d866-4048-abb9-557e1aadd37b",
+            "9edfc6a8-b329-4481-8578-d5ed24ffe405",
+            "56ac65d2-96d2-4fc7-9d93-a6c7abec0883",
+            "b6e23b74-a6b9-4264-a628-dfb3c7db9049",
+            "0e980517-fc4c-43de-95d6-4e0f0cadb1e0",
+            "1c5ecded-5220-496f-a47b-e5e879e41348",
+            "90945830-abe0-4b4d-9f42-0dd8421956ae",
+            "a6fb6c26-8b97-4357-8ab7-9f8713adc37e"
+          ],
+          "hybrid": [
+            "75a2ca04-7323-437f-929c-45c0bf947ccc",
+            "f4e90aff-cfa3-4c3e-8f03-4862fc8e2cbb",
+            "0a0fec4b-d866-4048-abb9-557e1aadd37b",
+            "9edfc6a8-b329-4481-8578-d5ed24ffe405",
+            "b6e23b74-a6b9-4264-a628-dfb3c7db9049",
+            "56ac65d2-96d2-4fc7-9d93-a6c7abec0883",
+            "bef1fa25-14ed-4b35-b837-ead8326d920f",
+            "0e980517-fc4c-43de-95d6-4e0f0cadb1e0",
+            "45042e76-8955-4589-bf47-56504dffef58",
+            "2d212847-2d99-4bd3-ba57-9e3ec9aa0509"
+          ]
+        },
+        "returned_counts": {
+          "lexical": 10,
+          "hybrid": 10
+        },
+        "overlap_count": 7,
+        "overlap_at_k": 0.7,
+        "jaccard": 0.5384615384615384,
+        "rank_movement": [
+          {
+            "passage_id": "75a2ca04-7323-437f-929c-45c0bf947ccc",
+            "lexical_rank": 1,
+            "hybrid_rank": 1,
+            "improvement": 0
+          },
+          {
+            "passage_id": "f4e90aff-cfa3-4c3e-8f03-4862fc8e2cbb",
+            "lexical_rank": 2,
+            "hybrid_rank": 2,
+            "improvement": 0
+          },
+          {
+            "passage_id": "0a0fec4b-d866-4048-abb9-557e1aadd37b",
+            "lexical_rank": 3,
+            "hybrid_rank": 3,
+            "improvement": 0
+          },
+          {
+            "passage_id": "9edfc6a8-b329-4481-8578-d5ed24ffe405",
+            "lexical_rank": 4,
+            "hybrid_rank": 4,
+            "improvement": 0
+          },
+          {
+            "passage_id": "b6e23b74-a6b9-4264-a628-dfb3c7db9049",
+            "lexical_rank": 6,
+            "hybrid_rank": 5,
+            "improvement": 1
+          },
+          {
+            "passage_id": "56ac65d2-96d2-4fc7-9d93-a6c7abec0883",
+            "lexical_rank": 5,
+            "hybrid_rank": 6,
+            "improvement": -1
+          },
+          {
+            "passage_id": "0e980517-fc4c-43de-95d6-4e0f0cadb1e0",
+            "lexical_rank": 7,
+            "hybrid_rank": 8,
+            "improvement": -1
+          }
+        ],
+        "lexical_only": [
+          "1c5ecded-5220-496f-a47b-e5e879e41348",
+          "90945830-abe0-4b4d-9f42-0dd8421956ae",
+          "a6fb6c26-8b97-4357-8ab7-9f8713adc37e"
+        ],
+        "hybrid_only": [
+          "bef1fa25-14ed-4b35-b837-ead8326d920f",
+          "45042e76-8955-4589-bf47-56504dffef58",
+          "2d212847-2d99-4bd3-ba57-9e3ec9aa0509"
+        ]
+      },
+      {
+        "id": "aml-03",
+        "text": "sanctions screening customer names and transaction parties",
+        "label_provenance": null,
+        "denominators": {
+          "precision": 10,
+          "recall": null,
+          "mrr_and_hit": null
+        },
+        "lexical": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "hybrid": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "rankings": {
+          "lexical": [
+            "0a0fec4b-d866-4048-abb9-557e1aadd37b",
+            "9edfc6a8-b329-4481-8578-d5ed24ffe405",
+            "0cb23ed5-ae0a-45c9-90d1-6858c3e2227a",
+            "f4e90aff-cfa3-4c3e-8f03-4862fc8e2cbb",
+            "03801787-1faf-4598-95fc-d9e4faef98d4",
+            "acec2cc4-7ab6-467a-8a06-ffbedff7f00b",
+            "bef1fa25-14ed-4b35-b837-ead8326d920f",
+            "bfb37869-6f72-45e4-bc65-6225de40b65b",
+            "dd326598-87c2-4042-a824-dd64010d8941",
+            "4bf00ee9-e867-4af1-97c0-f8eefe02022e"
+          ],
+          "hybrid": [
+            "0a0fec4b-d866-4048-abb9-557e1aadd37b",
+            "dd326598-87c2-4042-a824-dd64010d8941",
+            "03801787-1faf-4598-95fc-d9e4faef98d4",
+            "7970cbce-49ed-4636-98da-3ea1839991bd",
+            "f648d39a-4057-410e-9d2a-8adacdb2ee1d",
+            "f7cb8194-cd77-454c-bcd6-8a28852afc43",
+            "acec2cc4-7ab6-467a-8a06-ffbedff7f00b",
+            "272bc578-ce5c-47f4-b36d-f224a8eda5ee",
+            "bfb37869-6f72-45e4-bc65-6225de40b65b",
+            "3d27c72f-937d-4825-9c9c-bf0a7f2d4841"
+          ]
+        },
+        "returned_counts": {
+          "lexical": 10,
+          "hybrid": 10
+        },
+        "overlap_count": 5,
+        "overlap_at_k": 0.5,
+        "jaccard": 0.3333333333333333,
+        "rank_movement": [
+          {
+            "passage_id": "0a0fec4b-d866-4048-abb9-557e1aadd37b",
+            "lexical_rank": 1,
+            "hybrid_rank": 1,
+            "improvement": 0
+          },
+          {
+            "passage_id": "dd326598-87c2-4042-a824-dd64010d8941",
+            "lexical_rank": 9,
+            "hybrid_rank": 2,
+            "improvement": 7
+          },
+          {
+            "passage_id": "03801787-1faf-4598-95fc-d9e4faef98d4",
+            "lexical_rank": 5,
+            "hybrid_rank": 3,
+            "improvement": 2
+          },
+          {
+            "passage_id": "acec2cc4-7ab6-467a-8a06-ffbedff7f00b",
+            "lexical_rank": 6,
+            "hybrid_rank": 7,
+            "improvement": -1
+          },
+          {
+            "passage_id": "bfb37869-6f72-45e4-bc65-6225de40b65b",
+            "lexical_rank": 8,
+            "hybrid_rank": 9,
+            "improvement": -1
+          }
+        ],
+        "lexical_only": [
+          "9edfc6a8-b329-4481-8578-d5ed24ffe405",
+          "0cb23ed5-ae0a-45c9-90d1-6858c3e2227a",
+          "f4e90aff-cfa3-4c3e-8f03-4862fc8e2cbb",
+          "bef1fa25-14ed-4b35-b837-ead8326d920f",
+          "4bf00ee9-e867-4af1-97c0-f8eefe02022e"
+        ],
+        "hybrid_only": [
+          "7970cbce-49ed-4636-98da-3ea1839991bd",
+          "f648d39a-4057-410e-9d2a-8adacdb2ee1d",
+          "f7cb8194-cd77-454c-bcd6-8a28852afc43",
+          "272bc578-ce5c-47f4-b36d-f224a8eda5ee",
+          "3d27c72f-937d-4825-9c9c-bf0a7f2d4841"
+        ]
+      },
+      {
+        "id": "aml-04",
+        "text": "What identity documents and verification checks are required when opening an account?",
+        "label_provenance": null,
+        "denominators": {
+          "precision": 10,
+          "recall": null,
+          "mrr_and_hit": null
+        },
+        "lexical": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "hybrid": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "rankings": {
+          "lexical": [
+            "4bf00ee9-e867-4af1-97c0-f8eefe02022e",
+            "951bf3b5-7446-49ec-912a-8e71d87056db",
+            "ed467e0d-397e-447a-ba73-db62a51debaf",
+            "45042e76-8955-4589-bf47-56504dffef58",
+            "6c31b0e9-d44c-4a41-872b-404c29bec091",
+            "7dc161cb-4892-4b72-8c6a-f636e53d0e01",
+            "a0604430-a30a-45be-8846-c598552dace1",
+            "b0d0702a-20ce-4154-842a-d51d68f2dac0",
+            "d3f9edb7-e0ce-4d9a-99b4-e05b8421763f",
+            "3a1c940d-af8b-4e68-97ed-4b3ad54c2a04"
+          ],
+          "hybrid": [
+            "ed467e0d-397e-447a-ba73-db62a51debaf",
+            "951bf3b5-7446-49ec-912a-8e71d87056db",
+            "45042e76-8955-4589-bf47-56504dffef58",
+            "3a1c940d-af8b-4e68-97ed-4b3ad54c2a04",
+            "b0d0702a-20ce-4154-842a-d51d68f2dac0",
+            "d3f9edb7-e0ce-4d9a-99b4-e05b8421763f",
+            "2f417ab1-c192-4740-974f-abe459d27b73",
+            "a0604430-a30a-45be-8846-c598552dace1",
+            "f4e90aff-cfa3-4c3e-8f03-4862fc8e2cbb",
+            "7dc161cb-4892-4b72-8c6a-f636e53d0e01"
+          ]
+        },
+        "returned_counts": {
+          "lexical": 10,
+          "hybrid": 10
+        },
+        "overlap_count": 8,
+        "overlap_at_k": 0.8,
+        "jaccard": 0.6666666666666666,
+        "rank_movement": [
+          {
+            "passage_id": "ed467e0d-397e-447a-ba73-db62a51debaf",
+            "lexical_rank": 3,
+            "hybrid_rank": 1,
+            "improvement": 2
+          },
+          {
+            "passage_id": "951bf3b5-7446-49ec-912a-8e71d87056db",
+            "lexical_rank": 2,
+            "hybrid_rank": 2,
+            "improvement": 0
+          },
+          {
+            "passage_id": "45042e76-8955-4589-bf47-56504dffef58",
+            "lexical_rank": 4,
+            "hybrid_rank": 3,
+            "improvement": 1
+          },
+          {
+            "passage_id": "3a1c940d-af8b-4e68-97ed-4b3ad54c2a04",
+            "lexical_rank": 10,
+            "hybrid_rank": 4,
+            "improvement": 6
+          },
+          {
+            "passage_id": "b0d0702a-20ce-4154-842a-d51d68f2dac0",
+            "lexical_rank": 8,
+            "hybrid_rank": 5,
+            "improvement": 3
+          },
+          {
+            "passage_id": "d3f9edb7-e0ce-4d9a-99b4-e05b8421763f",
+            "lexical_rank": 9,
+            "hybrid_rank": 6,
+            "improvement": 3
+          },
+          {
+            "passage_id": "a0604430-a30a-45be-8846-c598552dace1",
+            "lexical_rank": 7,
+            "hybrid_rank": 8,
+            "improvement": -1
+          },
+          {
+            "passage_id": "7dc161cb-4892-4b72-8c6a-f636e53d0e01",
+            "lexical_rank": 6,
+            "hybrid_rank": 10,
+            "improvement": -4
+          }
+        ],
+        "lexical_only": [
+          "4bf00ee9-e867-4af1-97c0-f8eefe02022e",
+          "6c31b0e9-d44c-4a41-872b-404c29bec091"
+        ],
+        "hybrid_only": [
+          "2f417ab1-c192-4740-974f-abe459d27b73",
+          "f4e90aff-cfa3-4c3e-8f03-4862fc8e2cbb"
+        ]
+      },
+      {
+        "id": "aml-05",
+        "text": "supervisory anti-money laundering training seminars for financial institutions",
+        "label_provenance": null,
+        "denominators": {
+          "precision": 10,
+          "recall": null,
+          "mrr_and_hit": null
+        },
+        "lexical": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "hybrid": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "rankings": {
+          "lexical": [
+            "4bf00ee9-e867-4af1-97c0-f8eefe02022e",
+            "56ac65d2-96d2-4fc7-9d93-a6c7abec0883",
+            "bd80263b-efc2-4934-a98c-17d81904b445",
+            "0cb23ed5-ae0a-45c9-90d1-6858c3e2227a",
+            "0a0fec4b-d866-4048-abb9-557e1aadd37b",
+            "3e9be88f-7c76-453f-8f93-5f355fccd7c0",
+            "90945830-abe0-4b4d-9f42-0dd8421956ae",
+            "0e980517-fc4c-43de-95d6-4e0f0cadb1e0",
+            "15906e27-7feb-4697-8f24-214668c14f72",
+            "c31002ff-03da-46fe-8f14-777ab45861a7"
+          ],
+          "hybrid": [
+            "4bf00ee9-e867-4af1-97c0-f8eefe02022e",
+            "0a0fec4b-d866-4048-abb9-557e1aadd37b",
+            "90945830-abe0-4b4d-9f42-0dd8421956ae",
+            "bd80263b-efc2-4934-a98c-17d81904b445",
+            "e2f6adc9-147a-4bc3-8855-4c490df4c3c9",
+            "3e9be88f-7c76-453f-8f93-5f355fccd7c0",
+            "307d7021-3821-495f-819a-cde271a8a7e2",
+            "c31002ff-03da-46fe-8f14-777ab45861a7",
+            "9edfc6a8-b329-4481-8578-d5ed24ffe405",
+            "15906e27-7feb-4697-8f24-214668c14f72"
+          ]
+        },
+        "returned_counts": {
+          "lexical": 10,
+          "hybrid": 10
+        },
+        "overlap_count": 7,
+        "overlap_at_k": 0.7,
+        "jaccard": 0.5384615384615384,
+        "rank_movement": [
+          {
+            "passage_id": "4bf00ee9-e867-4af1-97c0-f8eefe02022e",
+            "lexical_rank": 1,
+            "hybrid_rank": 1,
+            "improvement": 0
+          },
+          {
+            "passage_id": "0a0fec4b-d866-4048-abb9-557e1aadd37b",
+            "lexical_rank": 5,
+            "hybrid_rank": 2,
+            "improvement": 3
+          },
+          {
+            "passage_id": "90945830-abe0-4b4d-9f42-0dd8421956ae",
+            "lexical_rank": 7,
+            "hybrid_rank": 3,
+            "improvement": 4
+          },
+          {
+            "passage_id": "bd80263b-efc2-4934-a98c-17d81904b445",
+            "lexical_rank": 3,
+            "hybrid_rank": 4,
+            "improvement": -1
+          },
+          {
+            "passage_id": "3e9be88f-7c76-453f-8f93-5f355fccd7c0",
+            "lexical_rank": 6,
+            "hybrid_rank": 6,
+            "improvement": 0
+          },
+          {
+            "passage_id": "c31002ff-03da-46fe-8f14-777ab45861a7",
+            "lexical_rank": 10,
+            "hybrid_rank": 8,
+            "improvement": 2
+          },
+          {
+            "passage_id": "15906e27-7feb-4697-8f24-214668c14f72",
+            "lexical_rank": 9,
+            "hybrid_rank": 10,
+            "improvement": -1
+          }
+        ],
+        "lexical_only": [
+          "56ac65d2-96d2-4fc7-9d93-a6c7abec0883",
+          "0cb23ed5-ae0a-45c9-90d1-6858c3e2227a",
+          "0e980517-fc4c-43de-95d6-4e0f0cadb1e0"
+        ],
+        "hybrid_only": [
+          "e2f6adc9-147a-4bc3-8855-4c490df4c3c9",
+          "307d7021-3821-495f-819a-cde271a8a7e2",
+          "9edfc6a8-b329-4481-8578-d5ed24ffe405"
+        ]
+      },
+      {
+        "id": "aml-06",
+        "text": "How can proceeds of crime be moved through expensive property or luxury goods?",
+        "label_provenance": null,
+        "denominators": {
+          "precision": 10,
+          "recall": null,
+          "mrr_and_hit": null
+        },
+        "lexical": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "hybrid": {
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "mrr_at_k": null,
+          "hit_at_k": null
+        },
+        "rankings": {
+          "lexical": [
+            "3e9be88f-7c76-453f-8f93-5f355fccd7c0",
+            "4bf00ee9-e867-4af1-97c0-f8eefe02022e",
+            "56ac65d2-96d2-4fc7-9d93-a6c7abec0883",
+            "bd80263b-efc2-4934-a98c-17d81904b445",
+            "bfb37869-6f72-45e4-bc65-6225de40b65b",
+            "0e980517-fc4c-43de-95d6-4e0f0cadb1e0",
+            "c31002ff-03da-46fe-8f14-777ab45861a7",
+            "0cb23ed5-ae0a-45c9-90d1-6858c3e2227a",
+            "90945830-abe0-4b4d-9f42-0dd8421956ae",
+            "9511a2ad-020c-4cbc-9ee1-c37379bf934d"
+          ],
+          "hybrid": [
+            "3e9be88f-7c76-453f-8f93-5f355fccd7c0",
+            "9511a2ad-020c-4cbc-9ee1-c37379bf934d",
+            "6ff237e4-d70e-4443-a467-ed2e4b9edde2",
+            "af55d51a-09c5-4282-bb15-11b760599622",
+            "bfb37869-6f72-45e4-bc65-6225de40b65b",
+            "2f417ab1-c192-4740-974f-abe459d27b73",
+            "1a3c0f8e-66ea-4d66-9caf-a07b9f96b777",
+            "acec2cc4-7ab6-467a-8a06-ffbedff7f00b",
+            "1bb14e90-8039-4f6f-8bc2-169925492544",
+            "c31002ff-03da-46fe-8f14-777ab45861a7"
+          ]
+        },
+        "returned_counts": {
+          "lexical": 10,
+          "hybrid": 10
+        },
+        "overlap_count": 4,
+        "overlap_at_k": 0.4,
+        "jaccard": 0.25,
+        "rank_movement": [
+          {
+            "passage_id": "3e9be88f-7c76-453f-8f93-5f355fccd7c0",
+            "lexical_rank": 1,
+            "hybrid_rank": 1,
+            "improvement": 0
+          },
+          {
+            "passage_id": "9511a2ad-020c-4cbc-9ee1-c37379bf934d",
+            "lexical_rank": 10,
+            "hybrid_rank": 2,
+            "improvement": 8
+          },
+          {
+            "passage_id": "bfb37869-6f72-45e4-bc65-6225de40b65b",
+            "lexical_rank": 5,
+            "hybrid_rank": 5,
+            "improvement": 0
+          },
+          {
+            "passage_id": "c31002ff-03da-46fe-8f14-777ab45861a7",
+            "lexical_rank": 7,
+            "hybrid_rank": 10,
+            "improvement": -3
+          }
+        ],
+        "lexical_only": [
+          "4bf00ee9-e867-4af1-97c0-f8eefe02022e",
+          "56ac65d2-96d2-4fc7-9d93-a6c7abec0883",
+          "bd80263b-efc2-4934-a98c-17d81904b445",
+          "0e980517-fc4c-43de-95d6-4e0f0cadb1e0",
+          "0cb23ed5-ae0a-45c9-90d1-6858c3e2227a",
+          "90945830-abe0-4b4d-9f42-0dd8421956ae"
+        ],
+        "hybrid_only": [
+          "6ff237e4-d70e-4443-a467-ed2e4b9edde2",
+          "af55d51a-09c5-4282-bb15-11b760599622",
+          "2f417ab1-c192-4740-974f-abe459d27b73",
+          "1a3c0f8e-66ea-4d66-9caf-a07b9f96b777",
+          "acec2cc4-7ab6-467a-8a06-ffbedff7f00b",
+          "1bb14e90-8039-4f6f-8bc2-169925492544"
+        ]
+      }
+    ],
+    "aggregate": {
+      "labelled_queries": 0,
+      "unlabelled_query_ids": [
+        "aml-01",
+        "aml-02",
+        "aml-03",
+        "aml-04",
+        "aml-05",
+        "aml-06"
+      ],
+      "paired": {
+        "precision_at_k": {
+          "hybrid_wins": 0,
+          "ties": 0,
+          "lexical_wins": 0,
+          "paired_queries": 0
+        },
+        "recall_at_k": {
+          "hybrid_wins": 0,
+          "ties": 0,
+          "lexical_wins": 0,
+          "paired_queries": 0
+        },
+        "mrr_at_k": {
+          "hybrid_wins": 0,
+          "ties": 0,
+          "lexical_wins": 0,
+          "paired_queries": 0
+        },
+        "hit_at_k": {
+          "hybrid_wins": 0,
+          "ties": 0,
+          "lexical_wins": 0,
+          "paired_queries": 0
+        }
+      },
+      "macro_means": {
+        "precision_at_k": {
+          "lexical": null,
+          "hybrid": null
+        },
+        "recall_at_k": {
+          "lexical": null,
+          "hybrid": null
+        },
+        "mrr_at_k": {
+          "lexical": null,
+          "hybrid": null
+        },
+        "hit_at_k": {
+          "lexical": null,
+          "hybrid": null
+        }
+      },
+      "label_provenance_counts": {},
+      "by_label_provenance": {}
+    },
+    "caveats": [
+      "Model labels and controlled fixtures are not human precision; provenance groups remain separate.",
+      "Unlabelled overlap and rank movement describe retrieval changes, not relevance or usefulness.",
+      "Precision divides by requested k even with fewer results; recall divides by all positive labels.",
+      "MRR and hit are per-query truncated at k; recall is null for zero relevant labels.",
+      "Complete labels assume omitted passage IDs are nonrelevant; positive grade magnitude is ignored.",
+      "Identity equality checks exported declarations, not database eligibility or label correctness.",
+      "Equal top-k is an equal output budget, not proof of equal compute, indexing coverage or cost."
+    ]
+  },
+  "controlled_comparison": {
+    "schema_version": 1,
+    "kind": "controlled_fixture",
+    "k": 3,
+    "interpretation": "controlled_mechanism_only",
+    "comparison_identity": {
+      "scope": {
+        "workspace_id": "76a6a77a-37b3-427e-81eb-28be4316027d",
+        "jurisdiction": "HK",
+        "as_of": "2026-11-04",
+        "source_set_sha256": "274cd3798bef4b9086dcb7c903127807e30944720d6229344fb0b5f48293b059",
+        "mas_enabled": false
+      },
+      "corpus_id": "f3e3cb7bf398e3ffde9c0fc06467ba1d877a5dbc895996147db55eabf83d7c8f",
+      "index_id": "f22747c048e2d7876221f6a63528c7cd4f543899bfe924dbeff18c6e3b7799f4"
+    },
+    "queries": [
+      {
+        "id": "synonym",
+        "text": "automobile",
+        "label_provenance": {
+          "kind": "controlled_fixture",
+          "source": "synthetic truth declared in harness before retrieval"
+        },
+        "denominators": {
+          "precision": 3,
+          "recall": 1,
+          "mrr_and_hit": 1
+        },
+        "lexical": {
+          "precision_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "mrr_at_k": 0,
+          "hit_at_k": 0
+        },
+        "hybrid": {
+          "precision_at_k": 0.3333333333333333,
+          "recall_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "hit_at_k": 1
+        },
+        "rankings": {
+          "lexical": [],
+          "hybrid": [
+            "00000000-0000-0000-0000-000000030d3f",
+            "00000000-0000-0000-0000-0000000186a4",
+            "00000000-0000-0000-0000-0000000186a5"
+          ]
+        },
+        "returned_counts": {
+          "lexical": 0,
+          "hybrid": 3
+        },
+        "overlap_count": 0,
+        "overlap_at_k": 0.0,
+        "jaccard": 0.0,
+        "rank_movement": [],
+        "lexical_only": [],
+        "hybrid_only": [
+          "00000000-0000-0000-0000-000000030d3f",
+          "00000000-0000-0000-0000-0000000186a4",
+          "00000000-0000-0000-0000-0000000186a5"
+        ]
+      },
+      {
+        "id": "identifier",
+        "text": "ZXQ481",
+        "label_provenance": {
+          "kind": "controlled_fixture",
+          "source": "synthetic truth declared in harness before retrieval"
+        },
+        "denominators": {
+          "precision": 3,
+          "recall": 1,
+          "mrr_and_hit": 1
+        },
+        "lexical": {
+          "precision_at_k": 0.3333333333333333,
+          "recall_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "hit_at_k": 1
+        },
+        "hybrid": {
+          "precision_at_k": 0.3333333333333333,
+          "recall_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "hit_at_k": 1
+        },
+        "rankings": {
+          "lexical": [
+            "00000000-0000-0000-0000-0000000493df"
+          ],
+          "hybrid": [
+            "00000000-0000-0000-0000-0000000493df",
+            "00000000-0000-0000-0000-0000000186cc",
+            "00000000-0000-0000-0000-0000000186a4"
+          ]
+        },
+        "returned_counts": {
+          "lexical": 1,
+          "hybrid": 3
+        },
+        "overlap_count": 1,
+        "overlap_at_k": 0.3333333333333333,
+        "jaccard": 0.3333333333333333,
+        "rank_movement": [
+          {
+            "passage_id": "00000000-0000-0000-0000-0000000493df",
+            "lexical_rank": 1,
+            "hybrid_rank": 1,
+            "improvement": 0
+          }
+        ],
+        "lexical_only": [],
+        "hybrid_only": [
+          "00000000-0000-0000-0000-0000000186cc",
+          "00000000-0000-0000-0000-0000000186a4"
+        ]
+      },
+      {
+        "id": "no-answer",
+        "text": "volcanic eruption monitoring",
+        "label_provenance": {
+          "kind": "controlled_fixture",
+          "source": "synthetic truth declared in harness before retrieval"
+        },
+        "denominators": {
+          "precision": 3,
+          "recall": 0,
+          "mrr_and_hit": 1
+        },
+        "lexical": {
+          "precision_at_k": 0.0,
+          "recall_at_k": null,
+          "mrr_at_k": 0,
+          "hit_at_k": 0
+        },
+        "hybrid": {
+          "precision_at_k": 0.0,
+          "recall_at_k": null,
+          "mrr_at_k": 0,
+          "hit_at_k": 0
+        },
+        "rankings": {
+          "lexical": [],
+          "hybrid": [
+            "00000000-0000-0000-0000-0000000186a7",
+            "00000000-0000-0000-0000-0000000186c5",
+            "00000000-0000-0000-0000-0000000186a2"
+          ]
+        },
+        "returned_counts": {
+          "lexical": 0,
+          "hybrid": 3
+        },
+        "overlap_count": 0,
+        "overlap_at_k": 0.0,
+        "jaccard": 0.0,
+        "rank_movement": [],
+        "lexical_only": [],
+        "hybrid_only": [
+          "00000000-0000-0000-0000-0000000186a7",
+          "00000000-0000-0000-0000-0000000186c5",
+          "00000000-0000-0000-0000-0000000186a2"
+        ]
+      }
+    ],
+    "aggregate": {
+      "labelled_queries": 3,
+      "unlabelled_query_ids": [],
+      "paired": {
+        "precision_at_k": {
+          "hybrid_wins": 1,
+          "ties": 2,
+          "lexical_wins": 0,
+          "paired_queries": 3
+        },
+        "recall_at_k": {
+          "hybrid_wins": 1,
+          "ties": 1,
+          "lexical_wins": 0,
+          "paired_queries": 2
+        },
+        "mrr_at_k": {
+          "hybrid_wins": 1,
+          "ties": 2,
+          "lexical_wins": 0,
+          "paired_queries": 3
+        },
+        "hit_at_k": {
+          "hybrid_wins": 1,
+          "ties": 2,
+          "lexical_wins": 0,
+          "paired_queries": 3
+        }
+      },
+      "macro_means": {
+        "precision_at_k": {
+          "lexical": 0.1111111111111111,
+          "hybrid": 0.2222222222222222
+        },
+        "recall_at_k": {
+          "lexical": 0.5,
+          "hybrid": 1.0
+        },
+        "mrr_at_k": {
+          "lexical": 0.3333333333333333,
+          "hybrid": 0.6666666666666666
+        },
+        "hit_at_k": {
+          "lexical": 0.3333333333333333,
+          "hybrid": 0.6666666666666666
+        }
+      },
+      "label_provenance_counts": {
+        "controlled_fixture": 3
+      },
+      "by_label_provenance": {
+        "controlled_fixture": {
+          "labelled_queries": 3,
+          "unlabelled_query_ids": [],
+          "paired": {
+            "precision_at_k": {
+              "hybrid_wins": 1,
+              "ties": 2,
+              "lexical_wins": 0,
+              "paired_queries": 3
+            },
+            "recall_at_k": {
+              "hybrid_wins": 1,
+              "ties": 1,
+              "lexical_wins": 0,
+              "paired_queries": 2
+            },
+            "mrr_at_k": {
+              "hybrid_wins": 1,
+              "ties": 2,
+              "lexical_wins": 0,
+              "paired_queries": 3
+            },
+            "hit_at_k": {
+              "hybrid_wins": 1,
+              "ties": 2,
+              "lexical_wins": 0,
+              "paired_queries": 3
+            }
+          },
+          "macro_means": {
+            "precision_at_k": {
+              "lexical": 0.1111111111111111,
+              "hybrid": 0.2222222222222222
+            },
+            "recall_at_k": {
+              "lexical": 0.5,
+              "hybrid": 1.0
+            },
+            "mrr_at_k": {
+              "lexical": 0.3333333333333333,
+              "hybrid": 0.6666666666666666
+            },
+            "hit_at_k": {
+              "lexical": 0.3333333333333333,
+              "hybrid": 0.6666666666666666
+            }
+          }
+        }
+      }
+    },
+    "caveats": [
+      "Model labels and controlled fixtures are not human precision; provenance groups remain separate.",
+      "Unlabelled overlap and rank movement describe retrieval changes, not relevance or usefulness.",
+      "Precision divides by requested k even with fewer results; recall divides by all positive labels.",
+      "MRR and hit are per-query truncated at k; recall is null for zero relevant labels.",
+      "Complete labels assume omitted passage IDs are nonrelevant; positive grade magnitude is ignored.",
+      "Identity equality checks exported declarations, not database eligibility or label correctness.",
+      "Equal top-k is an equal output budget, not proof of equal compute, indexing coverage or cost."
+    ]
+  },
+  "latency_summary": {
+    "saved_lexical_median_seconds": 0.008400000000000001,
+    "saved_hybrid_median_seconds": 0.80705,
+    "includes_query_embedding_http": true,
+    "cold_index_tokens": 29443,
+    "sample_queries": 6
+  },
+  "interpretation": "Experimental. Unlabelled saved-archive rank changes do not establish better relevance or human precision. Controlled synonym helped; exact identifier tied; no-answer semantic query still returned three irrelevant candidates. Keyword mode remains available.",
+  "evidence_directory": "reports/archive-hybrid-20261110",
+  "evidence_sha256": {
+    "validate.py": "f1f37f28295bb26c77a1a615caf322d38a2b1d5f359b46095ea777d32cbb9dce",
+    "calls.json": "9669d7c19f51fd709b71cf7ef6aa87f392acda88c0b72f961c38533bdc7b12b4",
+    "result.json": "dea4712c582453f12b2828a167870f328227108157527e2f9e34f7f2bb2fd523",
+    "index.json": "677a836a02de7c0c2c46dee9660274cf61a1e13a87aa114da81f86acdeb5a979",
+    "saved-rankings.json": "3c0bd6209936c516257d1c823a5bf646a15a10c6a191bf6ed301f714b228d299",
+    "saved-comparison.json": "54f6f47cc5719ab602069379a105a0b9b9be55e4b0777175b155f78fb0b5ed27",
+    "saved-timings.json": "dfd080255db85bce4c4a7d31bb8c02aebc3b584dbd9b36e07ac3e21c80d10d75",
+    "controlled-rankings.json": "de0badda4e07af92f7cd9acd8ab40a3f763dce78f58b9e6ea9b7e14a7bbf66d8",
+    "controlled-comparison.json": "bfbfe048e9cf54d262438613fddd8ee0082f33ccef84fd72559e67b24b6f7fd3",
+    "execution.lock": "1abdc9616eeb56f949e3561a1b8d7e8d6bf6a115c0b7e871a57a7cb4a879d647",
+    "paired-review.json": "d564214063d9c4faea4f1fbbcec58fa852f254325d9e5caa12ede045570aaaf9",
+    "review.md": "ea7b9c79af088724e9d85ef3713c06c5081237a6d918cea7b7cffcc6a72493ed",
+    "review-arm-map.json": "74726022ed9d5c53ea93d7292fbda44ea7942020e5029f01ce36686abcc7b405",
+    "full-suite-result.json": "2ca15e735aefb587bfd433d397b1c8a5e23f4fa5510973ae78cc206809279457",
+    "full-suite-pytest.log": "6cfd7cb45cb6f6028cda1fdc74143161b4f2070a3fc641a5fc0dec3631a480f2"
+  },
+  "regression": {
+    "tests": 997,
+    "subtests": 8,
+    "skipped": 0,
+    "seconds": 71.56,
+    "proof": {
+      "exit_code": 0,
+      "seconds": 72.75,
+      "source_sha": "eb83d0eb164c5b2b992cf371d45658b570e3df11"
+    },
+    "focused_tests": 74,
+    "complete_suite_runs": 1
+  }
+}

@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "base_sha": "bfd45eb",
+  "observed_head": "bfd45ebef3aee99cecf98ee4fa28231771a66558",
+  "measured_at": "2026-11-11T02:38:47.055294+00:00",
+  "workspace_id": "33d47f12-c357-4520-bc76-94c81354541f",
+  "analysis_run_id": "666e0fb8-ac3b-47a6-b52b-ffb1a0bdad3c",
+  "snapshot_id": "22ad5a17-f32c-4e54-a48b-60f75d52190c",
+  "source_ids": [
+    "489c53ca-2ee9-4f9f-bfbd-547491140424"
+  ],
+  "fixture": {
+    "sources": 1,
+    "documents": 4,
+    "critical_facts": 20,
+    "saved_passages": 4,
+    "documents_detail": [
+      {
+        "article": "A",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-A",
+        "version_id": "26c4a169-bc56-4e62-a443-6c2e32bf5564",
+        "passages": 1,
+        "published_at": "2026-09-15"
+      },
+      {
+        "article": "B",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-B",
+        "version_id": "3d539c29-eaa5-410e-9629-fdfdd8e5f363",
+        "passages": 1,
+        "published_at": "2026-09-15"
+      },
+      {
+        "article": "C",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-C",
+        "version_id": "7246367b-6c86-4c4f-adad-2b1f48150b90",
+        "passages": 1,
+        "published_at": "2026-09-15"
+      },
+      {
+        "article": "D",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-D",
+        "version_id": "f87ae2c8-9d64-4b98-a4e7-2352beccc845",
+        "passages": 1,
+        "published_at": "2026-09-15"
+      }
+    ],
+    "facts": {
+      "99fd800f-73ef-417b-93a8-307a6675a8d7": {
+        "text": "Article A requires synthetic pilot banks to screen customers before onboarding from 1 October 2026.",
+        "passage_id": "98aae959-dd86-43ab-a75d-5c89fd80eca6",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-A"
+      },
+      "49a6b5a3-8564-4d13-a3e5-199293d79520": {
+        "text": "Article A requires synthetic pilot banks to retain screening logs for 7 years.",
+        "passage_id": "98aae959-dd86-43ab-a75d-5c89fd80eca6",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-A"
+      },
+      "7b92c6d4-7a00-412e-abca-5dca966dc458": {
+        "text": "Article A requires synthetic pilot banks to refresh high-risk profiles every 90 days.",
+        "passage_id": "98aae959-dd86-43ab-a75d-5c89fd80eca6",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-A"
+      },
+      "8de956cf-cc06-4a3b-89f5-429f36be7023": {
+        "text": "Article A exempts dormant synthetic pilot accounts from monthly profile refresh unless activity resumes.",
+        "passage_id": "98aae959-dd86-43ab-a75d-5c89fd80eca6",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-A"
+      },
+      "252edc2e-f9dd-4e48-951a-691566e4b32c": {
+        "text": "Article A requires synthetic pilot banks to record the beneficial owner before activating an account.",
+        "passage_id": "98aae959-dd86-43ab-a75d-5c89fd80eca6",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-A"
+      },
+      "3ac37479-aba9-490e-802e-9ca4f319f670": {
+        "text": "Article B requires synthetic pilot banks to report confirmed sanctions matches within 2 working days.",
+        "passage_id": "b6e2bd59-9c80-4fac-a0f9-239153768a8c",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-B"
+      },
+      "135b4c58-fc0e-4f7d-8c80-8fe111c77e1b": {
+        "text": "Article B requires synthetic pilot banks to escalate unresolved screening alerts after 48 hours.",
+        "passage_id": "b6e2bd59-9c80-4fac-a0f9-239153768a8c",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-B"
+      },
+      "0e6c94d8-ba6a-429f-95a3-10a528b3e507": {
+        "text": "Article B permits synthetic pilot banks to defer a low-risk review by 30 days only with written approval.",
+        "passage_id": "b6e2bd59-9c80-4fac-a0f9-239153768a8c",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-B"
+      },
+      "db82a3d7-0aba-421f-a569-d9eb66e89497": {
+        "text": "Article B requires synthetic pilot banks to reconcile alert totals every business day.",
+        "passage_id": "b6e2bd59-9c80-4fac-a0f9-239153768a8c",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-B"
+      },
+      "3c152a69-3b54-4f86-8f68-5006dcb78d0b": {
+        "text": "Article B requires synthetic pilot banks to appoint a named sanctions escalation officer.",
+        "passage_id": "b6e2bd59-9c80-4fac-a0f9-239153768a8c",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-B"
+      },
+      "7cf15186-54d0-4a36-99f9-001d246c296a": {
+        "text": "Article C requires synthetic pilot banks to test transaction-monitoring scenarios every quarter.",
+        "passage_id": "621a46a6-2ff0-4a00-bd38-fffc2112dc2f",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-C"
+      },
+      "acf8e591-5b0a-4ad8-8745-99e3819dc7fb": {
+        "text": "Article C requires synthetic pilot banks to retain model-validation results for 5 years.",
+        "passage_id": "621a46a6-2ff0-4a00-bd38-fffc2112dc2f",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-C"
+      },
+      "c6ce1c35-3cd6-4735-9610-d5af7bff7cc1": {
+        "text": "Article C proposes, but does not require, synthetic pilot banks to test an experimental network model.",
+        "passage_id": "621a46a6-2ff0-4a00-bd38-fffc2112dc2f",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-C"
+      },
+      "f886c62f-bc4f-4b25-9241-f112d434ba4d": {
+        "text": "Article C requires synthetic pilot banks to obtain independent approval before changing alert thresholds.",
+        "passage_id": "621a46a6-2ff0-4a00-bd38-fffc2112dc2f",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-C"
+      },
+      "d0698b02-ba75-42aa-a641-b18b6dd9e448": {
+        "text": "Article C requires synthetic pilot banks to document false-positive rates in each validation report.",
+        "passage_id": "621a46a6-2ff0-4a00-bd38-fffc2112dc2f",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-C"
+      },
+      "12127ffd-c081-4451-9ab7-93c6a4843bc8": {
+        "text": "Article D requires synthetic pilot banks to complete staff training by 15 December 2026.",
+        "passage_id": "3e510ed3-9556-48d5-8cf9-c5fe957dae82",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-D"
+      },
+      "3fc001c3-6967-42e5-8b67-70831f762368": {
+        "text": "Article D requires synthetic pilot banks to test recovery of screening records twice each year.",
+        "passage_id": "3e510ed3-9556-48d5-8cf9-c5fe957dae82",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-D"
+      },
+      "162dcb42-65cc-41cb-8f89-34ef9cdad5b3": {
+        "text": "Article D requires synthetic pilot banks to notify the synthetic supervisor before outsourcing screening.",
+        "passage_id": "3e510ed3-9556-48d5-8cf9-c5fe957dae82",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-D"
+      },
+      "2c3aeec8-0f7c-48af-a906-6067ff1a146d": {
+        "text": "Article D requires synthetic pilot banks to review outsourced screening contracts annually.",
+        "passage_id": "3e510ed3-9556-48d5-8cf9-c5fe957dae82",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-D"
+      },
+      "767c0a23-e4fc-4405-9f6d-50605bf082c9": {
+        "text": "Article D allows synthetic pilot banks to use a 60-day transition only for contracts signed before 1 September 2026.",
+        "passage_id": "3e510ed3-9556-48d5-8cf9-c5fe957dae82",
+        "source_id": "489c53ca-2ee9-4f9f-bfbd-547491140424",
+        "url": "https://www.hkma.gov.hk/synthetic-benchmark/33d47f12-c357-4520-bc76-94c81354541f/article-D"
+      }
+    }
+  },
+  "machine_checks": {
+    "scripted_verifier_calls": 20,
+    "quote_match_checks": 20,
+    "scripted_support_checks": 20,
+    "canonical_input_and_provenance": true
+  },
+  "cases": [
+    {
+      "case": "review_pending",
+      "request_id": "47c04473-c30e-4348-b925-000120f7adca",
+      "report_id": "32c89069-718a-46d0-972a-7a92f0013dce",
+      "submit_to_final_html_seconds": 0.09272691700607538,
+      "worker_seconds": 0.08843691600486636,
+      "under_300_seconds": true,
+      "review_state": "human_review_pending",
+      "facts_preserved": 20,
+      "html_sha256": "64de089d682f1772ae3a7d1d9f2e9292badf7ae9ce9f84b8f06de08b8e156ad2",
+      "provider_calls": 0,
+      "artifact": "reports/scheduled-evidence-20261110/benchmark/review_pending.html"
+    },
+    {
+      "case": "scripted_review_accepted",
+      "request_id": "c67b5627-8f3f-4019-9500-aa46f8c37feb",
+      "report_id": "07057873-31a8-4036-85dd-7ff03d1a7ec0",
+      "submit_to_final_html_seconds": 0.09041999978944659,
+      "worker_seconds": 0.08704366604797542,
+      "under_300_seconds": true,
+      "review_state": "human_checked",
+      "facts_preserved": 20,
+      "html_sha256": "384c5fa7c677a69d5e4ffb8308c3a3e9cfdcdb0a201b88aeb5928d2bbb09f497",
+      "provider_calls": 0,
+      "artifact": "reports/scheduled-evidence-20261110/benchmark/scripted_review_accepted.html"
+    }
+  ],
+  "assertions": {
+    "exact_content_citations_source_ids": true,
+    "article_ABC_preserved": true,
+    "qualifications_dates_preserved": true,
+    "pending_warning_present": true,
+    "historical_report_unchanged_after_review": true,
+    "mas_inactive": true,
+    "retrieval": "keyword",
+    "hybrid": "experimental; unused"
+  },
+  "limitations": [
+    "All documents, claims, model responses and review decisions are synthetic; no human precision or country coverage claim.",
+    "Single cold first submission plus one second submission; no statistical latency distribution, equal-budget comparison or capacity test.",
+    "Timer starts after completed preparation, excludes import/check/publication, and includes normal request submission, DB worker and final HTML retrieval.",
+    "No fresh ingestion latency, discovery recall, report recall against real publications, live provider reliability or final report approval measured.",
+    "Fixture selects 20 known facts directly; no analysis coverage events were written, so analysis_coverage is null and exhaustive analysis is unmeasured.",
+    "Only local PostgreSQL network access permitted; scripted verifier calls are not provider calls. Benchmark workspace remains isolated for inspection."
+  ]
+}

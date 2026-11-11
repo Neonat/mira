@@ -147,7 +147,7 @@ def test_openai_streaming_contract_and_usage(monkeypatch, openai_sdk):
     assert result.output == VerdictDraft(**verdict())
     assert (result.tokens_in,result.tokens_out)==(13,9)
     assert result.model=='gpt-5.4-mini-2026-03-17'
-    assert estimated_cost(result.model,1_000_000,1_000_000)==5.25
+    assert estimated_cost(result.model,1_000_000,1_000_000) is None
     request=sdk.requests[0]
     assert request['instructions']=='s' and request['input']==[{'role':'user','content':'u'}]
     assert request['store'] is False and 'tools' not in request

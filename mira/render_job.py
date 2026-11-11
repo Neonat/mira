@@ -117,6 +117,8 @@ def render_one(conn: psycopg.Connection, workspace_id: UUID, pending: dict[str, 
             "update public.reports set artifact_storage_path = %s where id = %s and workspace_id = %s",
             (str(relative), pending["id"], workspace_id),
         )
+    from mira.artifact_jobs import publish_configured_report
+    publish_configured_report(conn,workspace_id,pending['id'],pending['reviewed_by'],html.encode('utf-8'))
     return pending["id"]
 
 

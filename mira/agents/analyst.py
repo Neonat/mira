@@ -11,15 +11,16 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 import json
+import time
 
 from mira.agents.common import NO_CONCLUSIONS_RULE, UNTRUSTED_TEXT_RULE, brief_text, quote_passage
 from mira.agents.temporal import TEMPORAL_RULE, check_claim_period
 from mira.contracts import AnalystOutput, Brief, ClaimCitation, ClaimDraft, LabelMap, check_claim_labels
-from mira.llm import LLMClient, LLMOutputError, LLMResult, call_checked
+from mira.llm import LLMClient, LLMError, LLMOutputError, LLMResult, call_checked, request_token_reservation
 from mira.store import ClaimEvidence, NewClaim, PassageRecord, StoredClaim
 
-PROMPT_VERSION = "analyst/3"
-REWRITE_PROMPT_VERSION = "analyst-rewrite/3"
+PROMPT_VERSION = "analyst/4"
+REWRITE_PROMPT_VERSION = "analyst-rewrite/4"
 
 FINDING_TYPES = """Factual claims (is_inference false, cite at least one passage, depends_on empty):
 - obligation_summary: plain-language summary of a new, amended or upcoming rule or guideline; set change_type.
@@ -39,6 +40,8 @@ Rules:
 - Each citation's supporting_quote must be copied word for word from the cited passage, and be short.
 - Cover each distinct, relevant development evidenced by the passages. Combine duplicate accounts of the same point.
 - Explain what changed, who issued it or was affected, and the operative details and qualifications when supported. Preserve distinctions between proposed rules, guidance, and binding obligations. Distinguish publication, effective, consultation and event dates.
+- Listing/index/page-maintenance evidence is a discovery lead, not a substantive finding. Prefer the linked publication body. Never use a container update to date its listed events. Unknown dates cannot establish recency.
+- Acronyms keep their source meaning; do not expand or characterize them without explicit source text. Preserve material attribution, modality, exceptions and scope in both facts and inferences.
 - An inference must explain how its cited facts support the assessment and preserve material uncertainty. Describe peer or regulator developments and their relevance without proposing an audit action.
 - Rate the urgency of the external development separately from evidence_confidence (how well the passages support the claim), each with a reason.
 - Cite passages only by the labels given (P1, P2). Label claims C1, C2 and so on.
@@ -84,11 +87,13 @@ def analysis_prompt(brief: Brief, passages: Sequence[PassageRecord]) -> tuple[La
 def request_reservation(brief: Brief, passages: Sequence[PassageRecord], max_output_tokens: int) -> int:
     # UTF-8 bytes are a conservative token upper bound, including schema/protocol overhead.
     _, user = analysis_prompt(brief, passages)
-    return len((SYSTEM + user + json.dumps(AnalystOutput.model_json_schema())).encode('utf-8')) + 1024 + max_output_tokens
+    from mira.llm import request_token_reservation
+    return request_token_reservation(system=SYSTEM,user=user,output_type=AnalystOutput,max_output_tokens=max_output_tokens)
 
 
 def analyse(client: LLMClient, brief: Brief, passages: Sequence[PassageRecord], *,
-            timeout_seconds: float | None = None, max_output_tokens: int | None = None) -> Analysis:
+            timeout_seconds: float | None = None, max_output_tokens: int | None = None,
+            max_total_tokens: int | None = None) -> Analysis:
     by_id = {p.id: p for p in passages}
     labels, user = analysis_prompt(brief, passages)
 
@@ -99,18 +104,44 @@ def analyse(client: LLMClient, brief: Brief, passages: Sequence[PassageRecord], 
             check_claim_period(claim, brief, [by_id[labels.resolve(c.passage_label, "P")] for c in claim.citations])
 
     if timeout_seconds is not None and max_output_tokens is not None:
-        result = client.structured_bounded(role="analyst", system=SYSTEM, user=user, output_type=AnalystOutput,
-            prompt_version=PROMPT_VERSION, timeout_seconds=timeout_seconds, max_output_tokens=max_output_tokens)
-        try:
-            check(result.output)
-        except ValueError as exc:
-            raise LLMOutputError(str(exc), result.tokens_in, result.tokens_out) from exc
+        bounded = _BoundedAnalysisClient(client,timeout_seconds,max_output_tokens,max_total_tokens)
+        result = call_checked(bounded,role="analyst",system=SYSTEM,user=user,output_type=AnalystOutput,
+                              prompt_version=PROMPT_VERSION,check=check,attempts=2)
     else:
         result = call_checked(
             client, role="analyst", system=SYSTEM, user=user, output_type=AnalystOutput,
             prompt_version=PROMPT_VERSION, check=check,
         )
     return Analysis([_resolve(claim, labels) for claim in result.output.claims], result)
+
+
+class _BoundedAnalysisClient:
+    """A correction shares the original deadline and remaining analysis allowance."""
+    def __init__(self,client,seconds,output_tokens,total_tokens):
+        self.client=client
+        self.deadline=time.monotonic()+seconds
+        self.output_tokens=output_tokens
+        self.total_tokens=total_tokens
+        self.spent=0
+
+    def structured(self,**kwargs):
+        seconds=self.deadline-time.monotonic()
+        reservation=request_token_reservation(system=kwargs['system'],user=kwargs['user'],
+            output_type=kwargs['output_type'],max_output_tokens=self.output_tokens)
+        if seconds<=0 or (self.total_tokens is not None and self.spent+reservation>self.total_tokens):
+            raise LLMError('analysis correction has no remaining time/token allowance',request_sent=False)
+        method=getattr(self.client,'structured_bounded',None)
+        if method is None:raise LLMError('bounded analysis invocation unavailable',request_sent=False)
+        try:
+            result=method(timeout_seconds=seconds,max_output_tokens=self.output_tokens,**kwargs)
+        except LLMError as error:
+            self.spent+=error.tokens_in+error.tokens_out
+            if (isinstance(error,LLMOutputError) and not (error.tokens_in or error.tokens_out) and not error.reserved_tokens
+                    and error.request_sent is not False):
+                error.reserved_tokens=reservation
+            raise
+        self.spent+=result.tokens_in+result.tokens_out
+        return result
 
 
 def rewrite(

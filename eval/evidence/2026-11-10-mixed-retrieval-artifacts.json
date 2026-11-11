@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "date_singapore": "2026-11-10",
+  "package": "reports/mixed-retrieval-20261110/Mira_Australia_UAE_Test_Reports_2026-11-10.zip",
+  "package_sha256": "ebdaa551bc95bd1a2e4dbd7b7729ee143b502dd14b78f0bb4c5a44fc59e2f75f",
+  "package_bytes": 337762,
+  "members": {
+    "README.txt": {
+      "sha256": "c45248f41963ef9eaf7f18bc3bf40400231c5b1b2cd457dbf6fa688e37c64e1a",
+      "bytes": 2146
+    },
+    "Australia_UAE_Validation.html": {
+      "sha256": "4790ecc065c213d835b682c7401f4e9f98e9a4b467e898a25901475fece694fd",
+      "bytes": 22953
+    },
+    "Australia_UAE_Validation.pdf": {
+      "sha256": "9990c3aaac0453efda96e42f1eab999c779d15a80f4d4b93c1903792c2f0035a",
+      "bytes": 271509,
+      "pages": 11
+    },
+    "Source_Method_Pilot.html": {
+      "sha256": "3907eba11af40b308d665feae7c8365a26de0633c650ea52ac166c3351b03c57",
+      "bytes": 21435
+    },
+    "Source_Method_Pilot.pdf": {
+      "sha256": "bbb1072884cb6c134414eba9e5eea6529cfd5059d74eff34666401405794a024",
+      "bytes": 243720,
+      "pages": 8
+    },
+    "Mira_Australia_UAE_Partial_Draft.html": {
+      "sha256": "e3745358d282be9807eb1a5b87fed404493f992186b317f2625463cdaa1c91e5",
+      "bytes": 17081
+    }
+  },
+  "raw_artifact_sha256": {
+    "live-manifest.json": "fce645e0111628f5fa8e6f3d2f8d177f62b46c06fa69ac8b7c41e8096cc8b78a",
+    "calls.json": "058c89bd3c55b4b02775f7059930639a71e65ea87cb37fe2bf3f9ad4cd7ca18b",
+    "live-outcome.json": "c48aee10c620ac33c282cc5f62dfdb7f2cfdaccbf44142f6c0631bdfe7962251",
+    "live-process-result.json": "3a0b2d1d69d01d44e7d95c802144e2ef5e64233aadf240d283c9ad0b3d82dba1",
+    "live-database-audit.json": "6a376fd126c7ee8094b8dc0da2290cca1167ccf5218fee69a9ef15875839f659",
+    "live-passage-audit.json": "c11b62d1907953f7882a3df837d7fc802ba4854925e8debdc546d8ec0974b866",
+    "api-contract-error.json": "447570b0b9be3ae8cb7aa6fed20e661786485bfce989ced861607e16486b4357",
+    "api-contract-corrected.json": "8d2816af3d3f60eb7f0653c7f7d41ce8ff821f74cedf0dac41494b4bed4c1faa",
+    "api-contract-documents.json": "e7e56ee046ae39a11858139581c65c8106767984ff0660cddab29ed81c664365",
+    "api-contract-probes.json": "f2b535f03a6498cb7294cd5144c7c0c3881ae487b7f5d696909dd2042fed9c20",
+    "corrected-api-replay.json": "f62b5cb979a0b8aeb119b08f4de867630fdbb510d393f1e4250af78e8746298f",
+    "corrected-api-storage-check.json": "425dd4d17a9074b23aa3922061c904e39e3707edc2d15d54e2a14e6830256da5",
+    "full-suite.log": "a213bd570cbd4edb1c8697ea6d4df082788931a1439dec847d0be8ec4212ae24",
+    "full-suite-result.json": "340aacdfc6fb2f422631677c3b3164a38e3a1bc42635ea24ec728130bdb03193",
+    "full-suite-initial.log": "806b1732a8c72a9f7d7592afc795615dd5c986a027c2e5d87244e1a46cbdd06a",
+    "full-suite-initial-result.json": "18ea0de33a10ef306f3acc34c81a7456a2fe9c5fdacf7d995bd3660542073367",
+    "full-suite-pre-contract-fix.log": "e5edca71ed9e31caec7f1f26c7cd2d6e606122cae7191ffabf1536909d1110c7",
+    "full-suite-pre-contract-fix-result.json": "c7abdb52a384bb9942515b1aece8117233ecdc0a4f692e85977424f752390aa5",
+    "local-migration.json": "50fd037914c850855448a7c11480cf1faf09b0cbe518219902768d4e996fefa5",
+    "live-harness.py": "b1c853dcc87fa8aa1ce43b138019dedd8dcc630b58a50fbbcb497df7003bacfc",
+    "bootstrap-config-failure/explanation.json": "762dcdb7cdd0f1c544e5ad0f0a487ad98bbe0fa565acdc51a1096e6963c0fa5b"
+  },
+  "runtime_sha256": {
+    "mira/australia.py": "ee1a0bf732a89d96d118b8532f1a8f383316e645345202c1ab79ece843183a35",
+    "mira/publication_routes.py": "00f124ecc4ff1252bc9a852c357c9999691d4d83188c21707474ec9442905300",
+    "mira/seed.py": "6680202510f5fd71c1573881e06dab8863e696ad53adf9d80833aba5a0bbb84d",
+    "mira/agents/scout.py": "009e494455703317f103e8ad645a4da0653f8b02f3c77f8c0cf548cb00724ef4",
+    "mira/extract.py": "7f5c39c510ecfd7843562a4dc98b273760567a627b8f21cce141392909a69317",
+    "mira/evidence.py": "84d65151b6ce1a536c3f0cf4c7be21bd43d9458b0e754b1fbfd2370459cc011c",
+    "mira/pg_store.py": "ea72bb53a45c5cef7724ed83596d9f72cab97b895d26d0b7e62a7cbf0f0058a9",
+    "mira/corroboration_display.py": "953fcf33837f62cfca5af55ca6bdbbbc311286df478fbcdeec726564b39b1bc1",
+    "mira/brief.py": "d5266d6c401c221d7f2fd7d5e7189bc8bc7ef4f9eb1ac295444fdd25c51f267a",
+    "mira/report.py": "cf9d1305e01d360bb4c1de46eee2959d90d615b9c0ad76555d4851117ad464e0",
+    "mira/runner.py": "fd08c1619f8471805742f86a554df8809e81f8f01ca9a5d00b5bef43eb8f0639",
+    "mira/llm.py": "3793258457b2d41172fc9f80565fceef272098dcf766c5dfb660ae172ee669e8",
+    "mira/agents/verifier.py": "1fe8a0868ed117fc53b8d9291db310a45f513402b106be7dae7033abadc27de7",
+    "supabase/migrations/20261110150000_mira_source_reuse_provenance.sql": "3d3e23bd517fe01c513da1d7f1fe25273671ada12daa20b6cf678db3f7d32e1f"
+  },
+  "layout_verification": "All PDF pages rendered in contact sheet; first/method/last pages inspected. Source cards readable. Final footer compacted; report exporter16 focused tests passed after cosmetic change.",
+  "actual_draft_unchanged": true
+}

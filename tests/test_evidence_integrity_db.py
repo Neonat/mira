@@ -21,7 +21,7 @@ from mira.render import render_signed_off
 from mira.render_job import load_findings, pending_signoffs, render_one
 from mira.store import StoredClaim
 from test_pipeline_db import (
-    DSN, analyst, conn, draft_report_row, insert_reviewed, review_all_findings,
+    DSN, analyst, conn, draft_report_row, grounded_inference, insert_reviewed, review_all_findings,
     run_hk, workspace,
 )
 
@@ -104,14 +104,15 @@ def reverify_current_inputs(conn, ctx, tmp_path, corroboration=None):
             """select attempt, agent_step_id from public.claim_checks where finding_id=%s
                order by attempt desc limit 1""", (claim.finding_id,),
         ).fetchone()
-        scripted = ({"introduces_new_fact": False, "new_facts": [], "is_supported_assessment": True,
-                     "reason": "still grounded in the checked facts"} if claim.draft.is_inference else
+        scripted = (grounded_inference if claim.draft.is_inference else
                     {"verdict": "supported", "reason": "both actual supporting passages agree"})
         verifier = LlmVerifier(ScriptedClient({"verifier": [scripted]}))
         actual_input = build_verification_input(ctx, claim, claims, passages, corroboration)
         extra = {"corroboration":actual_input.corroboration} if actual_input.corroboration else {}
         if claim.draft.is_inference:
-            result = verifier.check_inference(claim, [claims[fid] for fid in claim.depends_on], prior["attempt"] + 1, **extra)
+            dependency_passages = [passages[pid] for pid in actual_input.passages]
+            result = verifier.check_inference(claim, [claims[fid] for fid in claim.depends_on],
+                                              prior["attempt"] + 1, passages=dependency_passages, **extra)
         else:
             result = verifier.check_fact(claim, [passages[e.passage_id] for e in claim.evidence], prior["attempt"] + 1, **extra)
         assert result.verdict == "supported"

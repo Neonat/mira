@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import os
 import time
+import threading
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
+from decimal import Decimal,InvalidOperation
 
 
 class BudgetExhausted(Exception):
@@ -25,6 +27,15 @@ class RunBudget:
     max_llm_tokens: int = 2_000_000
     max_run_minutes: float = 15
     max_gap_rounds: int = 2
+    max_cost_usd: str | None = None
+
+    def __post_init__(self):
+        if self.max_cost_usd is not None:
+            try:
+                value=Decimal(str(self.max_cost_usd))
+                if not value.is_finite() or not Decimal(0)<value<=Decimal(1000):raise ValueError()
+            except (ValueError,InvalidOperation):raise ValueError('USD allowance must be positive and at most 1000') from None
+            object.__setattr__(self,'max_cost_usd',str(self.max_cost_usd))
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> RunBudget:
@@ -42,8 +53,10 @@ class RunBudget:
             max_gap_rounds=int(value("MIRA_MAX_GAP_ROUNDS", default.max_gap_rounds)),
         )
 
-    def as_source_limits(self) -> dict[str, float]:
-        return asdict(self)
+    def as_source_limits(self) -> dict[str, object]:
+        values=asdict(self)
+        if self.max_cost_usd is None:values.pop('max_cost_usd')
+        return values
 
 
 class BudgetTracker:
@@ -53,12 +66,15 @@ class BudgetTracker:
         self._started = clock()
         self.tokens_used = 0
         self.documents_fetched = 0
+        self._lock = threading.RLock()
 
     def charge_tokens(self, tokens_in: int | None, tokens_out: int | None) -> None:
-        self.tokens_used += (tokens_in or 0) + (tokens_out or 0)
+        with self._lock:
+            self.tokens_used += (tokens_in or 0) + (tokens_out or 0)
 
     def charge_documents(self, count: int) -> None:
-        self.documents_fetched += count
+        with self._lock:
+            self.documents_fetched += count
 
     def remaining_documents(self) -> int:
         return max(0, self.budget.max_fetched_documents - self.documents_fetched)

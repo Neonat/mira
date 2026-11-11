@@ -103,8 +103,9 @@ def test_second_round_can_select_newly_discovered_dated_publications(monkeypatch
 
 def test_underfunded_second_round_does_not_reserve_document_slots(monkeypatch):
     scout = WebScout('unused', None, SimpleNamespace(allow=SimpleNamespace(allows=lambda url: True)), max_rounds=2)
-    task = SimpleNamespace(max_documents=2, max_llm_tokens=5600, source_ids=(), question='audit', role='regulatory_scout')
+    task = SimpleNamespace(max_documents=2, max_llm_tokens=None, source_ids=(), question='audit', role='regulatory_scout')
     run = _ScoutRun(scout, None, context(), uuid4(), task)
+    task.max_llm_tokens = run._report_reserve() + 2000
     first, pdf = 'https://example.org/one', 'https://example.org/attachment.pdf'
     run.candidates = [Link(first, 'Audit one', '')]
     fetched = []
