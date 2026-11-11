@@ -1,0 +1,206 @@
+{
+  "tested_commit": "aecd62429dc47fb64902339f86ad2aeb21ad2f27",
+  "run_id": "2dbaed02-228b-4011-a7d0-419233e1bac0",
+  "job_id": "150839a9-7228-40f8-a06b-e596acdb3f9f",
+  "preparation_brief": {
+    "topic": "AML/CFT",
+    "as_of_date": "2026-11-11",
+    "period_end": "2026-11-04",
+    "period_start": "2025-11-04",
+    "jurisdictions": [
+      "HK"
+    ],
+    "plan_requires_approval": false
+  },
+  "report_brief": {
+    "topic": "AML/CFT",
+    "jurisdictions": [
+      "HK"
+    ],
+    "period_start": "2025-11-04",
+    "period_end": "2026-11-04",
+    "as_of_date": "2026-11-04",
+    "plan_requires_approval": false
+  },
+  "scope": [
+    "hk-elegislation",
+    "hkma",
+    "sfc"
+  ],
+  "limits": {
+    "max_fetched_documents": 30,
+    "max_llm_tokens": 600000,
+    "max_run_minutes": 25,
+    "max_gap_rounds": 2,
+    "max_cost_usd": "10",
+    "max_exa_searches": 6
+  },
+  "preparation_status": "failed",
+  "job_status": "failed",
+  "preparation_seconds": 475.15368291689083,
+  "preparation_summary": "internal error: PreparationLeaseLost('preparation lease lost')",
+  "initial_request_status": "waiting",
+  "final_request_status": "evidence_failed",
+  "report_generation_seconds": null,
+  "report_error": null,
+  "acquisition": {
+    "distinct_publications": 28,
+    "recall": {
+      "all": {
+        "found": 4,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 4,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 4,
+        "total": 14
+      }
+    },
+    "benchmark_ids": [
+      "GT04",
+      "GT05",
+      "GT06",
+      "GT21"
+    ]
+  },
+  "stored_text": {
+    "distinct_publications": 22,
+    "recall": {
+      "all": {
+        "found": 4,
+        "total": 18
+      },
+      "fetchable": {
+        "found": 4,
+        "total": 18
+      },
+      "regulatory": {
+        "found": 4,
+        "total": 14
+      }
+    },
+    "benchmark_ids": [
+      "GT04",
+      "GT05",
+      "GT06",
+      "GT21"
+    ]
+  },
+  "report": null,
+  "record_counts": {
+    "analysis_runs": 1,
+    "preparation_jobs": 1,
+    "prepared_snapshots": 0,
+    "prepared_reports": 0,
+    "analysis_findings": 0,
+    "document_passages": 264,
+    "document_versions": 28
+  },
+  "representations_by_source": {
+    "hkma": 15,
+    "sfc": 13
+  },
+  "extraction_statuses": {
+    "complete": 28
+  },
+  "passage_coverage": {
+    "candidate_passages": 264,
+    "attempted_passages": 12,
+    "analysed_passages": 0,
+    "failed_passages": 12,
+    "deferred_passages": 240,
+    "pending_passages": 12
+  },
+  "prepared_fact_count": 0,
+  "scouts": {
+    "failed": 2,
+    "succeeded": 4
+  },
+  "database_array_failures": 0,
+  "step_statuses": {
+    "planner:succeeded": 2,
+    "regulatory_scout:failed": 2,
+    "regulatory_scout:succeeded": 4,
+    "completeness_checker:succeeded": 2,
+    "analyst:failed": 4
+  },
+  "corroboration": {},
+  "durable_machine_supported": {},
+  "corroboration_timestamps": {
+    "persisted": 0,
+    "valid_at_insert": 0
+  },
+  "model_errors": {
+    "regulatory_scout:output_limit": 2,
+    "analyst:request_timeout": 4
+  },
+  "events": {
+    "preparation_started": 1,
+    "step_started": 14,
+    "model_started": 16,
+    "model_completed": 10,
+    "exa_started": 5,
+    "exa_completed": 5,
+    "model_failed": 6,
+    "preparation_finished": 1
+  },
+  "usage_usd": {
+    "known_estimated_usd": "0.384929",
+    "unknown_reserved_usd": "1.099829",
+    "pending_usd": "0.000000",
+    "allowance_used_usd": "1.484758"
+  },
+  "tokens": {
+    "known_tokens": 111425,
+    "unknown_reserved_tokens": 112251,
+    "pending_tokens": 0,
+    "allowance_used": 223676
+  },
+  "cleanup": {
+    "enabled_schedules": 0,
+    "mas_active": false,
+    "temporary_hkma_browser_grant_removed": true,
+    "expired_job_closed_without_dispatch": true
+  },
+  "comparison": {
+    "prior_scheduled_run": {
+      "run_id": "4aadb257-d7d8-4c2d-9544-e1dba41859d5",
+      "acquisition": {
+        "found": 6,
+        "total": 18
+      },
+      "citations": null
+    },
+    "failed_scheduled_run": {
+      "run_id": "52f87456-6b22-49d6-81f2-4ffc6565a8ef",
+      "acquisition": {
+        "found": 0,
+        "total": 18
+      },
+      "citations": null
+    },
+    "earlier_end_to_end": {
+      "run_id": "489c2889-40f0-4ba9-b87c-5e592bbbabfa",
+      "acquisition": {
+        "found": 5,
+        "total": 18
+      },
+      "citations": {
+        "found": 1,
+        "total": 18
+      }
+    }
+  },
+  "timing": {
+    "worker_monotonic_seconds": 475.15368291689083,
+    "elapsed_utc_seconds": 3494.737606,
+    "host_idle_sleep_start_utc": "2026-11-11T04:49:18+00:00",
+    "host_wake_utc": "2026-11-11T05:39:40+00:00",
+    "host_idle_sleep_seconds": 3022.0
+  },
+  "live_resume_or_replacement": false,
+  "timestamp_fix_exercised": false
+}
