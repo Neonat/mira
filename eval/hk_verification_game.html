@@ -8,87 +8,68 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Mira · Review the Finding</title>
 <style>
-:root {
-  color-scheme: light;
-  --ink: #172e29;
-  --muted: #4c625a;
-  --green: #19483d;
-  --line: #cbd8cb;
-  --paper: #f3f5ef;
-  --card: #fff;
-  --source: #edf3eb;
-  font: 16px/1.55 "Instrument Sans", system-ui, sans-serif;
+{{THEME}}
+.top-controls { display: flex; align-items: center; gap: .45rem; }
+.top-controls button { min-height: 44px; font-size: .85rem; }
+#skip { border-color: transparent; color: var(--accent-dark); }
+#skip:hover { border-color: var(--accent); }
+.progress {
+  display: flex;
+  align-items: center;
+  gap: .38rem;
+  padding: .42rem;
+  border: 1px solid #ffffff45;
+  border-radius: 2rem;
+  background: #21151ed9;
 }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--paper); color: var(--ink); }
-[hidden] { display: none !important; }
-h1, h2, h3, p, blockquote, dl, dd { margin: 0; }
-h1, h2 { font-family: "Instrument Serif", Georgia, serif; font-weight: 500; line-height: 1.12; }
-h1 { font-size: clamp(2.45rem, 7vw, 4rem); letter-spacing: -.035em; }
-h2 { font-size: clamp(1.55rem, 4vw, 2.3rem); }
-h3 { font-size: 1.05rem; line-height: 1.35; }
-.wrap { width: min(100% - 2rem, 65rem); margin-inline: auto; }
-.top { background: #113930; color: white; }
-.top .wrap, .intro, .case-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .65rem 1rem; }
-.top .wrap { min-height: 64px; }
-.brand { font: 600 1.4rem/1 Georgia, serif; letter-spacing: -.03em; }
-.top .eyebrow { color: #c4e1d2; }
-.top-controls { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .4rem .9rem; }
-#undo { min-height: 44px; background: #e6f1e8; border-color: #b6d2c1; font-size: .86rem; }
-#undo:hover { background: #fff; }
-#skip { min-height: 44px; background: transparent; border-color: #799e8b; color: #fff; font-size: .86rem; }
-#skip:hover { background: #245447; }
-.eyebrow { color: var(--muted); font-weight: 750; font-size: .75rem; letter-spacing: .09em; text-transform: uppercase; }
-main { padding-block: clamp(1.25rem, 5vw, 3rem) 1.5rem; }
-.intro { margin-bottom: clamp(1rem, 4vw, 1.7rem); align-items: flex-end; }
-.intro h1 + p { margin-top: .45rem; max-width: 60ch; color: var(--muted); }
-.progress { display: flex; align-items: center; gap: .45rem; }
-.dot { display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--card); width: 2rem; height: 2rem; font: 700 .85rem/1 system-ui; }
-.dot.current { border: 2px solid var(--green); }
-.dot.done { color: #fff; background: var(--green); border-color: var(--green); }
-.sheet { border: 1px solid var(--line); border-radius: 13px; background: var(--card); box-shadow: 0 7px 25px #1a39200c; }
-.case-meta { border-bottom: 1px solid var(--line); padding: .65rem clamp(.85rem, 3vw, 1.4rem); }
-.cutoff { color: var(--muted); font-size: .87rem; }
-.case-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.case-grid > section { min-width: 0; padding: clamp(.85rem, 3vw, 1.4rem); }
-.draft .situation { margin: .45rem 0 1.05rem; color: var(--muted); }
-.finding { border-left: 3px solid #4b7d67; padding-left: .75rem; }
-.finding p + p { margin-top: .35rem; }
-.finding .claim { font-size: clamp(1.05rem, 2.2vw, 1.2rem); }
-.evidence { background: var(--source); border-left: 1px solid var(--line); }
-.evidence h3 { margin-block: .35rem .2rem; }
-.metadata { color: var(--muted); font-size: .85rem; }
-blockquote { margin-top: .65rem; line-height: 1.6; }
-.actions, .feedback { border-top: 1px solid var(--line); padding: .85rem clamp(.85rem, 3vw, 1.4rem); }
-.actions { position: sticky; bottom: 0; background: #fff; z-index: 1; border-radius: 0 0 13px 13px; }
-.actions p { margin-bottom: .45rem; font-weight: 650; }
-.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; }
-button { min-height: 46px; padding: .5rem .65rem; border: 1px solid #9eb5a7; border-radius: 7px; background: #fff; color: var(--ink); font: 650 1rem/1.2 system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
-button:hover { background: var(--source); }
-:focus-visible { outline: 3px solid #3c8060; outline-offset: 3px; }
-.primary { background: var(--green); color: #fff; border-color: var(--green); min-width: min(11rem, 100%); }
-.primary:hover { background: #123a31; }
-kbd { margin-right: .35rem; padding: .12rem .3rem; border: 1px solid #a9bbb1; border-radius: 4px; font: .72rem/1 system-ui; }
-.feedback { background: #f8faf6; border-radius: 0 0 13px 13px; }
-.feedback h3 { margin-block: .2rem .35rem; }
+.dot {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid #9e8595;
+  border-radius: 50%;
+  color: #f7edf4;
+  font-size: .78rem;
+  font-weight: 750;
+}
+.dot.current { border-color: #ff8799; box-shadow: inset 0 0 0 1px #ff8799; }
+.dot.done { color: #fff; background: var(--accent); border-color: #ff6984; }
+.cutoff, .metadata { color: var(--muted); font-size: .85rem; }
+.draft .situation { margin: .5rem 0 1.1rem; color: var(--muted); }
+.finding p + p { margin-top: .33rem; }
+.finding .claim { font-size: clamp(1.03rem, 2.2vw, 1.17rem); font-weight: 570; }
+.actions { background: var(--card); border-radius: 0 0 var(--radius) var(--radius); }
+kbd { margin-right: .4rem; color: var(--muted); font: 700 .73rem/1 system-ui, sans-serif; }
+.feedback { background: var(--source); border-radius: 0 0 var(--radius) var(--radius); }
+.feedback h3 { margin-block: .25rem .35rem; }
 .feedback > p { max-width: 76ch; }
 .feedback .primary { margin-top: .8rem; }
 details { margin-top: .55rem; }
-summary { min-height: 42px; padding-block: .45rem; cursor: pointer; font-weight: 650; }
-dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .35rem .8rem; font-size: .92rem; }
+summary { min-height: 44px; padding-block: .5rem; cursor: pointer; font-weight: 700; }
+dl { display: grid; grid-template-columns: minmax(7.5rem, max-content) minmax(0, 1fr); gap: .35rem .8rem; font-size: .92rem; }
 dt { font-weight: 650; }
-a { color: #1a614b; text-underline-offset: 3px; }
-details a { display: inline-block; margin-top: .5rem; }
-.finish { padding: clamp(1.1rem, 5vw, 2rem); }
-.finish h2 { margin-block: .25rem .5rem; }
-#score { font-weight: 700; }
+details a { display: inline-block; margin-top: .55rem; }
+.finish { padding: var(--section-pad); }
+.finish h2 { margin-bottom: .5rem; }
+#score { font-weight: 750; }
 #preview-note, .training-note { color: var(--muted); }
 #readiness:has(.readiness-toast:not([hidden]), #sad-face:not([hidden])) { margin-top: .85rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.readiness-toast { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem .8rem; padding: .65rem .8rem; border: 1px solid #b6d2c1; border-radius: 9px; background: var(--source); box-shadow: 0 4px 14px #1a392016; }
+.readiness-toast {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .4rem .8rem;
+  padding: .65rem .85rem;
+  border: 1px solid #e4c4ce;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
 .readiness-toast p { flex: 1 1 14rem; }
 .readiness-toast a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 750; }
-#coaching-tip { background: #fbf3e7; border-color: #e1c5a7; }
+#coaching-tip { background: #fff4e6; border-color: #dfbe97; border-left-color: #9c591b; }
 #sad-face { display: block; font-size: 2.25rem; }
 @media (prefers-reduced-motion: no-preference) {
   .readiness-toast, #sad-face { animation: enter-feedback .2s ease-out both; }
@@ -98,28 +79,22 @@ details a { display: inline-block; margin-top: .5rem; }
   }
 }
 .result-list { list-style: none; padding: 0; margin: 1rem 0; border-block: 1px solid var(--line); }
-.result-list li { padding-block: .75rem; }
+.result-list li { padding-block: .8rem; }
 .result-list li + li { border-top: 1px solid var(--line); }
-.result-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .75rem; }
-.result-status { color: var(--green); font-size: .85rem; font-weight: 750; }
-.result-status.missed { color: #8c3f26; }
-.result-decisions { margin-top: .2rem; font-weight: 650; }
+.result-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .75rem; }
+.result-status { padding: .15rem .48rem; border-radius: .35rem; color: var(--muted); background: #f0edf0; font-size: .77rem; font-weight: 750; }
+.result-status.matched { color: #23533f; background: #e9f4ed; }
+.result-status.missed { color: var(--accent-dark); background: var(--accent-soft); }
+.result-decisions { margin-top: .27rem; font-weight: 650; }
 .result-reason { margin-top: .25rem; max-width: 76ch; }
-.result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; margin-top: .8rem; }
+.result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; margin-top: .85rem; }
+.result-actions .primary, .feedback .primary { min-width: min(10rem, 100%); }
 #copy-status { margin-top: .4rem; color: var(--muted); }
-#summary-text { display: block; width: 100%; min-height: 10rem; margin-top: .5rem; padding: .6rem; font: inherit; }
+#summary-text { display: block; width: 100%; min-height: 10rem; margin-top: .55rem; }
 #confetti { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
 #confetti span { position: absolute; top: -18px; width: 8px; height: 12px; border-radius: 2px; }
 @media (max-width: 640px) {
-  .wrap { width: calc(100% - 1rem); }
-  .top .wrap { min-height: 62px; gap: .35rem .5rem; }
-  .top .eyebrow { font-size: .63rem; letter-spacing: .04em; }
-  .top-controls { gap: .3rem .5rem; }
-  .case-grid { grid-template-columns: 1fr; }
-  .evidence { border-left: 0; border-top: 1px solid var(--line); }
-  .actions { padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
-  .choices { gap: .35rem; }
-  .choices button { font-size: .88rem; padding-inline: .3rem; }
+  .actions { padding-bottom: max(.8rem, env(safe-area-inset-bottom)); }
   kbd { display: none; }
 }
 </style>
@@ -129,17 +104,17 @@ details a { display: inline-block; margin-top: .5rem; }
   <div class="wrap">
     <span class="brand">Mira</span>
     <div class="top-controls">
-      <span class="eyebrow">Hong Kong · Compliance training</span>
       <button id="skip" type="button">Skip to end</button>
       <button id="undo" type="button" aria-keyshortcuts="U" hidden>Undo</button>
     </div>
   </div>
 </header>
 <main class="wrap">
-  <div class="intro">
+  <div class="hero">
     <div>
+      <p class="hero-kicker">Hong Kong · Compliance training</p>
       <h1>Review the Finding</h1>
-      <p>You’re the reviewer at a fictional Hong Kong bank. Decide what to do with each draft finding.</p>
+      <p>Review three draft findings for a fictional Hong Kong bank.</p>
     </div>
     <div id="progress" class="progress" role="img" aria-label="Case progress"></div>
   </div>
@@ -282,7 +257,7 @@ function decide(action) {
 }
 function celebrate() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const colors = ["#30806a", "#ffc654", "#e77f69", "#597bcb", "#8267a8"];
+  const colors = ["#bf0023", "#e83c58", "#ffadbb", "#e6a44b", "#642237"];
   for (let i = 0; i < 60; i++) {
     const chip = document.createElement("span");
     chip.style.left = (Math.random() * 100) + "%";
@@ -329,7 +304,8 @@ function showResults(decisions, sample = false) {
     const heading = document.createElement("div");
     heading.className = "result-heading";
     const status = textElement("span", verdict);
-    status.className = row.chosen && !row.matched ? "result-status missed" : "result-status";
+    status.className = "result-status";
+    if (row.chosen) status.classList.add(row.matched ? "matched" : "missed");
     heading.append(textElement("h3", row.title), status);
     result.append(heading);
     summary.push("", row.title + " · " + verdict);

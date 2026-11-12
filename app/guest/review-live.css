@@ -1,65 +1,28 @@
-:root {
-  color-scheme: light;
-  --ink: #172e29;
-  --muted: #4c625a;
-  --green: #19483d;
-  --line: #cbd8cb;
-  --source: #edf3eb;
-  font: 16px/1.55 "Instrument Sans", system-ui, sans-serif;
+.top a { display: inline-flex; align-items: center; min-height: 44px; font-size: .87rem; font-weight: 700; }
+#status { margin-block: .8rem; }
+#status:empty { margin: 0; }
+.sign-in {
+  display: grid;
+  gap: .85rem;
+  max-width: 28rem;
+  padding: var(--section-pad);
 }
-* { box-sizing: border-box; }
-body { margin: 0; color: var(--ink); background: #f3f5ef; }
-[hidden] { display: none !important; }
-h1, h2, h3, p, blockquote { margin: 0; }
-h1, h2 { font: 500 clamp(1.65rem, 4vw, 2.3rem)/1.12 "Instrument Serif", Georgia, serif; }
-h1 { font-size: clamp(2.45rem, 7vw, 4rem); letter-spacing: -.035em; }
-h3 { font-size: 1.05rem; line-height: 1.35; }
-.wrap { width: min(100% - 2rem, 65rem); margin-inline: auto; }
-.top { background: #113930; color: white; }
-.top a { color: #e0f2e7; min-height: 44px; display: inline-flex; align-items: center; }
-.top .wrap, .toolbar, .case-meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; }
-.top .wrap { min-height: 64px; }
-.brand { font: 600 1.4rem/1 Georgia, serif; }
-main { padding-block: clamp(1.25rem, 5vw, 3rem) 2rem; }
-main > p { margin-top: .45rem; }
-.muted { color: var(--muted); }
-#status { margin-block: .75rem; }
-#status:empty { display: none; }
-.sheet { background: white; border: 1px solid var(--line); border-radius: 13px; box-shadow: 0 7px 25px #1a39200c; }
-.sign-in { display: grid; gap: .75rem; max-width: 25rem; padding: 1rem; }
-label { display: grid; gap: .25rem; font-weight: 650; }
-input, select, button {
-  min-height: 46px; border: 1px solid #9eb5a7; border-radius: 7px; background: white;
-  color: var(--ink); font: inherit; padding: .5rem .65rem;
-}
+label { display: grid; gap: .3rem; font-weight: 650; }
+.sign-in button { justify-self: start; min-width: 8rem; margin-top: .15rem; }
 select { max-width: min(75vw, 32rem); }
-button { font-weight: 650; cursor: pointer; }
-button:hover { background: var(--source); }
-button:disabled { opacity: .65; cursor: wait; }
-.primary { justify-self: start; background: var(--green); color: white; border-color: var(--green); min-width: 8rem; }
-.primary:hover { background: #123a31; }
-a { color: #1a614b; text-underline-offset: 3px; }
-:focus-visible { outline: 3px solid #3c8060; outline-offset: 3px; }
-.toolbar { margin-block: .85rem; align-items: flex-end; }
-.case-meta { border-bottom: 1px solid var(--line); padding: .65rem clamp(.85rem, 3vw, 1.4rem); font-size: .85rem; }
-.eyebrow { color: var(--muted); font-size: .75rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
-.case-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.case-grid > section { padding: clamp(.85rem, 3vw, 1.4rem); overflow-wrap: anywhere; }
-.draft h2 { margin-block: .3rem .65rem; }
-.draft #finding { border-left: 3px solid #4b7d67; padding-left: .75rem; white-space: pre-wrap; }
-.evidence { background: var(--source); border-left: 1px solid var(--line); }
-#citations { list-style: none; margin: .65rem 0 0; padding: 0; }
-#citations li + li { margin-top: .85rem; padding-top: .85rem; border-top: 1px solid var(--line); }
-#citations blockquote { margin-top: .3rem; white-space: pre-wrap; }
-#citations .muted { font-size: .85rem; }
-.actions { border-top: 1px solid var(--line); padding: .85rem clamp(.85rem, 3vw, 1.4rem); }
-.actions p { margin-bottom: .4rem; }
-.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; }
-.quiet { margin-top: .35rem; border-color: transparent; background: transparent; color: #1a614b; }
-@media (max-width: 640px) {
-  .wrap { width: calc(100% - 1rem); }
-  .case-grid { grid-template-columns: 1fr; }
-  .evidence { border-left: 0; border-top: 1px solid var(--line); }
-  .choices { gap: .35rem; }
-  .choices button { padding-inline: .25rem; font-size: .87rem; line-height: 1.15; }
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: .55rem 1rem;
+  margin-block: .9rem;
 }
+.case-meta { font-size: .85rem; }
+.draft h2 { margin-block: .35rem .8rem; }
+#finding { white-space: pre-wrap; }
+#citations { list-style: none; margin: .7rem 0 0; padding: 0; }
+#citations li + li { margin-top: .85rem; padding-top: .85rem; border-top: 1px solid var(--line); }
+#citations blockquote { margin-top: .35rem; white-space: pre-wrap; }
+#citations .muted { font-size: .85rem; }
+.quiet { margin-top: .38rem; padding-inline: .55rem; border-color: transparent; color: var(--accent-dark); }

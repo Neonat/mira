@@ -7,6 +7,7 @@
   <meta name="robots" content="noindex, nofollow">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://*.supabase.co; base-uri 'none'; form-action 'none'">
   <title>Mira · Hong Kong evidence review</title>
+  <link rel="stylesheet" href="review-theme.css">
   <link rel="stylesheet" href="review-live.css">
   <script type="module" src="review-live.mjs"></script>
 </head>
@@ -18,8 +19,13 @@
     </div>
   </header>
   <main class="wrap">
-    <h1>Review a live finding</h1>
-    <p class="muted">Hong Kong findings from your workspace’s latest prepared report.</p>
+    <div class="hero">
+      <div>
+        <p class="hero-kicker">Hong Kong · Evidence review</p>
+        <h1>Review a live finding</h1>
+        <p>Pending findings from your workspace’s latest Hong Kong report.</p>
+      </div>
+    </div>
     <p id="status" role="status">Connecting to Mira…</p>
     <form id="sign-in" class="sheet sign-in" method="post" hidden>
       <label>Email <input name="email" type="email" autocomplete="username" required></label>
@@ -40,7 +46,7 @@
           <section class="draft">
             <p class="eyebrow">Draft finding</p>
             <h2 id="case-title" tabindex="-1"></h2>
-            <p id="finding"></p>
+            <p id="finding" class="finding"></p>
           </section>
           <section class="evidence" aria-labelledby="evidence-title">
             <h3 id="evidence-title">Evidence packet</h3>
