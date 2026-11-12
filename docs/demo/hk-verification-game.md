@@ -1,6 +1,6 @@
 # Review the Finding
 
-The player is the compliance reviewer at a fictional Hong Kong bank. Each of three cases presents one draft finding, its review cutoff and an HKMA excerpt. The player approves, sends back or escalates. The debrief explains the recommended training decision and shows the corresponding Mira verification evidence.
+The player is the compliance reviewer at a fictional Hong Kong bank. Each of three cases presents one draft finding, its review cutoff and an HKMA excerpt. The player approves, sends back or escalates. **Undo** reopens the most recent decision, including from the results screen. The debrief explains the recommended training decision and shows the corresponding Mira verification evidence.
 
 | Case | Recommended action | Verification link |
 |---|---|---|
