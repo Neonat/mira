@@ -31,6 +31,7 @@ from mira.pg_store import PostgresStore, load_run
 from mira.single_agent import QuoteOnlyVerifier, code_plan
 from mira.research_settings import ResearchSettings,restrict_sources
 from mira.pricing import load_price_book
+from mira.topics import CYBERSECURITY
 
 def discovery_from_env(sources,*,settings=None,api_keys=None,generation_budget=None):
     """Paid discovery is opt-in; credentials alone never activate it."""
@@ -133,8 +134,16 @@ def build_orchestrator(conn: psycopg.Connection, dsn: str, workspace: UUID, clie
     store = PostgresStore(conn)
     from mira.generation import GenerationClient
     shared_budget=client.budget if isinstance(client,GenerationClient) else None
-    sources=restrict_sources(store.list_sources(workspace),settings,ctx.brief.jurisdictions if ctx else [])
+    sources=restrict_sources(store.list_sources(workspace),settings,ctx.brief.jurisdictions if ctx else [],
+                             topic=ctx.brief.topic if ctx else "AML/CFT")
     fetcher = Fetcher(AllowList(sources))
+    if settings is not None and settings.archive_only:
+        scout = WebScout(dsn, client, fetcher, archive_only=True)
+        return Orchestrator(
+            store, client, {"regulatory_scout": scout, "industry_scout": scout}, LlmVerifier(client),
+            max_parallel_analysis=4, max_parallel_checks=4,
+            analysis_limits=replace(AnalysisLimits.from_env(), max_batches=settings.max_analysis_batches),
+        )
     discovery = discovery_from_env(sources,settings=settings,api_keys=api_keys,generation_budget=shared_budget)
     browser = browser_from_env(settings=settings)
     live_browser = live_browser_from_env(fetcher,settings=settings)
@@ -221,6 +230,10 @@ def _execute_locked(conn,dsn,run_id,client,arm,*,preparation=False,preparation_g
         if arm!='multi_agent':raise ValueError('Per-request controls require the research console execution path')
         worker=build(conn,dsn,ctx.workspace_id,client,settings=ctx.research_settings,ctx=ctx,
                      **({'frontier':frontier} if frontier is not None else {}))
+    elif ctx.brief.topic == CYBERSECURITY:
+        if arm != "multi_agent":
+            raise ValueError("Cybersecurity requires the UAE federal research workflow")
+        worker = build(conn, dsn, ctx.workspace_id, client, settings=ResearchSettings(), ctx=ctx)
     else:
         worker=build(conn, dsn, ctx.workspace_id, client,
                      **({'frontier':frontier} if frontier is not None else {}))
@@ -306,7 +319,7 @@ def _execute_byok(conn,dsn,ctx,*,arm,external_client=None,invocation,enterprise=
                 and 0<ctx.budget.max_llm_tokens<=caps.max_llm_tokens
                 and 0<=ctx.budget.max_gap_rounds<=caps.max_gap_rounds):
             raise ValueError('Requested resource limits exceed worker limits')
-        sources=restrict_sources(store.list_sources(ctx.workspace_id),settings,ctx.brief.jurisdictions)
+        sources=restrict_sources(store.list_sources(ctx.workspace_id),settings,ctx.brief.jurisdictions,topic=ctx.brief.topic)
         if not sources:raise ValueError('No selected source is currently available')
         if settings.enable_exa and os.environ.get('MIRA_ENABLE_EXA_DISCOVERY')!='1':raise ValueError('Exa operator capability unavailable')
         if settings.enable_browser and not any(os.environ.get(k)=='1' for k in ('MIRA_ENABLE_OFFLINE_BROWSER','MIRA_ENABLE_LIVE_BROWSER')):

@@ -9,6 +9,34 @@ URL = 'https://www.mas.gov.sg/regulation/notices/notice-626'
 HTML = Path('tests/fixtures/mas_notice.html').read_text()
 
 
+def test_web_passage_split_preserves_characters_at_hard_cuts():
+    from mira.extract import Extracted, split_passages
+
+    text = "a" * 19 + " section " + "b" * 21
+    extracted = Extracted("PDF", "complete", [text], metadata={"pdf_page_count": 1})
+    passages = split_passages(extracted, max_chars=10)
+    assert "".join(p.content for p in passages) == text.replace(" ", "")
+    for passage in passages:
+        assert passage.page_number == 1
+        assert len(passage.content) <= 10
+        assert text[passage.char_start:passage.char_end].strip() == passage.content
+
+
+def test_pdf_extraction_flags_missing_and_broken_page_text(monkeypatch):
+    from types import SimpleNamespace
+
+    from mira.extract import extract_pdf
+
+    pages = [SimpleNamespace(extract_text=lambda text=text: text)
+             for text in ("Readable text", "", "broken\x03font")]
+    monkeypatch.setattr("pypdf.PdfReader", lambda *args: SimpleNamespace(pages=pages, metadata=None))
+    result = extract_pdf(b"fixture", "https://example.org/report.pdf")
+    assert result.status == "partial"
+    assert result.metadata["pdf_page_count"] == 3
+    assert result.metadata["pdf_pages_without_text"] == [2]
+    assert result.metadata["pdf_pages_with_encoding_issues"] == [3]
+
+
 class IngestionTests(unittest.TestCase):
     def test_extract_and_exact_offsets(self):
         bundle = extract(HTML, URL, size=100)

@@ -94,6 +94,31 @@ def test_inference_receives_exact_dependency_passages():
     assert len(run.verified)==4
 
 
+def test_rewrite_rechecks_and_freezes_only_revised_citations():
+    run = setup_run(max_parallel_checks=2)
+    run.passages = {p.id: p for p in PASSAGES}
+    run.o.verifier = FakeVerifier({"C1": ["partially_supported", "supported"]})
+    labels = LabelMap()
+    for p in PASSAGES:
+        labels.add("P", p.id)
+    draft = AnalystOutput.model_validate(analyst_output()).claims[0]
+    original = draft.model_copy(update={"citations": [
+        draft.citations[0],
+        draft.citations[0].model_copy(update={"passage_label": "P2", "supporting_quote": PASSAGES[1].content}),
+    ]})
+    run.claims = run.store.save_claims(run.ctx, [_resolve(original, labels)])
+    from mira.llm import ScriptedClient
+    run.o.client = ScriptedClient({"analyst": [draft.model_dump()]})
+
+    run._verify()
+
+    assert run.claims[0].finding_id in run.verified
+    assert [check.attempt for _, check in run.store.checks] == [1, 2]
+    assert [set(snapshot["passages"]) for snapshot in run.store.check_inputs] == [
+        {str(PASSAGES[0].id), str(PASSAGES[1].id)}, {str(PASSAGES[0].id)},
+    ]
+
+
 def test_cancel_during_dispatch_drains_already_submitted_analysis(monkeypatch):
     from mira.orchestrator import RunCancelled
     run=setup_run(analysis_limits=AnalysisLimits(max_passages=1),max_parallel_analysis=2)

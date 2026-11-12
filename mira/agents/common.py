@@ -22,11 +22,14 @@ NO_CONCLUSIONS_RULE = (
 
 
 def brief_text(brief: Brief) -> str:
+    from mira.topics import CYBERSECURITY, CYBER_FOCUS
+
+    scope = f"\nResearch focus: {CYBER_FOCUS}" if brief.topic == CYBERSECURITY else ""
     return (
         f"Topic: {brief.topic}\n"
         f"Jurisdictions: {', '.join(brief.jurisdictions)}\n"
         f"Period: {brief.period_start.isoformat()} to {brief.period_end.isoformat()}\n"
-        f"As-of date: {brief.as_of_date.isoformat()}"
+        f"As-of date: {brief.as_of_date.isoformat()}{scope}"
     )
 
 

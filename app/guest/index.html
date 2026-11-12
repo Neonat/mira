@@ -27,13 +27,22 @@
     <section class="sheet guest-panel" aria-label="Guest report access">
       <p id="window" hidden></p>
       <p id="status" role="status" aria-live="polite">Checking guest access…</p>
+      <progress id="loading" aria-label="Preparing your report" hidden></progress>
+      <ul id="markets" aria-label="Guest report markets" hidden></ul>
       <div class="guest-actions">
         <button id="generate" class="primary" type="button" hidden>Generate report</button>
-        <button id="open" class="primary" type="button" hidden>Open report</button>
+        <button id="open" class="primary" type="button" aria-haspopup="dialog" hidden>Open preview</button>
         <a id="download" class="secondary-action" download="mira-draft-report.html" hidden>Download HTML</a>
       </div>
     </section>
     <iframe id="report" title="Mira draft report" sandbox="allow-popups allow-popups-to-escape-sandbox" hidden></iframe>
   </main>
+  <dialog id="reader" aria-labelledby="reader-title">
+    <header>
+      <h2 id="reader-title">Report preview</h2>
+      <button id="close-reader" type="button" autofocus>Close</button>
+    </header>
+    <iframe id="reader-report" title="Mira draft report preview" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+  </dialog>
 </body>
 </html>

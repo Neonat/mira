@@ -19,6 +19,10 @@ def _json(value):
     return json.loads(json.dumps(value, default=str))
 
 
+def _topic(brief):
+    return _json(brief).get('topic', 'AML/CFT')
+
+
 class PreparationStore:
     def __init__(self, conn):
         self.conn = conn
@@ -29,16 +33,18 @@ class PreparationStore:
             raise ValueError('source scope is not permitted')
         return ids
 
-    def _scopes(self, ws, ids):
+    def _scopes(self, ws, ids, topic):
         for sid in sorted(ids, key=str):
-            self.conn.execute('insert into public.preparation_scopes(id,workspace_id,source_id) values(%s,%s,%s) on conflict do nothing', (sid,ws,sid))
-        return self.conn.execute('select * from public.preparation_scopes where workspace_id=%s and id=any(%s::uuid[]) order by id for update', (ws,ids)).fetchall()
+            self.conn.execute('''insert into public.preparation_scopes(id,workspace_id,source_id,topic)
+                values(case when %s='AML/CFT' then %s else gen_random_uuid() end,%s,%s,%s)
+                on conflict(workspace_id,source_id,topic) do nothing''', (topic,sid,ws,sid,topic))
+        return self.conn.execute('select * from public.preparation_scopes where workspace_id=%s and source_id=any(%s::uuid[]) and topic=%s order by id for update', (ws,ids,topic)).fetchall()
 
     def enqueue_job(self, ws, actor, source_ids, brief, budget, models, settings, idempotency_key):
         with acting_as(self.conn,actor):
             require_role(self.conn,ws)
             ids=self._sources(ws,source_ids)
-            scopes=self._scopes(ws,ids)
+            scopes=self._scopes(ws,ids,_topic(brief))
             job=self.conn.execute('''insert into public.preparation_jobs(workspace_id,actor_id,source_ids,brief,budget,models,settings,idempotency_key)
                 values(%s,%s,%s,%s,%s,%s,%s,%s) on conflict(workspace_id,idempotency_key) do nothing returning *''',
                 (ws,actor,ids,Jsonb(_json(brief)),Jsonb(_json(budget)),Jsonb(_json(models)),Jsonb(_json(settings)),idempotency_key)).fetchone()
@@ -46,7 +52,7 @@ class PreparationStore:
                 return self.conn.execute('select * from public.preparation_jobs where workspace_id=%s and idempotency_key=%s',(ws,idempotency_key)).fetchone()
             # Registration is visible to requests before the worker starts.
             if all(s['active_job_id'] is None for s in scopes):
-                self.conn.execute('update public.preparation_scopes set active_job_id=%s where workspace_id=%s and id=any(%s)',(job['id'],ws,ids))
+                self.conn.execute('update public.preparation_scopes set active_job_id=%s where workspace_id=%s and id=any(%s)',(job['id'],ws,[scope['id'] for scope in scopes]))
             return job
 
     def _admission_error(self, ws, source_ids):
@@ -65,20 +71,20 @@ class PreparationStore:
             # re-read their status after scopes serialize competitors.
             candidates=self.conn.execute("select * from public.preparation_jobs where workspace_id=%s and (status='queued' or (status='preparing' and lease_until<=clock_timestamp())) order by created_at,id",(ws,)).fetchall()
             for candidate in candidates:
-                scopes=self._scopes(ws,candidate['source_ids'])
+                scopes=self._scopes(ws,candidate['source_ids'],_topic(candidate['brief']))
                 if any(s['active_job_id'] not in (None,candidate['id']) for s in scopes): continue
                 with acting_as(self.conn,candidate['actor_id']):
                     error=self._admission_error(ws,candidate['source_ids'])
                     if error:
                         failed=self.conn.execute("update public.preparation_jobs set status='failed',phase='failed',reason=%s,finished_at=clock_timestamp(),lease_until=null where id=%s and (status='queued' or (status='preparing' and lease_until<=clock_timestamp())) returning id",(error,candidate['id'])).fetchone()
                         if failed:
-                            self.conn.execute('update public.preparation_scopes set latest_failed_job_id=%s where workspace_id=%s and id=any(%s)',(candidate['id'],ws,candidate['source_ids']))
-                            self._advance(ws,candidate['source_ids'])
+                            self.conn.execute('update public.preparation_scopes set latest_failed_job_id=%s where workspace_id=%s and id=any(%s)',(candidate['id'],ws,[scope['id'] for scope in scopes]))
+                            self._advance(ws,candidate['source_ids'],_topic(candidate['brief']))
                         continue
                     row=self.conn.execute("""update public.preparation_jobs set status='preparing',owner=%s,generation=generation+1,lease_until=clock_timestamp()+%s*interval '1 second',phase='starting'
                       where id=%s and (status='queued' or (status='preparing' and lease_until<=clock_timestamp())) returning *""",(owner,lease_seconds,candidate['id'])).fetchone()
                     if row:
-                        self.conn.execute('update public.preparation_scopes set active_job_id=%s where workspace_id=%s and id=any(%s)',(row['id'],ws,row['source_ids']))
+                        self.conn.execute('update public.preparation_scopes set active_job_id=%s where workspace_id=%s and id=any(%s)',(row['id'],ws,[scope['id'] for scope in scopes]))
                         return row
         return None
 
@@ -98,15 +104,15 @@ class PreparationStore:
             if not self.conn.execute('select 1 from public.analysis_runs where id=%s and workspace_id=%s',(run_id,job['workspace_id'])).fetchone(): raise ValueError('run scope mismatch')
             return self.conn.execute('update public.preparation_jobs set analysis_run_id=%s where id=%s returning *',(run_id,job['id'])).fetchone()
 
-    def _advance(self, ws, source_ids):
-        self.conn.execute('update public.preparation_scopes set active_job_id=null where workspace_id=%s and id=any(%s)',(ws,source_ids))
+    def _advance(self, ws, source_ids, topic):
+        self.conn.execute('update public.preparation_scopes set active_job_id=null where workspace_id=%s and source_id=any(%s) and topic=%s',(ws,source_ids,topic))
         # Promote only whole jobs. Lock all scopes in workspace first at callers
         # where overlaps may include scopes outside the finishing job.
         queued=self.conn.execute("select * from public.preparation_jobs where workspace_id=%s and status='queued' order by created_at,id",(ws,)).fetchall()
         for q in queued:
-            scopes=self._scopes(ws,q['source_ids'])
+            scopes=self._scopes(ws,q['source_ids'],_topic(q['brief']))
             if all(s['active_job_id'] is None for s in scopes):
-                self.conn.execute('update public.preparation_scopes set active_job_id=%s where workspace_id=%s and id=any(%s)',(q['id'],ws,q['source_ids']))
+                self.conn.execute('update public.preparation_scopes set active_job_id=%s where workspace_id=%s and id=any(%s)',(q['id'],ws,[scope['id'] for scope in scopes]))
 
     def _publication_scopes(self, job):
         # Short publication lock only; no network/model operation holds this.
@@ -116,6 +122,8 @@ class PreparationStore:
         p=_json(payload)
         if p.get('schema_version')!=1: raise ValueError('unsupported prepared snapshot schema')
         if set(map(str,p.get('source_ids',[])))!=set(map(str,job['source_ids'])): raise ValueError('snapshot source scope mismatch')
+        if _topic(p.get('brief') or {}) != _topic(job['brief']):
+            raise ValueError('snapshot topic scope mismatch')
         e=p['evidence_input']
         if str(e['workspace_id'])!=str(job['workspace_id']) or str(e['analysis_run_id'])!=str(job['analysis_run_id']): raise ValueError('snapshot run scope mismatch')
         ids=[UUID(x) for x in e['findings']]
@@ -168,13 +176,13 @@ class PreparationStore:
                 (job['workspace_id'],job['id'],job['generation'],job['source_ids'],Jsonb(p),Jsonb(p),job['workspace_id'],job['source_ids'])).fetchone()
             self.conn.execute('''insert into public.prepared_snapshot_parents(snapshot_id,parent_snapshot_id,workspace_id,source_ids)
                 select %s,latest_snapshot_id,workspace_id,array_agg(source_id order by source_id)
-                from public.preparation_scopes where workspace_id=%s and id=any(%s) and latest_snapshot_id is not null
-                group by latest_snapshot_id,workspace_id''',(row['id'],job['workspace_id'],job['source_ids']))
+                from public.preparation_scopes where workspace_id=%s and source_id=any(%s) and topic=%s and latest_snapshot_id is not null
+                group by latest_snapshot_id,workspace_id''',(row['id'],job['workspace_id'],job['source_ids'],_topic(job['brief'])))
             for fid,fact in p['evidence_input']['findings'].items():
                 self.conn.execute('insert into public.prepared_facts(workspace_id,snapshot_id,finding_id,fact,input_fingerprint) values(%s,%s,%s,%s,%s)',(job['workspace_id'],row['id'],UUID(fid),Jsonb(fact),p['verifications'][fid]['input_fingerprint']))
-            self.conn.execute('update public.preparation_scopes set latest_snapshot_id=%s,latest_failed_job_id=null where workspace_id=%s and id=any(%s)',(row['id'],job['workspace_id'],job['source_ids']))
+            self.conn.execute('update public.preparation_scopes set latest_snapshot_id=%s,latest_failed_job_id=null where workspace_id=%s and source_id=any(%s) and topic=%s',(row['id'],job['workspace_id'],job['source_ids'],_topic(job['brief'])))
             self.conn.execute("update public.preparation_jobs set status='succeeded',phase='ready',finished_at=clock_timestamp(),lease_until=null where id=%s",(job['id'],))
-            self._advance(job['workspace_id'],job['source_ids'])
+            self._advance(job['workspace_id'],job['source_ids'],_topic(job['brief']))
             return row
 
     def fail_job(self, job, reason):
@@ -182,8 +190,8 @@ class PreparationStore:
             self._publication_scopes(job)
             self._fence(job)
             self.conn.execute("update public.preparation_jobs set status='failed',phase='failed',reason=%s,finished_at=clock_timestamp(),lease_until=null where id=%s",(reason,job['id']))
-            self.conn.execute('update public.preparation_scopes set latest_failed_job_id=%s where workspace_id=%s and id=any(%s)',(job['id'],job['workspace_id'],job['source_ids']))
-            self._advance(job['workspace_id'],job['source_ids'])
+            self.conn.execute('update public.preparation_scopes set latest_failed_job_id=%s where workspace_id=%s and source_id=any(%s) and topic=%s',(job['id'],job['workspace_id'],job['source_ids'],_topic(job['brief'])))
+            self._advance(job['workspace_id'],job['source_ids'],_topic(job['brief']))
 
     def request_report(self, ws, actor, brief, source_ids, key):
         with acting_as(self.conn,actor):
@@ -226,8 +234,9 @@ class PreparationStore:
         request=self.conn.execute('select * from public.prepared_report_requests where id=%s',(request_id,)).fetchone()
         if not request: return []
         rows=self.conn.execute("""with recursive lineage(root_id,snapshot_id,source_id) as (
-          select snapshot_id,snapshot_id,scope_id from public.prepared_report_request_scopes
-          where request_id=%s and snapshot_id is not null
+          select e.snapshot_id,e.snapshot_id,scope.source_id from public.prepared_report_request_scopes e
+          join public.preparation_scopes scope on scope.id=e.scope_id and scope.workspace_id=e.workspace_id
+          where e.request_id=%s and e.snapshot_id is not null
           union
           select l.root_id,p.parent_snapshot_id,l.source_id from lineage l
           join public.prepared_snapshot_parents p on p.snapshot_id=l.snapshot_id
@@ -321,6 +330,18 @@ class PreparationStore:
             if '{{PREPARED_REVIEW_WARNING}}' not in html: raise ValueError('report review warning placeholder required')
             html=html.replace('{{PREPARED_REVIEW_WARNING}}',warning,1)
             c['prepared_review_counts']={'accepted':sum(v['decision']=='accepted' for v in reviews),'pending':sum(v['decision'] is None for v in reviews)}
+            from mira.report import MARKET_NAMES
+            pending_markets = sorted({
+                c['selected_findings'][v['finding_id']]['jurisdiction_code']
+                for v in reviews if v['decision'] is None
+                and c['selected_findings'][v['finding_id']]['jurisdiction_code']
+            })
+            if pending_markets:
+                names = ', '.join(MARKET_NAMES.get(market, market) for market in pending_markets)
+                pending_note = f'<p><strong>Human evidence review pending:</strong> {escape(names)}.</p>'
+            else:
+                pending_note = ''
+            html=html.replace('{{PREPARED_MARKET_REVIEWS}}',pending_note,1)
             c['preparation_dispositions']=[{'snapshot_id':str(sid),'analysis_coverage':snap['payload'].get('analysis_coverage'),'reasons':snap['payload'].get('reasons',[])} for sid,snap in pinned.items()]
             html=html.replace('{{PREPARED_FACT_REVIEWS}}',self._fact_review_html(reviews,pinned),1)
             if warning not in html: raise ValueError('report review warning placeholder required')

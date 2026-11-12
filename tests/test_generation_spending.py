@@ -164,3 +164,94 @@ def test_dispatch_timeout_accounts_for_journal_delay(kind):
             timeouts.append(timeout); return []
         GenerationSearch(run,b)('query',10,20)
     assert timeouts==[5.0]
+
+
+@pytest.mark.parametrize("role,contract,error_code", [
+    ("verifier", "inference", "request_timeout"),
+    ("analyst", "rewrite", "provider_unavailable"),
+])
+def test_transient_verification_or_rewrite_failure_retries_once_and_accounts_for_both(
+    role, contract, error_code,
+):
+    from mira.claim_grounding import GroundedInferenceDraft
+    from mira.contracts import ClaimDraft
+    from mira.generation import GenerationBudget, GenerationClient
+    from mira.spending import SpendingLedger
+
+    output_type = GroundedInferenceDraft if contract == "inference" else ClaimDraft
+    state = GenerationBudget(600000, 1500, spending=SpendingLedger(D("1"), book()),
+                             models={role: "openai:fixture"})
+    calls = []
+
+    def respond(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise LLMError("temporary error", code=error_code, request_sent=True)
+        return SimpleNamespace(tokens_in=40, tokens_out=12, model="fixture")
+
+    result = GenerationClient(SimpleNamespace(structured_bounded=respond), state).structured(
+        role=role, system="s", user="u", output_type=output_type, prompt_version="fixture",
+    )
+    usage = state.snapshot()
+    assert result.tokens_out == 12
+    assert [call["timeout_seconds"] for call in calls] == [120, 150]
+    assert [call["status"] for call in usage["calls"]] == ["failed", "complete"]
+    assert usage["known_tokens"] == 52
+    assert usage["unknown_reserved_tokens"] == usage["calls"][0]["reservation_tokens"]
+    assert D(usage["spending"]["unknown_reserved_usd"]) > 0
+    assert D(usage["spending"]["known_estimated_usd"]) > 0
+    assert D(usage["spending"]["pending_usd"]) == 0
+
+
+def test_failed_verifier_reservation_can_use_up_budget_before_retry():
+    from mira.contracts import VerdictDraft
+    from mira.generation import GenerationBudget, GenerationClient
+    from mira.spending import SpendingLedger
+
+    state = GenerationBudget(600000, 1500, spending=SpendingLedger(D(".03"), book()),
+                             models={"verifier": "openai:fixture"})
+    calls = []
+
+    def timeout(**kwargs):
+        calls.append(kwargs)
+        raise LLMError("timeout", code="request_timeout", request_sent=True)
+
+    with pytest.raises(LLMError) as error:
+        GenerationClient(SimpleNamespace(structured_bounded=timeout), state).structured(
+            role="verifier", system="s", user="u", output_type=VerdictDraft, prompt_version="fixture",
+        )
+    usage = state.snapshot()["spending"]
+    assert error.value.request_sent is False
+    assert len(calls) == 1
+    assert 0 < D(usage["unknown_reserved_usd"]) <= D(".03")
+    assert D(usage["pending_usd"]) == 0
+
+
+@pytest.mark.parametrize("error_code,remaining,expected_calls", [
+    ("invalid_api_key", 1500, 1),
+    ("provider_request", 1500, 1),
+    ("request_timeout", 130, 1),
+    ("request_timeout", 1500, 2),
+])
+def test_verifier_stops_on_permanent_error_insufficient_time_or_second_failure(
+    error_code, remaining, expected_calls,
+):
+    from mira.contracts import VerdictDraft
+    from mira.generation import GenerationBudget, GenerationClient
+
+    now = [0.]
+    state = GenerationBudget(600000, 1500, clock=lambda: now[0])
+    calls = []
+
+    def respond(**kwargs):
+        calls.append(kwargs)
+        now[0] = 1500 - remaining
+        raise LLMError("fixture", code=error_code, request_sent=True)
+
+    with pytest.raises(LLMError) as error:
+        GenerationClient(SimpleNamespace(structured_bounded=respond), state).structured(
+            role="verifier", system="s", user="u", output_type=VerdictDraft, prompt_version="fixture",
+        )
+    assert error.value.code == error_code
+    assert len(calls) == expected_calls
+    assert state.snapshot()["pending_tokens"] == 0

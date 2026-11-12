@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from difflib import SequenceMatcher
 
 from mira.agents.common import NO_CONCLUSIONS_RULE, UNTRUSTED_TEXT_RULE, quote_passage
-from mira.claim_grounding import GroundedInferenceDraft, inference_grounding_error, substantive_evidence
+from mira.claim_grounding import GroundedInferenceDraft, check_inference_grounding, substantive_evidence
 from mira.contracts import Brief, InferenceCheckDraft, LabelMap, Verdict, VerdictDraft
 from mira.interfaces import CheckOutcome, checkable
 from mira.llm import LLMClient, call_checked
@@ -202,8 +202,10 @@ class LlmVerifier:
             if draft.is_supported_assessment and not draft.introduces_new_fact and not draft.new_facts
             else "unsupported"
         )
-        grounding_error = (inference_grounding_error(claim, facts, passages, draft) if passages
-                           else "premise_evidence_missing")
+        grounding_error, premises = (
+            check_inference_grounding(claim, facts, passages, draft) if passages
+            else ("premise_evidence_missing", ())
+        )
         if verdict == "supported" and grounding_error:
             verdict = "unsupported"
         reason = draft.reason if not draft.new_facts else f"{draft.reason} New facts: {'; '.join(draft.new_facts)}"
@@ -211,7 +213,7 @@ class LlmVerifier:
             reason += " Grounding: " + grounding_error
         check = Verdict(
             finding_id=claim.finding_id, attempt=attempt, method="inference_check", verdict=verdict, reason=reason,
-            model=result.model, prompt_version=INFERENCE_PROMPT_VERSION,
+            model=result.model, prompt_version=INFERENCE_PROMPT_VERSION, premise_mappings=premises,
         )
         return CheckOutcome(verdict, (check,), result.model, INFERENCE_PROMPT_VERSION, result.tokens_in,
                             result.tokens_out)

@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 import threading
 import time
+from mira.contracts import ClaimDraft
 from mira.spending import SpendingError
 
 from mira.llm import LLMError,request_token_reservation
@@ -129,8 +130,19 @@ class GenerationClient:
     def __init__(self,base,budget:GenerationBudget):self.base=base;self.budget=budget
 
     def structured(self,**kwargs):
-        return self.structured_bounded(timeout_seconds=120,
-            max_output_tokens=16384 if kwargs['role']=='writer' else 8192,**kwargs)
+        role = kwargs["role"]
+        output_limit = 16384 if role == "writer" else 8192
+        recoverable = role == "verifier" or (role == "analyst" and kwargs["output_type"] is ClaimDraft)
+        try:
+            return self.structured_bounded(timeout_seconds=120, max_output_tokens=output_limit, **kwargs)
+        except LLMError as error:
+            remaining = self.budget.remaining_seconds() - self.budget.protected_seconds(role)
+            if (not recoverable or error.code not in {"request_timeout", "provider_unavailable"}
+                    or error.tokens_in or error.tokens_out or remaining < 30):
+                raise
+            # Admit a fresh reservation. Usage from the first request remains
+            # charged or reserved, even when the second request succeeds.
+            return self.structured_bounded(timeout_seconds=150, max_output_tokens=output_limit, **kwargs)
 
     def structured_bounded(self,*,timeout_seconds,max_output_tokens,**kwargs):
         if not callable(getattr(self.base,'structured_bounded',None)):

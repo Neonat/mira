@@ -109,12 +109,33 @@ def test_repeated_real_capture_can_add_retention_to_existing_version(conn, setup
     ws, user, page, extracted, store = setup_original
     off = PrivateOriginalStore(store.root, RetentionPolicy())
     first = EvidenceWriter(conn, ws, user, originals=off).save(page, extracted)
-    assert version(conn, first)['metadata']['original_retention_status'] == 'not_enabled'
+    before = version(conn, first)
+    assert before['metadata']['original_retention_status'] == 'not_enabled'
     second = EvidenceWriter(conn, ws, user, originals=store).save(page, extracted)
     assert second.unchanged
     assert first.document_version_id == second.document_version_id
-    assert version(conn, second)['metadata']['original_retained'] is True
-    assert store.read(ws, version(conn, second)['metadata']['retained_original']) == page.body
+    after = version(conn, second)
+    recovered = after['metadata'].pop('recovered_original')
+    assert after == before
+    assert store.read(ws, recovered['identity']) == page.body
+
+
+def test_recover_original_requires_exact_saved_capture(conn, setup_original):
+    ws, user, page, extracted, store = setup_original
+    off = PrivateOriginalStore(store.root, RetentionPolicy())
+    saved = EvidenceWriter(conn, ws, user, originals=off).save(page, extracted)
+    before = version(conn, saved)
+    writer = EvidenceWriter(conn, ws, user, originals=store)
+    with pytest.raises(ValueError, match='capture'):
+        writer.recover_original(saved.document_version_id, replace(page, body=b'different'))
+    assert not store.root.exists()
+    assert version(conn, saved) == before
+    identity = writer.recover_original(saved.document_version_id, page)
+    assert writer.recover_original(saved.document_version_id, page) == identity
+    after = version(conn, saved)
+    assert after['metadata'].pop('recovered_original')['identity'] == identity
+    assert after == before
+    assert store.read(ws, identity) == page.body
 
 
 def test_default_writer_uses_environment_opt_in_and_private_root(conn, setup_original, monkeypatch):

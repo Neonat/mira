@@ -540,17 +540,18 @@ class PostgresStore:
     ) -> None:
         with acting_as(self.conn, ctx.user_id):
             for v in verdicts:
+                premises = Jsonb([p.model_dump(mode="json") for p in v.premise_mappings]) if v.premise_mappings else None
                 self.conn.execute(
                     # clock_timestamp(), not now(): checks saved in one transaction keep their order.
                     """insert into public.claim_checks
                          (workspace_id, analysis_run_id, finding_id, attempt, method, verdict, reason, model,
-                          prompt_version, agent_step_id, checked_at, input_snapshot, input_fingerprint)
+                          prompt_version, agent_step_id, checked_at, input_snapshot, input_fingerprint, premise_mappings)
                        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, clock_timestamp(), %s,
-                               private.evidence_input_fingerprint(%s::jsonb))""",
+                               private.evidence_input_fingerprint(%s::jsonb), %s)""",
                     (ctx.workspace_id, ctx.analysis_run_id, v.finding_id, v.attempt, v.method, v.verdict, v.reason,
                      v.model, v.prompt_version, step_id,
                      Jsonb(input_snapshot) if input_snapshot is not None else None,
-                     Jsonb(input_snapshot) if input_snapshot is not None else None),
+                     Jsonb(input_snapshot) if input_snapshot is not None else None, premises),
                 )
 
     def save_coverage(self, ctx: RunContext, rows: Sequence[CoverageRow]) -> None:

@@ -31,3 +31,15 @@ def test_defaults_are_immutable_and_pending_byok_handle_is_allowed():
     assert settings.max_analysis_batches==8
     result=settings.as_dict();result['max_analysis_batches']=60
     assert settings.max_analysis_batches==8
+
+
+def test_archive_only_settings_reject_external_retrieval_modes():
+    from mira.research_settings import ResearchSettings
+
+    settings = ResearchSettings.from_dict({"archive_only": True})
+    assert settings.as_dict()["archive_only"] is True
+    for incompatible in (
+        {"enable_exa": True}, {"enable_browser": True}, {"retrieval": "hybrid"},
+    ):
+        with pytest.raises(ValueError, match="Archive-only"):
+            ResearchSettings.from_dict({"archive_only": True, **incompatible})

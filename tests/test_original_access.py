@@ -58,6 +58,20 @@ def test_signed_in_member_reads_database_selected_original(access_fixture):
     assert read_original(Client(tables, user), ws, version_id, store) == b'original'
 
 
+def test_recovered_original_uses_saved_capture_hash(access_fixture):
+    from mira.original_access import read_original
+    ws, user, version_id, store, tables = access_fixture
+    metadata = tables['document_versions'][0]['metadata']
+    identity = metadata.pop('retained_original')
+    metadata.update(original_retained=False, capture_sha256=identity['sha256'],
+                    recovered_original={'identity': identity})
+    client = Client(tables, user)
+    assert read_original(client, ws, version_id, store) == b'original'
+    metadata['capture_sha256'] = 'b' * 64
+    with pytest.raises(PermissionError):
+        read_original(client, ws, version_id, store)
+
+
 @pytest.mark.parametrize('denial', ['anonymous', 'no_auth', 'foreign_workspace', 'version_hidden',
                                    'document_hidden', 'source_hidden', 'inactive', 'revoked',
                                    'reference_changed', 'permission', 'membership', 'not_retained',
