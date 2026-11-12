@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://*.supabase.co; base-uri 'none'; form-action 'none'">
+  <title>Mira · Hong Kong evidence review</title>
+  <link rel="stylesheet" href="review-live.css">
+  <script type="module" src="review-live.mjs"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <span class="brand">Mira</span>
+      <a href="./review-the-finding.html">Back to practice</a>
+    </div>
+  </header>
+  <main class="wrap">
+    <h1>Review a live finding</h1>
+    <p class="muted">Hong Kong findings from your workspace’s latest prepared report.</p>
+    <p id="status" role="status">Connecting to Mira…</p>
+    <form id="sign-in" class="sheet sign-in" method="post" hidden>
+      <label>Email <input name="email" type="email" autocomplete="username" required></label>
+      <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary" type="submit">Sign in</button>
+    </form>
+    <section id="queue" aria-label="Hong Kong review queue" hidden>
+      <div class="toolbar">
+        <label>Workspace <select id="workspace"></select></label>
+        <button id="sign-out" type="button">Sign out</button>
+      </div>
+      <article id="case" class="sheet" aria-labelledby="case-title" hidden>
+        <div class="case-meta">
+          <span class="eyebrow">Awaiting human review</span>
+          <span id="case-date" class="muted"></span>
+        </div>
+        <div class="case-grid">
+          <section class="draft">
+            <p class="eyebrow">Draft finding</p>
+            <h2 id="case-title" tabindex="-1"></h2>
+            <p id="finding"></p>
+          </section>
+          <section class="evidence" aria-labelledby="evidence-title">
+            <h3 id="evidence-title">Evidence packet</h3>
+            <ul id="citations" role="list"></ul>
+          </section>
+        </div>
+        <footer class="actions">
+          <div id="choices">
+            <p>What would you do?</p>
+            <div class="choices">
+              <button type="button" data-decision="accepted">Accept</button>
+              <button type="button" data-decision="correction_requested">Request correction</button>
+              <button type="button" data-decision="rejected">Reject</button>
+            </div>
+          </div>
+          <p id="view-only" class="muted" hidden>Reviewer or admin access is required to save decisions.</p>
+          <button id="next" type="button" class="quiet">Skip for now</button>
+        </footer>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
