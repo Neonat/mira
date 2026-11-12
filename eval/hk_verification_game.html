@@ -9,6 +9,8 @@
 <title>Mira · Review the Finding</title>
 <style>
 {{THEME}}
+.top-navigation { display: flex; align-items: center; gap: .65rem; }
+.back-link { display: inline-flex; align-items: center; gap: .28rem; min-height: 44px; font-size: .85rem; font-weight: 700; }
 .top-controls { display: flex; align-items: center; gap: .45rem; }
 .top-controls button { min-height: 44px; font-size: .85rem; }
 #skip { border-color: transparent; color: var(--accent-dark); }
@@ -102,7 +104,10 @@ details a { display: inline-block; margin-top: .55rem; }
 <body>
 <header class="top">
   <div class="wrap">
-    <span class="brand">Mira</span>
+    <div class="top-navigation">
+      <span class="brand">Mira</span>
+      <a id="back-to-demo" class="back-link" href="https://mira-guest-reports.labandinnovation.chatgpt.site/"><span aria-hidden="true">←</span> Back to demo</a>
+    </div>
     <div class="top-controls">
       <button id="skip" type="button">Skip to end</button>
       <button id="undo" type="button" aria-keyshortcuts="U" hidden>Undo</button>
@@ -199,6 +204,17 @@ let current = 0;
 let answers = [];
 let previewing = false;
 let readinessTimer;
+
+if (new URLSearchParams(location.search).get("from") === "guest") {
+  try {
+    const hash = sessionStorage.getItem("mira.guest-return") || "";
+    if (/^#(?:demo-[0-9a-f]{64}|[0-9a-f]{64}(?:,[0-9a-f]{64}){0,2})$/.test(hash)) {
+      $("back-to-demo").href = new URL("/" + hash, location.origin).href;
+    }
+  } catch {
+    // Keep the public landing link if guest context is unavailable.
+  }
+}
 
 function textElement(tag, text) {
   const element = document.createElement(tag);

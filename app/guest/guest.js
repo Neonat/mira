@@ -251,6 +251,13 @@ elements.open.addEventListener("click", () => {
 });
 elements["close-reader"].addEventListener("click", () => elements.reader.close());
 elements.reader.addEventListener("close", () => elements["reader-report"].removeAttribute("src"));
+document.getElementById("guest-game")?.addEventListener("click", () => {
+  try {
+    sessionStorage.setItem("mira.guest-return", location.hash);
+  } catch {
+    // The game still links to the guest landing page when storage is blocked.
+  }
+});
 window.addEventListener("hashchange", () => location.reload());
 
 start();
