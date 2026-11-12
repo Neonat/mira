@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Mira · Review the Finding</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #1c1b1f;
+  --muted: #5c555d;
+  --accent: #bf0023;
+  --accent-dark: #980019;
+  --accent-soft: #fff0f2;
+  --line: #ded9dc;
+  --control-line: #91868e;
+  --paper: #f6f4f4;
+  --card: #fff;
+  --source: #faf8f9;
+  --radius: 12px;
+  --section-pad: clamp(1rem, 3vw, 1.65rem);
+  font: 16px/1.55 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: var(--paper); }
+[hidden] { display: none !important; }
+h1, h2, h3, p, blockquote, dl, dd { margin: 0; }
+h1, h2 { font-weight: 780; line-height: 1.08; letter-spacing: -.035em; }
+h1 { font-size: clamp(2.15rem, 5.6vw, 4rem); }
+h2 { font-size: clamp(1.45rem, 3.4vw, 2.05rem); }
+h3 { font-size: 1.05rem; line-height: 1.35; }
+a { color: var(--accent-dark); text-underline-offset: 3px; }
+::selection { color: var(--ink); background: #ffd2da; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.wrap { width: min(100% - 2rem, 70rem); margin-inline: auto; }
+.top { background: var(--card); border-bottom: 1px solid var(--line); }
+.top .wrap, .case-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .4rem 1rem;
+}
+.top .wrap { min-height: 64px; padding-block: .35rem; }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: 1.5rem;
+  font-weight: 820;
+  line-height: 1;
+  letter-spacing: -.055em;
+}
+.brand::before {
+  content: "";
+  width: .44rem;
+  height: 1.28rem;
+  margin-left: .12rem;
+  background: var(--accent);
+  border-radius: 1px;
+  transform: skewX(-15deg);
+}
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-bottom: clamp(1rem, 3vw, 1.5rem);
+  padding: clamp(1.2rem, 4.2vw, 2.65rem);
+  border-radius: var(--radius);
+  background: linear-gradient(105deg, #18171c 35%, #2b242b);
+  color: #fff;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: -1;
+  width: 40%;
+  background:
+    linear-gradient(132deg, transparent 43%, #7c0021 43% 54%, #bc0024 54% 72%, #d30029 72% 75%, #860020 75%);
+}
+.hero h1 { text-wrap: balance; }
+.hero h1 + p { max-width: 56ch; margin-top: .55rem; color: #ebe6eb; }
+.hero-kicker { margin-bottom: .55rem; color: #ffc5d0; font-size: .72rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+main { padding-block: clamp(1rem, 3vw, 2rem) 2.25rem; }
+.eyebrow { color: var(--muted); font-weight: 750; font-size: .72rem; letter-spacing: .085em; text-transform: uppercase; }
+.muted { color: var(--muted); }
+.sheet {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: 0 4px 16px #2d17230b;
+}
+.case-meta { padding: .66rem var(--section-pad); border-bottom: 1px solid var(--line); }
+.case-meta .eyebrow { color: var(--accent-dark); }
+.case-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.case-grid > section { min-width: 0; padding: var(--section-pad); overflow-wrap: anywhere; }
+.finding { padding-left: .8rem; border-left: 3px solid var(--accent); }
+.evidence { background: var(--source); border-left: 1px solid var(--line); }
+.evidence h3 { margin-block: .25rem .2rem; }
+blockquote { margin-top: .65rem; line-height: 1.6; }
+.actions, .feedback { padding: .95rem var(--section-pad); border-top: 1px solid var(--line); }
+.actions p { margin-bottom: .5rem; font-weight: 650; }
+.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
+button, input, select, textarea {
+  padding: .55rem .7rem;
+  border: 1px solid var(--control-line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+}
+button, input, select { min-height: 46px; }
+button { font-weight: 700; line-height: 1.2; cursor: pointer; touch-action: manipulation; }
+button:hover { background: var(--accent-soft); border-color: var(--accent); }
+button:disabled { opacity: .65; cursor: wait; }
+.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+@media (max-width: 640px) {
+  .wrap { width: calc(100% - 1.25rem); }
+  .top .wrap { min-height: 58px; gap: .35rem .55rem; }
+  .hero { gap: .85rem 1rem; }
+  .hero::before { width: 53%; opacity: .42; }
+  .case-grid { grid-template-columns: 1fr; }
+  .evidence { border-left: 0; border-top: 1px solid var(--line); }
+  .choices { gap: .35rem; }
+  .choices button { font-size: .88rem; padding-inline: .25rem; }
+}
+.top-navigation { display: flex; align-items: center; gap: .65rem; }
+.back-link { display: inline-flex; align-items: center; gap: .28rem; min-height: 44px; font-size: .85rem; font-weight: 700; }
+.top-controls { display: flex; align-items: center; gap: .45rem; }
+.top-controls button { min-height: 44px; font-size: .85rem; }
+#skip { border-color: transparent; color: var(--accent-dark); }
+#skip:hover { border-color: var(--accent); }
+.progress {
+  display: flex;
+  align-items: center;
+  gap: .38rem;
+  padding: .42rem;
+  border: 1px solid #ffffff45;
+  border-radius: 2rem;
+  background: #21151ed9;
+}
+.dot {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid #9e8595;
+  border-radius: 50%;
+  color: #f7edf4;
+  font-size: .78rem;
+  font-weight: 750;
+}
+.dot.current { border-color: #ff8799; box-shadow: inset 0 0 0 1px #ff8799; }
+.dot.done { color: #fff; background: var(--accent); border-color: #ff6984; }
+.cutoff, .metadata { color: var(--muted); font-size: .85rem; }
+.draft .situation { margin: .5rem 0 1.1rem; color: var(--muted); }
+.finding p + p { margin-top: .33rem; }
+.finding .claim { font-size: clamp(1.03rem, 2.2vw, 1.17rem); font-weight: 570; }
+.actions { background: var(--card); border-radius: 0 0 var(--radius) var(--radius); }
+kbd { margin-right: .4rem; color: var(--muted); font: 700 .73rem/1 system-ui, sans-serif; }
+.feedback { background: var(--source); border-radius: 0 0 var(--radius) var(--radius); }
+.feedback h3 { margin-block: .25rem .35rem; }
+.feedback > p { max-width: 76ch; }
+.feedback .primary { margin-top: .8rem; }
+details { margin-top: .55rem; }
+summary { min-height: 44px; padding-block: .5rem; cursor: pointer; font-weight: 700; }
+dl { display: grid; grid-template-columns: minmax(7.5rem, max-content) minmax(0, 1fr); gap: .35rem .8rem; font-size: .92rem; }
+dt { font-weight: 650; }
+details a { display: inline-block; margin-top: .55rem; }
+.finish { padding: var(--section-pad); }
+.finish h2 { margin-bottom: .5rem; }
+#score { font-weight: 750; }
+#preview-note, .training-note { color: var(--muted); }
+#readiness:has(.readiness-toast:not([hidden]), #sad-face:not([hidden])) { margin-top: .85rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.readiness-toast {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .4rem .8rem;
+  padding: .65rem .85rem;
+  border: 1px solid #e4c4ce;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+.readiness-toast p { flex: 1 1 14rem; }
+.readiness-toast a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 750; }
+#coaching-tip { background: #fff4e6; border-color: #dfbe97; border-left-color: #9c591b; }
+#sad-face { display: block; font-size: 2.25rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .readiness-toast, #sad-face { animation: enter-feedback .2s ease-out both; }
+  @keyframes enter-feedback {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+.result-list { list-style: none; padding: 0; margin: 1rem 0; border-block: 1px solid var(--line); }
+.result-list li { padding-block: .8rem; }
+.result-list li + li { border-top: 1px solid var(--line); }
+.result-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .75rem; }
+.result-status { padding: .15rem .48rem; border-radius: .35rem; color: var(--muted); background: #f0edf0; font-size: .77rem; font-weight: 750; }
+.result-status.matched { color: #23533f; background: #e9f4ed; }
+.result-status.missed { color: var(--accent-dark); background: var(--accent-soft); }
+.result-decisions { margin-top: .27rem; font-weight: 650; }
+.result-reason { margin-top: .25rem; max-width: 76ch; }
+.result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; margin-top: .85rem; }
+.result-actions .primary, .feedback .primary { min-width: min(10rem, 100%); }
+#copy-status { margin-top: .4rem; color: var(--muted); }
+#summary-text { display: block; width: 100%; min-height: 10rem; margin-top: .55rem; }
+#confetti { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
+#confetti span { position: absolute; top: -18px; width: 8px; height: 12px; border-radius: 2px; }
+@media (max-width: 640px) {
+  .actions { padding-bottom: max(.8rem, env(safe-area-inset-bottom)); }
+  kbd { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="top-navigation">
+      <span class="brand">Mira</span>
+      <a id="back-to-project" class="back-link" href="https://github.com/Neonat/mira-smu-ytp-aif-2026#readme"><span aria-hidden="true">←</span> Project README</a>
+    </div>
+    <div class="top-controls">
+      <button id="skip" type="button">Skip to end</button>
+      <button id="undo" type="button" aria-keyshortcuts="U" hidden>Undo</button>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <div class="hero">
+    <div>
+      <p class="hero-kicker">Hong Kong · Compliance training</p>
+      <h1>Review the Finding</h1>
+      <p>Review three draft findings for a fictional Hong Kong bank.</p>
+    </div>
+    <div id="progress" class="progress" role="img" aria-label="Case progress"></div>
+  </div>
+  <article class="sheet" id="case" aria-labelledby="case-title">
+    <div class="case-meta">
+      <p class="eyebrow" id="case-position"></p>
+      <p class="cutoff" id="cutoff"></p>
+    </div>
+    <div class="case-grid">
+      <section class="draft">
+        <h2 id="case-title" tabindex="-1"></h2>
+        <p class="situation" id="situation"></p>
+        <div class="finding">
+          <p class="eyebrow">Draft finding</p>
+          <p class="claim" id="finding"></p>
+        </div>
+      </section>
+      <section class="evidence" aria-labelledby="source-title">
+        <p class="eyebrow">Evidence packet</p>
+        <h3 id="source-title"></h3>
+        <p class="metadata" id="source-meta"></p>
+        <blockquote id="excerpt"></blockquote>
+      </section>
+    </div>
+    <section id="actions" class="actions" aria-label="Make your decision">
+      <p>What would you do?</p>
+      <div class="choices">
+        <button data-action="approve" aria-keyshortcuts="1"><kbd aria-hidden="true">1</kbd>Approve</button>
+        <button data-action="send-back" aria-keyshortcuts="2"><kbd aria-hidden="true">2</kbd>Send back</button>
+        <button data-action="escalate" aria-keyshortcuts="3"><kbd aria-hidden="true">3</kbd>Escalate</button>
+      </div>
+    </section>
+    <section id="feedback" class="feedback" aria-labelledby="recommended" hidden>
+      <p class="eyebrow" id="your-decision"></p>
+      <h3 id="recommended" tabindex="-1"></h3>
+      <p id="explanation"></p>
+      <details id="verification">
+        <summary>Mira verification record</summary>
+        <dl id="check-list"></dl>
+        <a id="source-link" target="_blank" rel="noopener noreferrer">Open the HKMA publication</a>
+      </details>
+      <button id="continue" class="primary">Next case</button>
+    </section>
+  </article>
+  <section id="finish" class="sheet finish" aria-labelledby="finish-title" hidden>
+    <h2 id="finish-title" tabindex="-1">Practice results</h2>
+    <p id="preview-note" hidden></p>
+    <p id="score"></p>
+    <div id="readiness">
+      <span id="sad-face" aria-hidden="true" hidden>🙁</span>
+      <div id="ready-toast" class="readiness-toast" hidden>
+        <p><strong>You matched both suggested decisions.</strong></p>
+        <a href="https://huggingface.co/datasets/natsim/mira-hong-kong-aml-cft">Explore Mira’s public findings</a>
+      </div>
+      <p id="coaching-tip" class="readiness-toast" hidden>Review the explanations and try the cases again.</p>
+      <span id="readiness-status" class="sr-only" role="status"></span>
+    </div>
+    <ul id="result-list" class="result-list" role="list" aria-label="Case results"></ul>
+    <p id="training-note" class="training-note">Use these results for coaching. Player decisions stay in this session and never update Mira’s verification records.</p>
+    <div class="result-actions">
+      <button id="copy-summary" class="primary" type="button">Copy summary</button>
+      <button id="replay" type="button">Play again</button>
+      <button id="back-to-game" type="button" hidden>Back to game</button>
+    </div>
+    <p id="copy-status" role="status"></p>
+    <textarea id="summary-text" aria-label="Summary to copy" readonly hidden></textarea>
+  </section>
+</main>
+<div id="confetti" aria-hidden="true"></div>
+<noscript>Enable JavaScript to play the training demo.</noscript>
+<script type="application/json" id="cases-data">[{"title": "Testing schedule", "situation": "You’re reviewing a line for the bank’s sanctions screening oversight briefing.", "finding": "HKMA said the frequency of sanctions screening system testing should align with risk, take historical testing performance data into account, and be approved by senior management.", "cutoff": "2026-11-11", "action": "approve", "explanation": "The passage supports all three parts of the finding: risk, past testing performance and senior management approval. The source is within the review period.", "source": {"title": "Thematic review of sanctions screening systems", "url": "https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260316-1-EN/20260316-1-EN.pdf", "date": "2026-03-16", "page": 2, "excerpt": "The frequency of testing should align with risk, taking into account historical testing performance data (i.e. system performance over time) and should be approved by senior management."}, "checks": [["Quotation", "Matched the frozen passage."], ["Review date", "Passed."], ["Support for this finding", "Supported in the saved check. Recorded 11 Nov 2026."]]}, {"title": "Guidance update", "situation": "You’re signing off a historical briefing on changes to controls for politically exposed persons (PEPs).", "finding": "On 28 August 2026, HKMA said additional good practices had been incorporated into version 2.0 of the Smart Tips on PEP controls. The added practices include setting up a dedicated team to serve PEPs, more proactive oversight of frontline staff through regular customer satisfaction surveys and compliance reviews, and more holistic relationship-based reviews.", "cutoff": "2026-08-27", "action": "send-back", "explanation": "The quotation is genuine. The publication came out on 28 August, one day after this brief’s cutoff. Ask for evidence available by the cutoff or move the finding to a later brief.", "source": {"title": "Guidance on risk-based AML/CFT controls for politically exposed persons", "url": "https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260827-4-EN/20260827-4-EN.pdf", "date": "2026-08-28", "page": 1, "excerpt": "Additional good practices have been brought to our attention. These include setting up a dedicated team to serve PEPs, more proactive oversight of frontline staff via regular customer satisfaction surveys and compliance reviews, and more holistic relationship- based reviews. These good practices have been incorporated into version 2.0 of the Smart Tips."}, "checks": [["Quotation", "Matched the frozen passage."], ["Review date", "Blocked. The publication is after the cutoff."], ["Support for this finding", "Date gate blocks this case before the support check."]]}, {"title": "Information-sharing controls", "situation": "The bank plans to rely on this finding in a control standard. Its policy owner resolves material gaps in the basis for a control.", "finding": "HKMA says an AI's policies, procedures and controls for sharing information among AIs should cover access to designated platforms, handling and use of disclosed or received information, follow-up actions to mitigate ML/TF risks, and related recordkeeping.", "cutoff": "2026-11-11", "action": "escalate", "explanation": "The excerpt lists the items. The evidence packet is missing the lead-in that establishes which controls should cover them. Ask the policy owner to verify the complete provision before relying on the finding.", "source": {"title": "AI-to-AI information sharing and statutory guideline", "url": "https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf", "date": "2025-11-07", "page": 8, "excerpt": "(b) access to designated platforms; (c) handling and use of information disclosed/received (such as reviewing results and taking any follow-up actions to mitigate the money laundering and terrorist financing (ML/TF) risks); and (d) maintaining related records."}, "checks": [["Quotation", "Matched the frozen passage."], ["Review date", "Passed."], ["Support for this finding", "Partially supported in the saved check. Recorded 11 Nov 2026."]]}]</script>
+<script>
+"use strict";
+const cases = JSON.parse(document.getElementById("cases-data").textContent);
+const $ = id => document.getElementById(id);
+const choices = {"approve":"Approve", "send-back":"Send back", "escalate":"Escalate"};
+const keys = {"1":"approve", "2":"send-back", "3":"escalate"};
+const sampleAnswers = ["approve", "approve", "send-back"];
+const dateFormat = new Intl.DateTimeFormat("en-GB", {day:"numeric", month:"short", year:"numeric", timeZone:"UTC"});
+const formatDate = value => dateFormat.format(new Date(value + "T00:00:00Z"));
+let current = 0;
+let answers = [];
+let previewing = false;
+let readinessTimer;
+
+function textElement(tag, text) {
+  const element = document.createElement(tag);
+  element.textContent = text;
+  return element;
+}
+function renderProgress() {
+  const dots = cases.map((_, index) => {
+    const dot = textElement("span", index < answers.length ? "✓" : String(index + 1));
+    dot.className = "dot";
+    if (index < answers.length) dot.classList.add("done");
+    else if (index === current) dot.classList.add("current");
+    dot.setAttribute("aria-hidden", "true");
+    return dot;
+  });
+  $("undo").hidden = previewing || answers.length === 0;
+  $("progress").replaceChildren(...dots);
+  $("progress").setAttribute("aria-label", answers.length + " of " + cases.length + " decisions made");
+}
+function renderCase() {
+  const item = cases[current];
+  $("case").hidden = false;
+  $("finish").hidden = true;
+  $("actions").hidden = false;
+  $("feedback").hidden = true;
+  $("verification").open = false;
+  $("skip").hidden = false;
+  $("progress").hidden = false;
+  $("case-position").textContent = "Case " + (current + 1) + " of " + cases.length;
+  $("cutoff").textContent = "Review cutoff · " + formatDate(item.cutoff);
+  $("case-title").textContent = item.title;
+  $("situation").textContent = item.situation;
+  $("finding").textContent = item.finding;
+  $("source-title").textContent = item.source.title;
+  $("source-meta").textContent = "HKMA · Published " + formatDate(item.source.date) +
+    (item.source.page ? " · PDF page " + item.source.page : "");
+  $("excerpt").textContent = "“" + item.source.excerpt + "”";
+  renderProgress();
+}
+function decide(action) {
+  if ($("actions").hidden || $("case").hidden) return;
+  const item = cases[current];
+  answers.push(action);
+  $("actions").hidden = true;
+  $("feedback").hidden = false;
+  $("your-decision").textContent = action === item.action ? "Your choice matched the review guidance" : "Your choice · " + choices[action];
+  $("recommended").textContent = "Recommended decision · " + choices[item.action];
+  $("explanation").textContent = item.explanation;
+  $("check-list").replaceChildren(...item.checks.flatMap(([name, result]) => [
+    textElement("dt", name), textElement("dd", result)
+  ]));
+  $("source-link").href = item.source.url + (item.source.page ? "#page=" + item.source.page : "");
+  $("continue").textContent = current + 1 === cases.length ? "See results" : "Next case";
+  renderProgress();
+  $("recommended").focus();
+}
+function celebrate() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const colors = ["#bf0023", "#e83c58", "#ffadbb", "#e6a44b", "#642237"];
+  for (let i = 0; i < 60; i++) {
+    const chip = document.createElement("span");
+    chip.style.left = (Math.random() * 100) + "%";
+    chip.style.background = colors[i % colors.length];
+    $("confetti").append(chip);
+    const drift = (Math.random() - 0.5) * 150;
+    chip.animate([
+      {transform:"translate(0, 0) rotate(0deg)", opacity:1},
+      {transform:`translate(${drift}px, ${innerHeight + 35}px) rotate(${360 + Math.random() * 540}deg)`, opacity:0}
+    ], {duration:1300 + Math.random() * 650, delay:Math.random() * 240, fill:"both", easing:"ease-in"})
+      .onfinish = () => chip.remove();
+  }
+}
+function showCase() {
+  renderCase();
+  window.scrollTo(0, 0);
+  $("case-title").focus({preventScroll:true});
+}
+function undoDecision() {
+  if (previewing || !answers.length) return;
+  answers.pop();
+  current = answers.length;
+  $("confetti").replaceChildren();
+  showCase();
+}
+function showResults(decisions, sample = false) {
+  clearReadiness();
+  const rows = cases.map((item, index) => ({
+    title: item.title,
+    chosen: choices[decisions[index]],
+    suggested: choices[item.action],
+    matched: decisions[index] === item.action,
+    reason: item.explanation
+  }));
+  const correct = rows.filter(row => row.matched).length;
+  const skipped = cases.length - decisions.length;
+  const score = correct + " of " + decisions.length + " decisions matched the review guidance." +
+    (skipped ? " " + skipped + (skipped === 1 ? " case skipped." : " cases skipped.") : "");
+  const title = sample ? "Sample results" : previewing ? "Practice preview" : "Practice results";
+  const summary = ["Mira · Review the Finding · Hong Kong", title, score];
+  $("result-list").replaceChildren(...rows.map(row => {
+    const verdict = row.chosen ? (row.matched ? "Matched" : "Missed") : "Skipped";
+    const result = document.createElement("li");
+    const heading = document.createElement("div");
+    heading.className = "result-heading";
+    const status = textElement("span", verdict);
+    status.className = "result-status";
+    if (row.chosen) status.classList.add(row.matched ? "matched" : "missed");
+    heading.append(textElement("h3", row.title), status);
+    result.append(heading);
+    summary.push("", row.title + " · " + verdict);
+    if (!row.chosen) return result;
+    const decision = "Picked " + row.chosen + " · Suggested " + row.suggested;
+    const picks = textElement("p", decision);
+    picks.className = "result-decisions";
+    const reason = textElement("p", row.reason);
+    reason.className = "result-reason";
+    result.append(picks, reason);
+    summary.push(decision, row.reason);
+    return result;
+  }));
+  if (sample) summary.splice(2, 0, "Demo example using sample decisions.");
+  summary.push("", "For coaching. Player decisions do not update Mira’s verification records.");
+  $("summary-text").value = summary.join("\n");
+  $("summary-text").hidden = true;
+  $("copy-status").textContent = "";
+  $("finish-title").textContent = title;
+  $("preview-note").hidden = !previewing;
+  $("preview-note").textContent = (sample ? "Sample decisions for the demo. " : "") + "Back to game resumes where you left off.";
+  $("score").textContent = score;
+  $("replay").hidden = previewing;
+  $("back-to-game").hidden = !previewing;
+  $("skip").hidden = true;
+  $("progress").hidden = previewing;
+  $("case").hidden = true;
+  $("finish").hidden = false;
+  renderProgress();
+  $("finish-title").focus();
+  window.scrollTo(0, 0);
+}
+function clearReadiness() {
+  clearTimeout(readinessTimer);
+  $("ready-toast").hidden = true;
+  $("coaching-tip").hidden = true;
+  $("sad-face").hidden = true;
+  $("readiness-status").textContent = "";
+  $("confetti").replaceChildren();
+}
+function showReadiness() {
+  if (answers.length < 2) return;
+  const matches = Number(answers[0] === cases[0].action) + Number(answers[1] === cases[1].action);
+  if (matches === 1) return;
+  const ready = matches === 2;
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (ready) celebrate();
+  else $("sad-face").hidden = reducedMotion;
+  readinessTimer = setTimeout(() => {
+    $("sad-face").hidden = true;
+    $("ready-toast").hidden = !ready;
+    $("coaching-tip").hidden = ready;
+    $("readiness-status").textContent = ready ? "You matched both suggested decisions." : $("coaching-tip").textContent;
+  }, reducedMotion ? 0 : 1000);
+}
+function advance() {
+  current++;
+  if (current < cases.length) {
+    showCase();
+    return;
+  }
+  showResults(answers);
+  celebrate();
+}
+function backToGame() {
+  clearReadiness();
+  previewing = false;
+  $("finish").hidden = true;
+  $("case").hidden = false;
+  $("skip").hidden = false;
+  $("progress").hidden = false;
+  renderProgress();
+  ($("feedback").hidden ? $("case-title") : $("recommended")).focus();
+}
+async function copySummary() {
+  const field = $("summary-text");
+  const value = field.value;
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(value);
+    copied = true;
+  } catch {
+    // Some browsers block clipboard access. Offer the same text for manual copying.
+  }
+  if ($("finish").hidden || field.value !== value) return;
+  field.hidden = copied;
+  $("copy-status").textContent = copied ? "Summary copied." : "Select and copy the summary below.";
+  if (!copied) {
+    field.focus();
+    field.select();
+  }
+}
+document.querySelectorAll("[data-action]").forEach(button => button.onclick = () => decide(button.dataset.action));
+$("continue").onclick = advance;
+$("undo").onclick = undoDecision;
+$("skip").onclick = () => {
+  previewing = true;
+  const sample = answers.length === 0;
+  showResults(sample ? sampleAnswers : answers, sample);
+  showReadiness();
+};
+$("back-to-game").onclick = backToGame;
+$("copy-summary").onclick = copySummary;
+$("replay").onclick = () => {
+  $("confetti").replaceChildren();
+  current = 0;
+  answers = [];
+  showCase();
+};
+document.addEventListener("keydown", event => {
+  if (previewing || event.target === $("summary-text") || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.key.toLowerCase() === "u") undoDecision();
+  else if (Object.hasOwn(keys, event.key)) decide(keys[event.key]);
+});
+renderCase();
+</script>
+</body>
+</html>
