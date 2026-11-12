@@ -60,6 +60,8 @@ The **Country methods** page separates measured results from recommendations and
 
 ## A report designed for auditors
 
+The [public Hong Kong AML/CFT research sample](docs/portfolio/hong-kong-aml-cft.md) pairs 18 paraphrased findings from the final demo draft with publisher links and issue dates.
+
 The report brings together regulatory developments, deadlines, supervisory themes, industry developments, contextual insights and an evidence appendix. Each finding carries its saved wording, fact/inference label, supported date and source references.
 
 The writer returns a compact selection and ordering of verified findings. Code renders their complete saved wording and includes omitted findings in their main sections. Bounded analysis uses smaller whole-passage batches and allows one correction of invalid output within the existing time and token allowance.
