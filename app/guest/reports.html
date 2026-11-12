@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co; frame-src 'self' blob:; base-uri 'none'; form-action 'none'">
+  <title>Mira | Country reports</title>
+  <link rel="stylesheet" href="guest.css">
+  <link rel="stylesheet" href="reports.css">
+  <script type="module" src="reports.mjs"></script>
+</head>
+<body>
+  <main>
+    <div class="brand">Mira</div>
+    <h1>Country reports</h1>
+    <p id="status" role="status" aria-live="polite">Connecting to Mira…</p>
+    <form id="sign-in" method="post" hidden>
+      <label>Email <input name="email" type="email" autocomplete="username" required></label>
+      <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Sign in</button>
+    </form>
+    <section id="library" aria-label="Mira library" hidden>
+      <div class="filters">
+        <label>Workspace <select id="workspace"></select></label>
+        <button id="sign-out" class="secondary-action" type="button">Sign out</button>
+      </div>
+      <nav class="actions library-views" aria-label="Library views">
+        <button id="show-reports" type="button" aria-pressed="true">Reports</button>
+        <button id="show-sources" type="button" aria-pressed="false">Sources</button>
+      </nav>
+      <p id="source-note" hidden>Hong Kong sources. Links open the original publisher’s site.</p>
+      <section id="preview" aria-labelledby="preview-heading" hidden>
+        <header class="filters">
+          <h2 id="preview-heading" tabindex="-1">Report preview</h2>
+          <div class="actions">
+            <a id="download" class="secondary-action" download="mira-report.html">Download HTML</a>
+            <button id="close" class="secondary-action" type="button">Close preview</button>
+          </div>
+        </header>
+        <iframe id="report-frame" title="Saved report" sandbox="" referrerpolicy="no-referrer"></iframe>
+      </section>
+      <ul id="reports" class="report-list" aria-label="Reports"></ul>
+      <nav id="pages" class="actions" aria-label="Library pages" hidden>
+        <button id="previous" class="secondary-action" type="button">Previous</button>
+        <span id="page-number"></span>
+        <button id="next" class="secondary-action" type="button">Next</button>
+      </nav>
+    </section>
+  </main>
+</body>
+</html>

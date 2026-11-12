@@ -1,4 +1,4 @@
-<!-- Current implementation update: 11 November 2026. Historical measured-run sections remain dated. -->
+<!-- Current implementation update: 12 November 2026. Historical measured-run sections remain dated. -->
 # Mira Product Requirements v3 — implementation and pilot requirements
 
 ## Research console and temporary BYOK — 10 November 2026
@@ -64,7 +64,7 @@ The source catalog/checklist is v3. The source-notice capture migration is local
 
 Agentic external-driver research for internal audit
 
-**Updated:** 10 November 2026 (Asia/Singapore), merged baseline through PR11 (`8fcd755`) plus the durable-evidence implementation and configured hybrid profile under review. **Status:** current implementation reference and pilot requirements draft; proposed policies remain labelled.
+**Updated:** 12 November 2026 (Asia/Singapore). The dated sections record their implementation and validation baselines. **Status:** current implementation reference and pilot requirements draft. Proposed policies remain labelled.
 
 **Document audience:** the product owner, Nathaniel, Ewen, Saai, implementation agents and technical reviewers making scope, design and acceptance decisions. **Product audience:** bank internal-audit analysts and senior reviewers; source curators and administrators support that workflow. The [README](../README.md) is the introduction for competition judges and DBS stakeholders.
 
@@ -362,6 +362,16 @@ The baseline scout retained extracted text/passages. The evidence-completeness e
 The repository records MAS automated access as blocked and written storage permission as outstanding, despite prototype seeding allowing text storage. This is an existing unresolved project decision, not confirmation of permission. Other named industry sources have fetch/metadata permission without stored passages, constraining citable coverage. Manual acquisition does not itself settle storage permission. D4 must identify permitted demo evidence, remaining source reviews, and the owner/refresh schedule for imported documents. MAS remains inactive in the current validation/demo configuration. Explicit source grants are still required; a seeded operation is not permission to bypass that configuration.
 
 Budgets are runtime configuration, not product promises. Code defaults currently include 60 fetched documents, 2,000,000 tokens, 15 minutes and two gap rounds; `.env.example` supplies a 300,000-token development setting; CLI examples can choose a smaller document allowance. Record actual run settings instead of treating one of these as an agreed cost cap. Providers and per-role models are configurable; actual configuration and costs require D3 agreement.
+
+### 8.1 Hosted demo database and workspace access
+
+The Hong Kong and Singapore ingestion workflows use local development PostgreSQL. The hosted demo uses a separate Supabase project with workspace-scoped access. Publish approved catalogue metadata, prepared reports and the evidence records needed for their citations in scoped imports. Keep ongoing ingestion connected to its existing checkout and database. Treat code merges, site deployments and database imports as separate operations. Run release checks against a disposable database.
+
+The [signed-in demo library](https://mira-guest-reports.labandinnovation.chatgpt.site/reports.html) lists workspaces through Supabase Auth and row-level security. A tester with viewer membership can switch workspaces or browse all of their memberships under one login. Sources lists catalogue metadata and links to the original publisher. Reports lists saved prepared reports, fetches HTML on demand and verifies the stored digest. Lists display up to 25 items per page. The public QR flow serves guest reports within its existing access windows. For local report files, the reader and the private-storage retry worker verify the authorized run, version and review status before opening the file.
+
+On 12 November 2026 the hosted project measured **64.8 MB** after a dry run and an import of **five HKMA metadata records**. The Hong Kong workspace then had **35 catalogue entries and seven prepared reports**. The five added records link to publisher originals. Singapore catalogue publication follows ingestion and source-approval checks. Its reports appear as they are prepared and published. This checkpoint measures demo inventory and size. Research coverage and report approval have their own acceptance criteria.
+
+Use one hosted project for the demo. The measured local development database was **1.21 GB** on disk. Size each approved export against the hosted project's current usage, allowing room for indexes, generated reports and growth under the **500 MB Free database quota**. Measure database and file storage separately, and verify tester access and query performance before expanding the scope. Revisit separate projects if physical isolation or a specific hosting region is required. [Supabase pricing](https://supabase.com/pricing) · [Supabase regions](https://supabase.com/docs/guides/platform/regions)
 
 ## 9. Settled decisions and remaining policy work
 

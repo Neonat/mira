@@ -764,9 +764,11 @@ def review_page(workspace_id: str, user_id: str, role: str) -> None:
     if run is None:
         return
     sb = client()
-    revision = rows(sb.table("analysis_revisions").select("id").eq("analysis_run_id", run["id"])
+    revision = rows(sb.table("analysis_revisions").select("id").eq("workspace_id", workspace_id)
+                    .eq("analysis_run_id", run["id"])
                     .order("revision_number", desc=True).limit(1))
-    reports = rows(sb.table("reports").select("*").eq("analysis_revision_id", revision[0]["id"])
+    reports = rows(sb.table("reports").select("*").eq("workspace_id", workspace_id)
+                   .eq("analysis_revision_id", revision[0]["id"])
                    .order("report_version", desc=True)) if revision else []
     if not reports:
         st.info("This run has no report yet.")

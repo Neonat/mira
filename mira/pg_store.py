@@ -20,7 +20,7 @@ from psycopg.types.json import Jsonb
 
 from mira.brief import RERUNNABLE_STATUSES, analysis_run_fields, brief_from_rows, check_rerunnable, project_revision_fields
 from mira.budget import RunBudget
-from mira.config import REPORTS_DIR
+from mira.config import REPORTS_DIR, report_artifact_path
 from mira.contracts import AnalysisCoverageSnapshot, CONTRACT_VERSION, Brief, CoverageRow, ReportSnapshot, RunStatus, StepRecord, Verdict
 from mira.db import acting_as, require_role
 from mira.report import TEMPLATE_VERSION
@@ -570,7 +570,7 @@ class PostgresStore:
                 "select coalesce(max(report_version), 0) + 1 as v from public.reports where analysis_revision_id = %s",
                 (ctx.analysis_revision_id,),
             ).fetchone()["v"]
-            relative = Path(str(ctx.analysis_run_id)) / f"report-v{version}.html"
+            relative = report_artifact_path(ctx.analysis_run_id, version)
             path = self.reports_dir / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(html, encoding="utf-8")

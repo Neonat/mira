@@ -46,8 +46,8 @@ Keep the existing Supabase database, Auth, REST and gateway running. Apply all l
 
 ## Guest report demo
 
-Apply `20261111120000_mira_guest_demo.sql` to the demo database. Serve the three
-files in `app/guest/` from a public HTTPS static origin, with a sibling
+Apply `20261111120000_mira_guest_demo.sql` to the demo database. Serve
+`app/guest/` from a public HTTPS static origin, with a sibling
 `config.json` containing `url` (the Supabase project URL) and `key` (its
 publishable key). Set `MIRA_GUEST_DEMO_URL` to that origin on the private
 operator console. Run `python -m mira prepared-report-worker --poll-seconds 1`
@@ -63,6 +63,17 @@ Guest requests reuse the selected report's evidence snapshot and scope. The
 report-only worker assembles a fresh draft and preserves its citations and
 review status. The guest page has one report per browser tab and a 100-request
 limit per window. It needs neither a guest account nor a provider key.
+
+### Signed-in demo library
+
+Open `/reports.html` on the same static origin and sign in with a Mira Supabase
+account. The workspace selector lists that account's memberships. **Reports**
+shows prepared reports for the selected workspace or all accessible workspaces.
+**Sources** shows approved Hong Kong catalogue entries and links to the publisher.
+The library reads from the project in `config.json`. Use a Supabase publishable
+key and give testers viewer membership in the demo workspaces they need.
+
+Run the library's API tests with `node --test tests/reports-api.test.mjs`.
 
 ## Prepared report and preparation services
 
