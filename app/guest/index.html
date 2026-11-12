@@ -36,14 +36,15 @@
         <a id="download" class="secondary-action" download="mira-draft-report.html" hidden>Download HTML</a>
       </div>
     </section>
-    <iframe id="report" title="Mira draft report" sandbox="allow-popups allow-popups-to-escape-sandbox" hidden></iframe>
+    <!-- Same-origin blob previews support fragment links. Scripts remain sandboxed. -->
+    <iframe id="report" title="Mira draft report" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" hidden></iframe>
   </main>
   <dialog id="reader" aria-labelledby="reader-title">
     <header>
       <h2 id="reader-title">Report preview</h2>
       <button id="close-reader" type="button" autofocus>Close</button>
     </header>
-    <iframe id="reader-report" title="Mira draft report preview" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+    <iframe id="reader-report" title="Mira draft report preview" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
   </dialog>
 </body>
 </html>
