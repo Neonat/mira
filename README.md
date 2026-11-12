@@ -6,6 +6,8 @@ Read Mira’s [Hong Kong AML/CFT demo report](https://neonat.github.io/mira-smu-
 
 Mira was built for the SMU run of the [Young Talent Programme for AI in Finance](https://www.ibf.org.sg/home/for-financial-institutions/talent-development-and-training-support/develop-young-talent) in response to [DBS Internal Audit’s External Driver Researcher brief](docs/dbs_project_statement.md).
 
+[Download the final demo presentation (PowerPoint)](slides/mira-final-presentation.pptx?raw=true). The deck’s QR code points to the original ChatGPT demo. Use the report and review game links here to open the portfolio versions.
+
 ## Gamified evidence review
 
 In **Review the Finding**, you play a compliance reviewer at a fictional Hong Kong bank. Each of the three cases gives you a draft finding, a source excerpt and a date cutoff. Choose **Approve**, **Send back** or **Escalate**, then see how your decision compares with the suggested action and why. You can undo a decision, see your score and copy a case-by-case summary for coaching.
