@@ -2,9 +2,11 @@
 
 The player is the compliance reviewer at a fictional Hong Kong bank. Each of three cases presents one draft finding, its review cutoff and an HKMA excerpt. The player approves, sends back or escalates. **Undo** reopens the most recent decision, including from the results screen. The debrief explains the recommended training decision and shows the corresponding Mira verification evidence.
 
+The public practice game runs entirely in the browser on GitHub Pages. [Play Review the Finding](https://neonat.github.io/mira-smu-ytp-aif-2026/)
+
 **Copy summary** copies the score, the player's decision and the suggested decision for each answered case, and the reason behind the guidance. The summary is intended for a coaching discussion with a compliance lead. **Skip to end** opens labelled sample results before play and previews the player's results once they have answered. **Back to game** resumes the current case with its progress intact.
 
-On skipping, two matches on the first two cases trigger confetti and a link to the signed-in Hong Kong review queue. Two misses show a brief sad face followed by coaching or second-reviewer guidance. The queue shows one pending finding from the selected workspace’s latest published Hong Kong prepared report, together with the evidence pinned to that finding. Viewers can inspect evidence. Reviewers and admins can save an evidence decision through Mira’s existing review workflow.
+On skipping, two matches on the first two cases trigger confetti and a link to the public findings. Two misses show a brief sad face followed by a prompt to revisit the case explanations. The original hosted rehearsal linked to a signed-in Hong Kong review queue, where reviewers and admins could save evidence decisions on the selected workspace’s latest prepared report.
 
 | Case | Recommended action | Verification link |
 |---|---|---|

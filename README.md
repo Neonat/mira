@@ -10,7 +10,7 @@ Mira was built for the SMU run of the [Young Talent Programme for AI in Finance]
 
 In **Review the Finding**, you play a compliance reviewer at a fictional Hong Kong bank. Each of the three cases gives you a draft finding, a source excerpt and a date cutoff. Choose **Approve**, **Send back** or **Escalate**, then see how your decision compares with the suggested action and why. You can undo a decision, see your score and copy a case-by-case summary for coaching.
 
-The practice game runs in the browser. Recording a decision on a live finding requires an authorized reviewer account. [Play Review the Finding](https://mira-guest-reports.labandinnovation.chatgpt.site/review-the-finding) · [How the cases work](docs/demo/hk-verification-game.md)
+The practice game runs on GitHub Pages and keeps your decisions in the browser session. [Play Review the Finding](https://neonat.github.io/mira-smu-ytp-aif-2026/) · [How the cases work](docs/demo/hk-verification-game.md)
 
 ## Engineering highlights
 
