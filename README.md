@@ -2,6 +2,8 @@
 
 Mira turns public regulatory and industry developments into cited research reports for bank internal auditors. An auditor sets the topic, markets and reporting period; Mira plans the research, gathers approved evidence, checks claims and source independence, and prepares a report for review and sign-off.
 
+Browse the [Hong Kong AML/CFT portfolio dataset on Hugging Face](https://huggingface.co/datasets/natsim/mira-hong-kong-aml-cft) for 18 paraphrased findings, with publication dates and direct publisher links.
+
 **Programme:** built for the SMU run of the
 [Young Talent Programme for AI in Finance (YTP-AIF)](https://www.ibf.org.sg/home/for-financial-institutions/talent-development-and-training-support/develop-young-talent),
 responding to DBS Bank Internal Audit's *Agentic AI for Audit: External Driver
@@ -59,6 +61,8 @@ The research console lets analysts choose markets, custom dates, approved source
 The **Country methods** page separates measured results from recommendations and untested comparisons. It distinguishes the synthetic one-fact demo from the historical Hong Kong report’s 19 verified facts, and explains the 153-passage keyword/hybrid experiment. Full permitted evidence stays in PostgreSQL; vectors are an optional search index. No storage or retrieval quality winner is claimed without a comparable labelled evaluation.
 
 ## A report designed for auditors
+
+The [public Hong Kong AML/CFT research sample](docs/portfolio/hong-kong-aml-cft.md) pairs 18 paraphrased findings from the final demo draft with publisher links and issue dates.
 
 The report brings together regulatory developments, deadlines, supervisory themes, industry developments, contextual insights and an evidence appendix. Each finding carries its saved wording, fact/inference label, supported date and source references.
 
