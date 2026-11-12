@@ -38,6 +38,14 @@ class Item:
     jurisdictions: tuple[str, ...] = ()
     published: date | None = None
     effective: date | None = None
+    hk_url: str | None = None
+
+    def reference_urls(self, jurisdictions: Sequence[str] | None) -> tuple[str, ...]:
+        if not self.hk_url:
+            return (self.url,)
+        if jurisdictions is None:
+            return (self.url, self.hk_url)
+        return tuple(url for market, url in (("SG", self.url), ("HK", self.hk_url)) if market in jurisdictions)
 
 
 @dataclass(frozen=True)
@@ -59,7 +67,8 @@ def canonical(url: str) -> str:
     parts = urlsplit(url.strip())
     if parts.hostname == "apps.sfc.hk":
         match = re.fullmatch(
-            r"/edistributionWeb/(?:api|gateway/(?:EN|TC)(?:/news-and-announcements)?)/(circular|news|consultation)/(?:aml/)?(?:content|list-content|doc|openFile)",
+            r"/edistributionWeb/(?:api|gateway/(?:EN|TC)(?:/news-and-announcements)?)/(circular|news|consultation)"
+            r"/(?:aml/)?(?:content|list-content(?:/\1/(?:aml/)?doc)?|doc|openFile)",
             parts.path,
         )
         query = parse_qs(parts.query)
@@ -77,6 +86,7 @@ def load_items(path: Path) -> list[Item]:
             tuple(code.strip() for code in row.get("jurisdiction", "").split(",") if code.strip()),
             date.fromisoformat(row["published"]) if row.get("published") else None,
             date.fromisoformat(row["effective"]) if row.get("effective") else None,
+            row.get("hk_url") or None,
         ) for row in csv.DictReader(handle)]
 
 
@@ -106,7 +116,8 @@ def score(items: Iterable[Item], run_urls: Iterable[str], *, jurisdictions: Sequ
         "regulatory": [item for item in items if item.kind == "regulatory"],
     }
     return {
-        label: Recall(label, sum(1 for item in group if canonical(item.url) in cited), len(group))
+        label: Recall(label, sum(any(canonical(url) in cited for url in item.reference_urls(jurisdictions))
+                                 for item in group), len(group))
         for label, group in groups.items()
     }
 

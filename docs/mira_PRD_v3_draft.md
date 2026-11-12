@@ -64,7 +64,7 @@ The source catalog/checklist is v3. The source-notice capture migration is local
 
 Agentic external-driver research for internal audit
 
-**Updated:** 12 November 2026 (Asia/Singapore). The dated sections record their implementation and validation baselines. **Status:** current implementation reference and pilot requirements draft. Proposed policies remain labelled.
+**Updated:** 12 November 2026 (Asia/Singapore). Monthly preparation and report requirements are in §4. Hosted download validation and demo readiness are in §7.4. The dated sections record their implementation and validation baselines. **Status:** current implementation reference and pilot requirements draft. Proposed policies remain labelled.
 
 **Document audience:** the product owner, Nathaniel, Ewen, Saai, implementation agents and technical reviewers making scope, design and acceptance decisions. **Product audience:** bank internal-audit analysts and senior reviewers; source curators and administrators support that workflow. The [README](../README.md) is the introduction for competition judges and DBS stakeholders.
 
@@ -125,17 +125,17 @@ Users remain auditor/analyst, reviewer, source curator and administrator. Analys
 
 ### Current prototype scope
 
-- AML/CFT; Singapore, Hong Kong and scoped Australian/UAE federal sources selected directly from controlled lists. SG/HK remain the defaults.
+- Combined AML/CFT with controlled Singapore, Hong Kong, Australian and UAE federal source lists. The prepared-report console also supports Cybersecurity for scoped UAE federal sources. SG/HK remain the demo priorities.
 - Public material and configured approved sources, with manual import where automated access is unavailable and storage is permitted.
 - User-selected period and as-of date. V2's 12–24 months is a pilot scope, not an enforced restriction in `Brief`; its validator checks date ordering. Arbitrary historical correctness is not established by a date field alone.
 - On-demand research, optional plan approval, saved evidence, HTML reports and structured snapshots, finding review, sign-off, re-run and diff.
 - A server-configured prototype workspace, defaulting to `mira`, using Supabase Auth and workspace-scoped access. `MIRA_WORKSPACE_SLUG` lets a separate app process target a disposable rehearsal workspace without changing authentication or row-level security.
 
-The current client form exposes AML/CFT, controlled jurisdictions, a 12–24-month lookback, an as-of date and document/token allowances. Free-text questions, source/hybrid controls and a plan-approval switch are not exposed; new form submissions queue immediately. Auth passwords belong to provisioned Supabase Auth users; a configured developer email is only a prefill and does not provision an account or workspace membership. Password setup/reset is an operator-managed flow outside the present sign-in form. A local read-only preview of this same form was inspected with AU/AE selected and submission disabled; it grants no workspace access and starts no research.
+The research console exposes controlled jurisdictions, sources, custom dates, an as-of date, run allowances and an optional plan approval. The prepared-report path is described in §4.3. Auth passwords belong to provisioned Supabase Auth users. A configured developer email only prefills sign-in, and password setup/reset is operator-managed.
 
 ### Deferred unless separately approved
 
-Jurisdiction expansion beyond the approved SG/HK/AU/AE source sets, scheduled monitoring, news-triggered investigations, 20–30-year archive/backfill, OpenSearch, theme discovery, internal bank uploads, control mapping, production deployment, product PDF/DOCX export and email delivery. The separately generated peer-validation PDFs are test deliverables, not a new product export workflow. Unrestricted open-web fallback remains deferred. Bounded Exa-assisted discovery and controlled browser extraction are approved Phase 1 extensions where justified by observed gaps, within existing source permissions; they are merged with explicit opt-in and source-policy checks. Dated acquisition and research observations are recorded in §7 and Appendix C.
+Full preparation beyond the demo markets in §7.4, news-triggered investigations, 20–30-year archive/backfill, OpenSearch, theme discovery, internal bank uploads, control mapping, production deployment, product PDF/DOCX export and email delivery. The separately generated peer-validation PDFs are test deliverables, not a new product export workflow. Unrestricted open-web fallback remains deferred. Bounded Exa-assisted discovery and controlled browser extraction are approved Phase 1 extensions where justified by observed gaps, within existing source permissions; they are merged with explicit opt-in and source-policy checks. Dated acquisition and research observations are recorded in §7 and Appendix C.
 
 **D6 settled by the user:** Mira may explain sourced contextual risks and trends, but must not generate DBS audit actions or business decisions. The auditor decides and acts. This approved boundary updates v2's suggested-audit-actions requirement.
 
@@ -165,6 +165,33 @@ Evidence anchors: [orchestrator](../mira/orchestrator.py), [scout](../mira/agent
 
 ## 4. Required user journey and architecture
 
+### 4.1 Analyst setup and monthly evidence preparation
+
+1. The analyst chooses the country, topics and fixed initial date window, then selects monetary authorities, secondary news outlets, or both. Show eligible publishers and whether each can be fetched automatically, needs manual import, or is limited to discovery. The official-source option includes relevant legislation and other official publications needed for the brief. Only prepare content for operations the source permits.
+2. Before starting, show estimated cost and elapsed time for the initial window and a typical monthly refresh. Show the expected publications and passages, reusable work, paid discovery and model charges, and time for any manual steps. Show **publisher licence fees** as a separate line, with **quote pending** when the fee is unknown. Record actual costs, times and processing outcomes against the preview.
+3. The analyst selects a database from the workspace's authorised destinations. Default to the existing destination for that workspace. Store the schedule, permitted originals and indexed evidence against that destination so reports use the intended database and retain their source references.
+4. Run on a calendar-monthly schedule after the analyst approves the configuration. Use the workspace time zone, with Asia/Singapore as the demo default. Carry forward missed intervals and outstanding eligible work. Reuse completed checks for unchanged evidence when the topic and check inputs still match. Preserve prior originals, findings, verification records and reports as new versions and snapshots are published. Show failed or incomplete refreshes and what remains to prepare.
+
+### 4.2 User report request
+
+1. The user selects a country, one of **AML**, **CFT** or **Cybersecurity**, and a date range. Check coverage for that scope against the selected prepared sources in the workspace's database. Show the evidence cutoff and any source-level gaps, including holes within an otherwise prepared interval.
+2. If the range is covered, assemble a draft from indexed, verified saved evidence without provider calls. Cite the exact supporting evidence and display human-review status. Measure time from the user's report request to the visible draft when evidence is ready. Retain the five-minute maximum for the demo and measure preparation and review separately.
+3. If coverage is incomplete, show the affected dates and sources and why each is missing. Offer a covered date range for a quicker draft when one exists. If the user keeps the original dates, preview cost and time, then prepare only the eligible missing intervals and topics after the user chooses to proceed. Reuse eligible saved checks and join matching work already in progress. Once the gap closes, generate the report for the original request automatically. If work stops or a source is blocked, show the remaining gap and offer the available coverage explicitly.
+4. Attribute secondary reporting at claim level. Show whether a claim has official support, independent corroboration, conflicting evidence or unconfirmed secondary reporting. Shared-origin coverage counts once. Preserve the status stated by the evidence, such as an allegation or a conviction, and show human review separately.
+
+### 4.3 Implementation gap as of 11 November 2026
+
+| Workflow | Available today | Work remaining |
+|---|---|---|
+| Preparation setup | Approved-source controls in the research console, manual imports for eligible sources, and operator-configured preparation schedules at fixed second intervals | Analyst-facing source and destination selection for preparation, scope-specific cost and time preview, calendar-monthly recurrence and refresh status |
+| Incremental processing | Versioned inputs, searchable passages, prepared snapshots and reuse for matching briefs and settings | Durable coverage across source, topic and date intervals. Carry forward outstanding work and reuse matching checks when the requested window shifts. Allow authorised manual-only sources to feed preparation |
+| Fast report | Saved-evidence draft, review labels and model-free assembly. Console checks the shared dates of selected source snapshots, suggests saved dates and can wait for an existing refresh | Separate AML and CFT selections, Cybersecurity beyond the scoped UAE federal prototype, precise gaps within saved intervals and a priced backfill of those gaps that automatically completes the original report |
+| News and corroboration | Claim-level support and independent-origin checks exist. Source permissions determine which content can be stored or used | Analyst publisher selection, authorised secondary ingestion and report evidence states tested on a real secondary source |
+
+In the Hong Kong rehearsal, evidence preparation took 19 minutes 7 seconds and draft assembly took 0.196 seconds once the snapshot was ready. In the Australian and UAE federal browser rehearsals, ready-evidence drafts opened in about 5.5 seconds after the click. Those were local drafts with partial coverage and human review pending. [Hong Kong rehearsal](../eval/evidence/2026-11-11-hk-scheduled-preparation-awake.md) · [Australian and UAE rehearsals](../eval/evidence/2026-11-11-au-uae-archive-preparation.md)
+
+### 4.4 Existing full research workflow
+
 1. Auditor signs in and supplies topic, markets, dates and run limits. Scope and settings are saved.
 2. Planner produces a visible plan. If approval is required, work pauses before fetching; approval resumes the saved plan.
 3. Regulatory and industry scouts search eligible saved evidence and discover approved publications within their task scope. Newly fetched content is versioned before analysis.
@@ -175,6 +202,14 @@ Evidence anchors: [orchestrator](../mira/orchestrator.py), [scout](../mira/agent
 8. Auditor can re-run a finished brief and inspect new, amended and no-longer-supported findings. The original brief's date scope is retained; this is not automatically a rolling monitoring window.
 
 The orchestrator is deterministic Python. Agent judgement is constrained by typed outputs and short evidence/claim labels mapped to stored IDs. Fetching, parsing, date extraction, versioning, budgets, coverage, diffing and rendering remain code. The verifier's separate context is not independent source corroboration and does not guarantee an independent model/provider.
+
+### 4.5 Guest reports from the demo slides
+
+1. The fixed QR code on the slides opens the hosted market chooser for the saved Hong Kong AML/CFT, Australia AML/CFT and UAE federal Cybersecurity (2023–2025) reports. The chooser displays a closed message until the host opens a window for five minutes or one hour. A rehearsal and the live demo use the same QR code with separate windows. The host can close the rehearsal and open a fresh one-hour window for the presentation.
+2. An attendee scans the QR code, opens the public HTTPS page on their phone, chooses a market and taps **Generate report**. The page requires no account, app or API key. It displays the new draft and offers an HTML download.
+3. The hosted report path uses the selected draft's pinned Supabase evidence. Each attendee receives a fresh report record and downloads the HTML from that same record, with the saved citations, coverage and review status. A report from an earlier guest session is inaccessible to a fresh session. Research, ingestion, verification, embeddings and paid provider calls stay outside the guest path.
+4. When replacing a market's template, validate the frozen draft and update that market's fixed QR pointer between guest windows. Open a new window on the selected version. Check a guest download against the template's exact finding bindings and review status before using it in a rehearsal or presentation.
+5. The target is **5.5 seconds or less** from tapping **Generate report** to readable report content, including when 20 guests submit at once. Measure each market on a physical phone in a fresh private browser session against the public HTTPS address. Test the audience burst separately. Check that the links reject new requests at expiry and after manual closure. Include network and browser rendering in the timing.
 
 ## 5. Evidence, correctness and report requirements
 
@@ -353,6 +388,61 @@ Local, ignored artifacts are `reports/2f98eaa5-e13c-4cd9-9a6e-66afaf115dd0/repor
 
 Authenticated sign-in, evidence inspection, amendment/rejection, dependent re-review, sign-off and separate reviewed-artifact opening have been rehearsed locally with synthetic evidence. The approved 180-second HyperFrames/Remotion film now joins a new UI-created synthetic brief, fixture-configured optional approval and recorded progress with saved HK evidence inspection and the separate synthetic review rehearsal. Chapters and omitted processing time are disclosed. Final MP4 decode/browser playback and the paired 16-slide PowerPoint package passed delivery checks. This is a product showcase assembled from separate observed examples. Human-review the benchmark and precision worksheet, then run the agreed comparison under D3/D9. See [the film handoff](demo/launch-production-handoff.md).
 
+### 7.4 Demo market scope and readiness
+
+The public QR rehearsal uses the three saved snapshots listed in §4.5. These reports demonstrate the guest flow and retain their coverage and human-review labels. The broader preparation and discovery criteria below apply to the separate market-readiness milestone.
+
+**Hong Kong proof of concept.** Use the saved Hong Kong AML/CFT draft for **4 November 2025 through 4 November 2026**. Show guest report generation from the prepared snapshot, then open a finding and follow its citations. The HKMA politically exposed persons example shows a verified inference and its supporting evidence. Keep the draft and partial-coverage labels visible. Report generation from this snapshot uses zero paid API calls. Use the Singapore publication inventory to show planned coverage. The four-publisher news pilot and its quote-pending licence fees belong in the stakeholder expansion discussion.
+
+**Hosted Hong Kong update, 12 November.** The first hosted update used the saved draft with **133 machine-supported findings**, including 33 additions from the SFC validation. It scored **16/18 cited publications** on the corrected Hong Kong benchmark, retaining all ten baseline matches and adding all six SFC publications. Mira analysed **38 of 40** pinned passages. Two failed because their proposed dates lacked support in the cited text. Both publications were cited from other checked passages. The local preparation and targeted retry took 30 minutes 50 seconds through draft save, with US$5.80 in estimated model charges. An anonymous request through the hosted QR returned the updated draft with all **133 exact finding bindings** and the human-review-pending label. The previous draft and the Australia and UAE pointers were preserved. [Validation record](../eval/evidence/2026-11-12-hk-sfc-hosted-download.md)
+
+**SFC footnote correction, 12 November.** Corrected extracts for 26EC13 and 26EC39 separated superscript footnotes from dates. Mira verified six additional findings from the two passages and retained all 392 exact citation bindings from the 133-finding draft. The fixed QR was switched to the **139-finding draft**. A hosted anonymous download rehearsal preserved all 139 exact finding and review bindings and the human-review-pending label. That draft scored **16/18** overall and **14/14** for regulatory publications. [Footnote assessment](../eval/evidence/2026-11-12-hk-sfc-footnote-followup.md)
+
+**Wolfsberg link citations, 12 November.** The fixed QR now selects a new revision for the next guest window. It preserves all **139 machine-supported findings** and **407 exact passage citations**, and adds **two reviewed paraphrases** attributed to Wolfsberg with official links. Each citation records its source, location and review decision. The new revision scored **18/18** for publication coverage and **14/14** for regulatory publications. Guest downloads carry the two paraphrases alongside the original draft, whose human review is pending. No Wolfsberg text or files were stored or quoted, and no models ran. This was a one-time operator revision of the demo draft. [Hosted verification](../eval/evidence/2026-11-12-hk-wolfsberg-link-citations.md)
+
+In the 11 November public rehearsal, all three drafts were readable by the 4.2-second check on a physical iPhone using Chrome Incognito over Wi-Fi. Hong Kong returned 14 facts and one verified inference, Australia returned 85 facts, and UAE federal returned 13 facts.
+
+The first audience test returned eight drafts for 20 simultaneous requests to the Australian link. After adding separate guest slots, reusing the evidence checks prepared at window opening and spacing retries, all 20 isolated mobile browser sessions opened a draft on the public site in 0.82–2.66 seconds, with a 1.73-second median. All 20 requests used the same one-hour window and pinned Australian snapshot, produced distinct saved reports, and started zero new preparation or analysis jobs. The load test ran on one Mac. Cellular and simultaneous physical phone timing remain unmeasured.
+
+Use **4 November 2025 through 4 November 2026, inclusive** for the demo planning window. The existing inventory and estimates cover official banking AML and CFT. The planning assumption is to prepare Cybersecurity for HK and SG in the same window, with a separate bank-relevant publication inventory and estimate. Monetary authorities and relevant official legislation, consultations, guidance, enforcement and commencement events form the required source set. Include applicable baseline versions where needed to interpret in-window developments. Secondary outlets are optional, subject to explicit selection and permission.
+
+| Market | Market-readiness milestone | Readiness and preparation estimate |
+|---|---|---|
+| Hong Kong | Complete preparation | The hosted AML/CFT draft cites 16/18 publications in the scoped benchmark. The separate banking inventory, remaining passage analysis and Cybersecurity coverage still need reconciliation before full market readiness. [Hosted validation](../eval/evidence/2026-11-12-hk-sfc-hosted-download.md) · [Preparation plan](plans/2026-11-11-hk-sg-demo-coverage.md) |
+| Singapore | Complete preparation | No prepared snapshot in the assessed demo workspace. Reconcile the official inventory, obtain permission for intended MAS use and enable authorised manual-only evidence in prepared reports. Use permitted legislation imports where needed. Official banking AML/CFT planning estimate is 30–80 batches and US$3–12 in model charges. [Manual import guide](../data/manual/README.md) · [Current preparation rules](../supabase/migrations/20261110180000_mira_prepared_evidence.sql) |
+| UAE | Discovery only | Reuse the scoped federal publication discovery evidence. Record uncovered source categories and publisher approval requirements for the demo inventory. [Source discovery pilot](../eval/evidence/2026-11-10-country-method-pilot.md) |
+| Australia | Discovery only | Reuse Federal Register and scoped AUSTRAC discovery evidence. Reconcile the demo-period publication and version list. [Source discovery pilot](../eval/evidence/2026-11-10-country-method-pilot.md) |
+| Indonesia | Discovery only | Identify official publication routes and applicable source permissions, then build and size the initial inventory. There is no controlled Indonesia research scope in the current prototype. |
+
+**Complete preparation** requires an agreed source and publication inventory, a recorded disposition for each expected category, and every in-scope publication acquired in a permitted form, extracted and searchable. Retain publisher originals where permitted. Resolve missing files, failed extraction and all outstanding eligible passage analysis and checks. Any included report finding must cite its frozen verification evidence. A blocked required publisher or publication keeps the affected scope incomplete until permitted evidence resolves it. Track publication coverage, passage processing and human review separately.
+
+**Discovery-only acceptance** requires a deduplicated list of candidate publications and versions with publisher, URL, dates, topic, access or manual status, and any exclusions or unresolved categories. Estimate publication volume, operator time and any paid search or later preparation charges from that list. Manual and native catalogue discovery can proceed with US$0 in model charges. Full acquisition, passage analysis and indexing are outside this demo requirement for these three markets.
+
+For later preparation sizing, the scoped Australian and UAE federal archive run analysed 45 of 1,198 candidate passages in about 14 minutes. It recorded US$1.97 in estimated usage and US$0.27 reserved for uncertain usage. Use that as a partial-run reference when pricing further preparation from each inventory. [Archive run](../eval/evidence/2026-11-11-au-uae-archive-preparation.md)
+
+The combined HK/SG official banking AML/CFT estimate is **97–198 batches, US$9–29 and approximately 1–3.5 hours of model processing** at four concurrent calls. It assumes up to three passages per batch and includes verification and occasional rewrites. The estimate uses saved passages, missing-document page counts and allowances for short publications and applicable statutory sections. Refresh it after permitted extraction and deduplication. Budget separately for Cybersecurity, optional news, licences, manual collection and human review. The broader milestone is ready when HK and SG meet the scoped completion gate, a covered report opens within five minutes, and each of the other three markets has its discovery inventory.
+
+#### Optional news expansion and publisher fees
+
+**Publisher licence fees are quote pending** for all four outlets. Show them separately from the API estimate under expansion costs on the stakeholder slides. The technical demo uses prepared evidence and focuses on the report workflow.
+
+The initial news pilot is estimated at **US$5–11 in API charges** across both markets. Assume 12 months of discovery, three Exa Auto searches per outlet per month with up to ten results per search, and five distinct articles per outlet for analysis and verification. Exa costs US$0.007 per search before credits. The model allowance applies the existing estimate for ten articles to each market. Reprice once the permitted, deduplicated article list is known. [Coverage and cost plan](plans/2026-11-11-hk-sg-demo-coverage.md) · [Exa pricing](https://exa.ai/pricing)
+
+| Pilot scope | Articles | Exa discovery | Analysis and verification | Estimated API total |
+|---|---:|---:|---:|---:|
+| Singapore · CNA and The Straits Times | 10 | US$0.50 | US$2–5 | US$2.50–5.50 |
+| Hong Kong · South China Morning Post and RTHK English News | 10 | US$0.50 | US$2–5 | US$2.50–5.50 |
+| **Combined** | **20** | **US$1.01** | **US$4–10** | **About US$5–11** |
+
+| Market | Candidate publisher | Coverage and reuse status |
+|---|---|---|
+| Singapore | CNA | Candidate for local and regional coverage. Check terms and fees for the intended reuse with Mediacorp. [Rights enquiries](https://www.channelnewsasia.com/contact-us/help-and-feedback) |
+| Singapore | The Straits Times | Candidate for Singapore banking and policy coverage. Check reuse rights and fees with SPH Media. [Content-use terms](https://www.sph.com.sg/tnc/website) |
+| Hong Kong | South China Morning Post (SCMP) | English-language banking and finance coverage, including bank technology incidents. Its terms require prior express written consent for automated extraction, indexing and AI use, including use through third parties. [Banking and finance](https://www.scmp.com/business/banking-finance) · [Terms, §3.2](https://www.scmp.com/terms-conditions?module=footer&pgtype=page) |
+| Hong Kong | RTHK English News | Public broadcaster with coverage of local scams and enforcement. RTHK ranked among the most trusted brands in the Reuters Institute’s 2026 Hong Kong survey. Confirm reuse rights and fees for news text with RTHK. [Coverage example](https://news.rthk.hk/rthk/en/component/k2/1868796-20260904.htm) · [Trust survey](https://reutersinstitute.politics.ox.ac.uk/digital-news-report/2026/hong-kong) · [RTHK contacts](https://www.rthk.hk/contactus/index_en.html) |
+
+Keep these outlets as candidates until the workspace records permission for the intended collection, storage, analysis and report use. Cite regulators and legislation for regulatory requirements. Treat news as context or corroboration where the underlying reporting independently supports the claim.
+
 ## 8. Source permissions, security and operational constraints
 
 Retain v2's public-data boundary, workspace access controls, server-side credentials, initiating-user audit trail, source allow-list, redirect/private-address checks, robots/rate limits, bounded size/type handling, untrusted-source instructions and versioned provenance. Fixtures demonstrate particular guardrails, not universal resistance to injection or hallucination.
@@ -394,11 +484,13 @@ This register is for the product owner and delivery team. Settled decisions guid
 | D7 — prototype implemented; enterprise policy open | Corroboration follows the Phase 1 gate in §5.3.2; define eligible claims, independence, search allowance and sign-off consequences | Prototype checks factual claims with explicit bounded limits, origin evidence and existing reviewer sign-off; adopt or revise this policy explicitly before enterprise rollout | Product owner + reviewer; corroboration design/schema/report |
 | D8 (new) | Can material reviewer amendments be signed off on human attestation alone, or must they pass evidence verification again? | Require explicit evidence review and dependent-inference re-review; decide whether automated recheck is mandatory | Reviewer + product owner; amendment workflow and verification |
 | D9 (new) | What is the accepted benchmark scope, recall denominator, multi-agent improvement threshold and replacement for the unmet pre-build M0 gate? | Human-review eligible items, show all/fetchable subsets, retain caveats and use a forward demo evidence gate | Product owner + evaluator; scorer and presentation conclusions |
-| D10 (new) | Is the final demo SG+HK or an explicitly narrower HK pilot; are all four industry categories required before demo? | Retain SG+HK intent; if evidence remains inadequate, obtain explicit scope reduction and reflect it in slides | Product owner; final brief, acceptance and release scope |
+| D10 — market scope settled | Complete preparation for Hong Kong and Singapore. Discovery only for UAE, Australia and Indonesia | Use the completion and discovery criteria in §7.4. Source permissions and precise publication inventories remain delivery work | Product owner + curator, demo acceptance |
 
 **Remaining priority policies:** D7 detail (not feature approval), D8 (amended evidence) and D9 (measurement). D6 is settled. Source permissions and budget policy also remain open; adapters or seeded rows do not close them. Approval to update this draft does not adopt every proposed target or remaining policy.
 
 ## 10. Delivery order and specialist work
+
+The current demo priority is to reconcile the HK and SG inventories, resolve the MAS permission and manual preparation path, and size Cybersecurity for both markets. In parallel with corpus preparation, add the analyst setup, monthly scheduling and report gap workflow in §4. Complete the UAE, Australian and Indonesian discovery inventories and rehearse a covered report and a date-gap request. Preserve the delivered evidence and evaluation checkpoints below.
 
 1. **Preserve the completed evidence-integrity checkpoint:** full frozen evidence, incomplete-render blocking and version-aware retrieval are implemented and locally validated. Preserve v1/v2 and historical artifacts; no input-binding backfill or remote migration.
 2. **Phase 1 merged:** inspect existing designs/code and retained telemetry; choose justified Exa/browser extensions and address evidenced selection/capacity gaps under §5.3.1. Complete and document §5.3.2 before dependent corroboration implementation. Scoped live observations below do not establish full coverage recovery; no repeated paid runs without new bounded authorization or reconstruction of missing historical diagnostics. MAS and industry-source permission gaps remain disclosed.

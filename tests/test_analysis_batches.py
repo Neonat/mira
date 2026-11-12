@@ -249,3 +249,33 @@ def test_default_stable_work_unit_defers_excess_without_dropping_priority():
     plan = plan_batches([hub, *publications], AnalysisLimits(max_batches=1))
     assert plan.batches == (tuple(publications[:3]),)
     assert plan.deferred == {publications[3].id: 'batch_limit', hub.id: 'batch_limit'}
+
+
+def test_cybersecurity_prioritizes_phishing_and_scam_calls_in_separate_small_batches():
+    from datetime import date
+
+    from mira.contracts import Brief
+
+    brief = Brief(topic="Cybersecurity", jurisdictions=["AE"], period_start=date(2023, 1, 1),
+                  period_end=date(2025, 12, 31), as_of_date=date(2025, 12, 31), plan_requires_approval=False)
+    resilience = passage(1, "Cyber resilience programmes were expanded.")
+    other = passage(2, "The report describes ransomware and third-party risks.", 2)
+    phishing = passage(3, "The regulator warned about phishing links.")
+    both = passage(4, "Social engineering includes phishing and scam telephone calls (vishing).", 3)
+    listing = replace(passage(5, "Phishing and scam calls in the press", 4), title="Publications")
+    plan = plan_batches([resilience, other, phishing, both, listing], AnalysisLimits(max_batches=3), brief)
+    assert plan.batches == ((both,), (phishing,), (resilience, other, listing))
+
+
+def test_cybersecurity_prioritizes_voice_scams_without_phishing_keyword():
+    from datetime import date
+
+    from mira.contracts import Brief
+
+    brief = Brief(topic="Cybersecurity", jurisdictions=["AE"], period_start=date(2023, 1, 1),
+                  period_end=date(2025, 12, 31), as_of_date=date(2025, 12, 31), plan_requires_approval=False)
+    generic = passage(1, "Cybersecurity requirements changed.")
+    vishing = passage(2, "Customers reported scam calls.", 2)
+    plan = plan_batches([generic, vishing], AnalysisLimits(max_batches=1), brief)
+    assert plan.batches == ((vishing,),)
+    assert plan.deferred == {generic.id: "batch_limit"}

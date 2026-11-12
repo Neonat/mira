@@ -13,7 +13,16 @@ from pathlib import Path
 
 VERIFIED = "2026-10-26"
 FIELDS = ["id", "jurisdiction", "kind", "publisher", "category", "title", "reference", "published",
-          "effective", "url", "expected_source", "reach", "summary", "verified"]
+          "effective", "url", "expected_source", "reach", "summary", "verified", "hk_url"]
+
+# These two shared FATF items have an official Hong Kong copy. Keep the
+# benchmark identity and date so the market-specific URL does not add an item.
+HK_FATF_COPIES = {
+    "https://www.mas.gov.sg/publications/fatf-statement/2026/february-2026":
+        "https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/aml/doc?refNo=26EC13",
+    "https://www.mas.gov.sg/publications/fatf-statement/2026/june-2026":
+        "https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/aml/doc?refNo=26EC39",
+}
 
 ITEMS = [
     ("SG", "regulatory", "MHA / SPF", "legislation", "Criminal Law (Miscellaneous Amendments) Act 2025", "", "2025-11-04", "2025-12-30",
@@ -90,19 +99,19 @@ ITEMS = [
      "HKMA circular, filed with its AML/CFT circulars, on anti-bribery and corruption controls at account opening."),
 ]
 
-# The Wolfsberg items apply to SG and HK banks alike; record them once, under SG, with jurisdiction "SG,HK".
+# Shared international items apply to both markets and count once.
 rows = []
 for number, item in enumerate(sorted(ITEMS, key=lambda i: (i[6], i[0], i[4])), 1):
     jurisdiction, kind, publisher, category, title, reference, published, effective, url, expected, reach, summary = item
     if kind == "international":
         jurisdiction = "SG,HK"
     rows.append(dict(zip(FIELDS, [f"GT{number:02d}", jurisdiction, kind, publisher, category, title, reference, published,
-                                   effective, url, expected, reach, summary, VERIFIED])))
+                                   effective, url, expected, reach, summary, VERIFIED, HK_FATF_COPIES.get(url, "")])))
 
 out = Path(sys.argv[1])
 out.parent.mkdir(parents=True, exist_ok=True)
 with out.open("w", newline="") as handle:
-    writer = csv.DictWriter(handle, fieldnames=FIELDS)
+    writer = csv.DictWriter(handle, fieldnames=FIELDS, lineterminator="\n")
     writer.writeheader()
     writer.writerows(rows)
 
@@ -111,7 +120,9 @@ print("|---|---|---|---|---|---|---|---|")
 for row in rows:
     ref = f" ({row['reference']})" if row["reference"] else ""
     title = row["title"].replace("|", "/")
-    print(f"| {row['id']} | {row['published']} | {row['jurisdiction']} | {row['publisher']} | [{title}]({row['url']}){ref}. {row['summary']} | {row['expected_source']} | {row['reach']} | {row['kind']} |")
+    publisher = "SFC (HK) / MAS (SG)" if row["hk_url"] else row["publisher"]
+    link = f"[{title}]({row['hk_url']}) ([SG copy]({row['url']}))" if row["hk_url"] else f"[{title}]({row['url']})"
+    print(f"| {row['id']} | {row['published']} | {row['jurisdiction']} | {publisher} | {link}{ref}. {row['summary']} | {row['expected_source']} | {row['reach']} | {row['kind']} |")
 
 counts = {
     "all": len(rows),

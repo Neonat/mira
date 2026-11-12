@@ -64,10 +64,22 @@ def test_supported_technology_assessment_and_exact_premise():
     text='Information sharing technology may increase risk.'
     p,fact,inf=inference_case(text,source)
     client=ScriptedClient({'verifier':[response(text,source)]})
-    assert LlmVerifier(client).check_inference(inf,[fact],1,passages=[p]).verdict=='supported'
+    outcome = LlmVerifier(client).check_inference(inf,[fact],1,passages=[p])
+    assert outcome.verdict == 'supported'
+    assert [premise.model_dump() for premise in outcome.checks[0].premise_mappings] == [{
+        'dependency_finding_id': fact.finding_id, 'passage_id': p.id, 'supporting_quote': source,
+    }]
+    rejected = response(text, source)
+    rejected['is_supported_assessment'] = False
+    client = ScriptedClient({'verifier': [rejected]})
+    outcome = LlmVerifier(client).check_inference(inf,[fact],1,passages=[p])
+    assert outcome.verdict == 'unsupported'
+    assert outcome.checks[0].premise_mappings[0].supporting_quote == source
     bad=response(text,source); bad['premises'][0]['supporting_quote']='Technology is mandatory.'
     client=ScriptedClient({'verifier':[bad]})
-    assert LlmVerifier(client).check_inference(inf,[fact],1,passages=[p]).verdict=='unsupported'
+    outcome = LlmVerifier(client).check_inference(inf,[fact],1,passages=[p])
+    assert outcome.verdict == 'unsupported'
+    assert not outcome.checks[0].premise_mappings
 
 
 def test_fact_listing_only_rejected_even_optimistic_model():

@@ -112,7 +112,9 @@ def saved_publication(value):
     ids = value['benchmark_ids']
     if len(set(ids)) != len(ids) or any(i not in items for i in ids):
         raise ValueError('Invalid retained benchmark identifiers')
-    result = publication([items[i].url for i in ids])
+    # Legacy aggregates retain item IDs, not the URLs behind them. Use the
+    # scoped references only to check the totals implied by the retained IDs.
+    result = publication([url for i in ids for url in items[i].reference_urls(SCOPE['jurisdictions'])])
     if result != {k: value[k] for k in result}:
         raise ValueError('Retained recall counts disagree with benchmark identifiers')
     return result

@@ -77,3 +77,21 @@ def test_rewrite_cannot_reintroduce_historical_development():
     client = ScriptedClient({'analyst':[claim(),claim()]})
     with pytest.raises(LLMOutputError,match='out-of-period'):
         rewrite(client,BRIEF,stored,[p],'Narrow the claim')
+
+
+def test_cybersecurity_retrospective_requires_the_observation_year_in_the_quote():
+    from dataclasses import replace
+
+    cyber = Brief(topic="Cybersecurity", jurisdictions=["AE"], period_start=date(2023, 1, 1),
+                  period_end=date(2025, 12, 31), as_of_date=date(2026, 11, 11), plan_requires_approval=False)
+    text = "In 2025, financial institutions reported phishing campaigns."
+    evidence = [replace(passage(date(2026, 8, 17)), content=text, jurisdiction_code="AE")]
+    draft = claim(content=text, jurisdiction_code="AE", change_type=None,
+                  citations=[dict(passage_label="P1", supporting_quote=text)])
+    check_claim_period(draft, cyber, evidence)
+    with pytest.raises(ValueError, match="out-of-period"):
+        check_claim_period(draft.model_copy(update={"content": text.replace("2025", "2024")}), cyber, evidence)
+    with pytest.raises(ValueError, match="out-of-period"):
+        check_claim_period(draft, cyber.model_copy(update={"topic": "AML/CFT"}), evidence)
+    with pytest.raises(ValueError, match="out-of-period"):
+        check_claim_period(draft, cyber.model_copy(update={"period_end": date(2025, 6, 30)}), evidence)

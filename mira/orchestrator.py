@@ -330,7 +330,7 @@ class _Run:
         ctx, brief = self.ctx, self.ctx.brief
         sources = self.store.list_sources(ctx.workspace_id)
         from mira.research_settings import restrict_sources
-        sources=restrict_sources(sources,ctx.research_settings,brief.jurisdictions)
+        sources=restrict_sources(sources,ctx.research_settings,brief.jurisdictions,topic=brief.topic)
         expected = self.store.list_expected_sources(ctx.workspace_id, brief.topic, brief.jurisdictions)
         if ctx.research_settings is not None:
             expected=[e for e in expected if e.source_id in {s.id for s in sources}]
@@ -748,8 +748,9 @@ class _Run:
                                 continue
                             claim = rewritten
                             self._corroborate(claim)
+                            revised_passages = [self.passages[e.passage_id] for e in claim.evidence]
                             outcome = self._check(claim,2,lambda:self.o.verifier.check_fact(
-                                claim,passages,2,**self._verifier_kwargs(self.o.verifier.check_fact,claim)))
+                                claim,revised_passages,2,**self._verifier_kwargs(self.o.verifier.check_fact,claim)))
                         self._decide(claim,outcome)
                     except Exception as exc:
                         collection_error = collection_error or exc

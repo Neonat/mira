@@ -190,7 +190,7 @@ def _output_error(exc: ValidationError, output_type: type[BaseModel], tokens_in:
 # Only categories, never provider bodies, cross the isolated-process boundary.
 SAFE_ERROR_CODES = frozenset({"unknown", "output_validation", "output_limit", "incomplete_response",
     "provider_response_failed", "stream_interrupted", "stream_error", "request_timeout",
-    "provider_request", "insufficient_quota", "rate_limit_exceeded", "model_not_found",
+    "provider_request", "provider_unavailable", "insufficient_quota", "rate_limit_exceeded", "model_not_found",
     "invalid_api_key", "unsupported_parameter", "refusal"})
 
 
@@ -304,7 +304,7 @@ class OpenAIClient:
     def structured(
         self, *, role: AgentRole, system: str, user: str, output_type: type[T], prompt_version: str
     ) -> LLMResult[T]:
-        from openai import APIError
+        from openai import APIConnectionError, APIError, APITimeoutError
 
         spec = ModelSpec.parse(self._models[role]) if self._models is not None else model_for(role)
         if spec.provider != "openai":
@@ -336,6 +336,11 @@ class OpenAIClient:
             code = getattr(exc, "code", None)
             safe_code = code if code in ("insufficient_quota", "rate_limit_exceeded", "model_not_found",
                                          "invalid_api_key", "unsupported_parameter") else None
+            if safe_code is None:
+                if isinstance(exc, APITimeoutError):
+                    safe_code = "request_timeout"
+                elif isinstance(exc, APIConnectionError) or (status is not None and 500 <= status < 600):
+                    safe_code = "provider_unavailable"
             raise LLMError(f"{role} OpenAI request failed: {type(exc).__name__} "
                            f"(HTTP {status}, code {safe_code})", code=safe_code or "provider_request") from None
         except (RuntimeError, ValueError) as exc:

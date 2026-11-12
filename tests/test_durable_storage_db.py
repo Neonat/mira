@@ -81,7 +81,8 @@ def test_app_cannot_make_reserved_bucket_public_even_with_broad_policy(conn,arti
 
 
 @pytest.mark.parametrize('change', ['revoked','reference','inactive','store_permission'])
-def test_direct_original_reads_recheck_current_grant_despite_broad_object_policy(conn,workspace,change):
+@pytest.mark.parametrize('recovered', [False, True])
+def test_direct_original_reads_recheck_current_grant_despite_broad_object_policy(conn,workspace,change,recovered):
     ws,user=workspace
     source=conn.execute("select id from public.sources where workspace_id=%s and source_key='hkma'",(ws,)).fetchone()['id']
     grant={'original_retention':{'approved':True,'reference':'fixture-original-approval'}}
@@ -89,8 +90,10 @@ def test_direct_original_reads_recheck_current_grant_despite_broad_object_policy
     doc=conn.execute("insert into public.documents(workspace_id,source_id,title) values(%s,%s,'fixture original') returning id",(ws,source)).fetchone()['id']
     identity=dict(workspace_id=str(ws),purpose='original',sha256='c'*64,size_bytes=3,media_type='application/pdf',
                   storage_kind='private_supabase',bucket='mira-evidence-private',approval_reference='fixture-original-approval')
+    metadata = (dict(original_retained=False, capture_sha256=identity['sha256'], recovered_original={'identity':identity})
+                if recovered else dict(original_retained=True, retained_original=identity))
     conn.execute("insert into public.document_versions(workspace_id,document_id,version_number,content_sha256,source_url,title,extraction_status,metadata) values(%s,%s,1,%s,'https://example.org/f.pdf','Fixture','complete',%s)",
-        (ws,doc,'d'*64,Jsonb(dict(original_retained=True,retained_original=identity))))
+        (ws,doc,'d'*64,Jsonb(metadata)))
     key=f'{ws}/original/'+identity['sha256']+'.bin'
     conn.execute('insert into storage.objects(bucket_id,name) values(%s,%s)',('mira-evidence-private',key))
     with conn.transaction(force_rollback=True):

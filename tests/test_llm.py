@@ -195,17 +195,24 @@ def test_provider_router_supports_mixed_roles_without_unused_credentials(monkeyp
     assert len(clients['anthropic'].calls)==1
 
 
-def test_openai_api_errors_do_not_expose_provider_error_body(monkeypatch,openai_sdk):
+@pytest.mark.parametrize("status,error_class,expected_code", [
+    (400, "BadRequestError", "provider_request"),
+    (503, "InternalServerError", "provider_unavailable"),
+])
+def test_openai_api_errors_do_not_expose_provider_error_body(monkeypatch,openai_sdk,status,error_class,expected_code):
     import httpx
-    from openai import BadRequestError
+    import openai
     from mira.llm import OpenAIClient
     monkeypatch.setenv('MIRA_MODEL_VERIFIER','openai:gpt-5.4-mini')
     def fail(**kwargs):
-        raise BadRequestError('sensitive request data',response=httpx.Response(400,request=httpx.Request('POST','https://api.openai.com/v1/responses')),body=None)
+        raise getattr(openai, error_class)('sensitive request data',
+            response=httpx.Response(status, request=httpx.Request('POST','https://api.openai.com/v1/responses')),
+            body=None)
     sdk=SimpleNamespace(responses=SimpleNamespace(stream=fail))
     with pytest.raises(LLMError) as caught:
         call(OpenAIClient(sdk))
-    assert 'HTTP 400' in str(caught.value) and 'sensitive' not in str(caught.value)
+    assert caught.value.code == expected_code
+    assert f'HTTP {status}' in str(caught.value) and 'sensitive' not in str(caught.value)
 
 
 def test_openai_and_router_liveness():

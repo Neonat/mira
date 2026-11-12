@@ -46,23 +46,27 @@ Keep the existing Supabase database, Auth, REST and gateway running. Apply all l
 
 ## Guest report demo
 
-Apply `20261111120000_mira_guest_demo.sql` to the demo database. Serve
+Apply the guest demo migrations to the demo database. Serve
 `app/guest/` from a public HTTPS static origin, with a sibling
 `config.json` containing `url` (the Supabase project URL) and `key` (its
 publishable key). Set `MIRA_GUEST_DEMO_URL` to that origin on the private
-operator console. Run `python -m mira prepared-report-worker --poll-seconds 1`
-against the same workspace with a server-side report worker connection.
+operator console. Supabase publishes guest drafts from saved evidence and admits up to six concurrent report builds. If all slots are busy, the page shows a loading state and retries with the same guest receipt.
 
-In **Guest demo**, a workspace admin selects a saved report and clicks
-**Open guest access for one hour**. Share the generated link with participants.
-**Close guest access** revokes the link immediately. The next opening creates
-a new link and starts a fresh hour. Generated drafts remain in **Prepared
-reports** after closing. Any HTML a guest downloaded remains on their device.
+In **Guest demo**, a workspace admin selects a saved report and an access window
+of **Five minutes** or **One hour**, then clicks **Open guest access** for an individual market.
+For the fixed QR on the slides, an authenticated workspace admin opens the
+registered portal with `open_guest_demo_portal` and closes it with
+`close_guest_demo_portal`. The portal opens the selected markets together and
+uses the same QR for rehearsal and presentation. Each opening generates fresh
+guest links. Supabase handles access and admission while the public page serves
+the chooser, so the demo can run with the operator's computer offline.
+Generated drafts remain in **Prepared reports** after closing. Guests keep any
+HTML they downloaded.
 
-Guest requests reuse the selected report's evidence snapshot and scope. The
-report-only worker assembles a fresh draft and preserves its citations and
-review status. The guest page has one report per browser tab and a 100-request
-limit per window. It needs neither a guest account nor a provider key.
+Each guest request saves a new copy of the selected draft using its pinned
+evidence and scope, preserving citations and review status. The guest page
+opens the draft on the phone and offers an HTML download. It needs no guest
+account or provider key. Each window accepts up to 100 requests.
 
 ### Signed-in demo library
 
@@ -112,6 +116,22 @@ running the report worker alone never starts preparation. Scheduled refreshes
 catch up on discovered links and retain prior eligible facts when an incremental
 refresh finds nothing new. They do not automatically revisit every acquired
 publication for silent edits.
+
+For a one-off preparation from saved publications, set
+`settings.archive_only` to `true`, use keyword retrieval and set
+`budget.max_gap_rounds` to `0`. The worker selects eligible stored versions
+in the approved scope and records them as reused. The run skips publisher
+fetches, Exa, browser acquisition, embeddings and corroboration search.
+It still uses the configured models for planning, passage analysis and
+verification under the supplied allowance.
+
+Cybersecurity covers common threats to financial institutions using the
+approved UAE federal CBUAE source. Run `python -m mira seed --topic Cybersecurity`
+to install its source checklist in the selected workspace. Select the
+observation period and an as-of date that includes any later reports you want
+to consider. A retrospective finding needs evidence that explicitly dates
+the observation. Cybersecurity and AML/CFT each have their own prepared
+snapshot for a shared source.
 
 ## Full research service
 

@@ -41,12 +41,15 @@ def main() -> None:
              {'MIRA_WORKER_DATABASE_URL','MIRA_WORKSPACE_SLUG'} if command=='prepared-report-worker' else None)
     parser = argparse.ArgumentParser(prog="mira")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("seed")
+    seed_cmd = commands.add_parser("seed")
     broker=commands.add_parser('broker',help='start the private local in-memory BYOK service; no research worker')
     broker.add_argument('--directory',type=Path,help='new short private directory, normally under /tmp')
     from mira.recovery_cli import add_backup_commands
     add_backup_commands(commands)
     run = commands.add_parser("run")
+    from mira.brief import MVP_TOPICS
+    seed_cmd.add_argument("--topic", choices=MVP_TOPICS, default="AML/CFT")
+    run.add_argument("--topic", choices=MVP_TOPICS, default="AML/CFT")
     run.add_argument("--jurisdictions", nargs="+", default=["SG", "HK"])
     run.add_argument("--as-of", type=date.fromisoformat, default=date.today())
     run.add_argument("--months", type=int, default=12)
@@ -99,7 +102,7 @@ def main() -> None:
             from mira.runner import workspace_id
             from mira.seed import seed
 
-            result = seed(conn, workspace_id(conn))
+            result = seed(conn, workspace_id(conn), args.topic)
             print(f"{result.sources} sources and {result.expected_sources} expected sources upserted")
         elif args.command == "run":
             from mira.budget import RunBudget
@@ -118,7 +121,7 @@ def main() -> None:
                 ctx = create_rerun(conn, workspace_id(conn), dev_user_id(conn), args.previous, models_from_env())
                 brief = ctx.brief
             else:
-                brief = Brief(topic="AML/CFT", jurisdictions=args.jurisdictions,
+                brief = Brief(topic=args.topic, jurisdictions=args.jurisdictions,
                               period_start=args.as_of - timedelta(days=round(args.months * 365 / 12)),
                               period_end=args.as_of, as_of_date=args.as_of, plan_requires_approval=False)
                 ctx = create_run(conn, workspace_id(conn), dev_user_id(conn), brief, budget, models_from_env())

@@ -171,7 +171,7 @@ def run_claimed_job(conn, dsn, store, job):
     try:
         settings = ResearchSettings.from_dict(job['settings'])
         sources = restrict_sources(PostgresStore(conn).list_sources(job['workspace_id']), settings,
-                                   job['brief']['jurisdictions'])
+                                   job['brief']['jurisdictions'], topic=job['brief']['topic'])
         frontier = FrontierAdapter(other_store, job, AllowList(sources))
     except Exception:
         try:

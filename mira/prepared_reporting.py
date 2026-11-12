@@ -19,8 +19,18 @@ from mira.contracts import (Brief,ClaimCitation,ClaimDraft,CoverageRow,EvidenceI
 from mira.db import acting_as,require_role
 from mira.evidence_snapshot import build_verification_input
 from mira.pg_store import PostgresStore,load_run
-from mira.report import ReportContext,render_html
+from mira.report import MARKET_NAMES, ReportContext, render_html
 from mira.store import ClaimEvidence,ExpectedSourceRecord,PassageRecord,StoredClaim
+
+
+def _scope_analysis_coverage(summary, source_ids):
+    if summary is None:
+        return None
+    documents = [row for row in summary['documents'] if row['source_id'] in source_ids]
+    fields = ('candidate', 'attempted', 'analysed', 'failed', 'deferred', 'pending')
+    totals = {f'{state}_passages': sum(row[f'{state}_passages'] for row in documents)
+              for state in fields}
+    return {**summary, **totals, 'documents': documents}
 
 
 def build_prepared_payload(conn,run_id,source_ids):
@@ -33,6 +43,7 @@ def build_prepared_payload(conn,run_id,source_ids):
     with acting_as(conn,ctx.user_id):require_role(conn,ctx.workspace_id)
     findings=conn.execute('select id,is_inference from public.analysis_findings where workspace_id=%s and analysis_run_id=%s',
                          (ctx.workspace_id,ctx.analysis_run_id)).fetchall()
+    source_scope=set(map(str,source_ids))
     valid={};verifications={}
     for f in findings:
         c=conn.execute('''select * from public.claim_checks where workspace_id=%s and analysis_run_id=%s
@@ -44,7 +55,7 @@ def build_prepared_payload(conn,run_id,source_ids):
             (ctx.workspace_id,ctx.analysis_run_id,ctx.analysis_revision_id,[f['id']])).fetchone()['v']
         if current!=c['input_snapshot'] or not c['input_fingerprint'] or not c['model']:
             continue
-        if not all(str(p['source_id']) in set(map(str,source_ids)) for p in current['passages'].values()):
+        if not all(str(p['source_id']) in source_scope for p in current['passages'].values()):
             continue
         valid[str(f['id'])]=current
         verifications[str(f['id'])]={**FrozenVerification(check_id=c['id'],method=c['method'],verdict=c['verdict'],
@@ -63,15 +74,17 @@ def build_prepared_payload(conn,run_id,source_ids):
     coverage=conn.execute('''select distinct on(expected_source_id) * from public.coverage_results
         where workspace_id=%s and analysis_run_id=%s order by expected_source_id,gap_round desc''',
         (ctx.workspace_id,ctx.analysis_run_id)).fetchall()
-    coverage_rows=[CoverageRow(expected_source_id=r['expected_source_id'],status=r['status'],
-        document_version_id=r['document_version_id'],gap_round=r['gap_round'],note=r['note']).model_dump(mode='json') for r in coverage]
     summary=PostgresStore(conn).analysis_coverage(ctx)
     expected={str(e.id):{**asdict(e),'id':str(e.id),'source_id':str(e.source_id)} for e in
         PostgresStore(conn).list_expected_sources(ctx.workspace_id,ctx.brief.topic,ctx.brief.jurisdictions)
-        if str(e.source_id) in set(map(str,source_ids))}
+        if str(e.source_id) in source_scope}
+    coverage_rows=[CoverageRow(expected_source_id=r['expected_source_id'],status=r['status'],
+        document_version_id=r['document_version_id'],gap_round=r['gap_round'],note=r['note']).model_dump(mode='json')
+        for r in coverage if str(r['expected_source_id']) in expected]
     return {'schema_version':1,'brief':ctx.brief.model_dump(mode='json'),'source_ids':list(map(str,source_ids)),
         'evidence_input':evidence,'verifications':verifications,'coverage':coverage_rows,
-        'analysis_coverage':summary.model_dump(mode='json') if summary else None,'expected_sources':expected,
+        'analysis_coverage':_scope_analysis_coverage(summary.model_dump(mode='json'),source_scope) if summary else None,
+        'expected_sources':expected,
         'reasons':[row['failure_summary']] if row['failure_summary'] else [],
         'prepared_through':ctx.brief.as_of_date.isoformat(),'prepared_at':datetime.now(UTC).isoformat()}
 
@@ -105,25 +118,33 @@ def select_prepared_facts(snapshots,brief,source_snapshots,allowed_source_ids,re
     allowed=set(map(str,allowed_source_ids));pins={str(k):str(v) for k,v in source_snapshots.items()}
     candidates={};origins={};evidence_by_snapshot={}
     for row in snapshots:
-        sid=str(row['id']);payload=row['payload'];e=EvidenceInput.model_validate(payload['evidence_input'])
+        sid=str(row['id']);payload=row['payload']
+        if (payload.get('brief') or {}).get('topic','AML/CFT') != brief.topic:
+            continue
+        e=EvidenceInput.model_validate(payload['evidence_input'])
         admitted=set(map(str,row.get('admitted_source_ids',[]))) if 'admitted_source_ids' in row else {s for s,p in pins.items() if p==sid}
         local_pins={s:sid for s in admitted if s in allowed}
         excluded=set(map(str,row.get('excluded_finding_ids',[])))
         evidence_by_snapshot[sid]=e
-        selected.snapshots[sid]={'published_at':str(row['published_at']),'prepared_through':payload.get('prepared_through'),
-            'brief':payload.get('brief'),'source_ids':payload['source_ids'],'coverage':payload.get('coverage',[]),
-            'analysis_coverage':payload.get('analysis_coverage'),'reasons':payload.get('reasons',[]),
-            'expected_sources':payload.get('expected_sources',{}),
-            'evidence_input':payload['evidence_input'],'verifications':payload['verifications']}
-        for eid,raw in payload.get('expected_sources',{}).items():
+        expected_sources=payload.get('expected_sources')
+        scoped_expected={}
+        for eid,raw in (expected_sources or {}).items():
             item=FrozenExpectedSource.model_validate(raw)
-            if str(item.source_id) in allowed and pins.get(str(item.source_id))==sid:
+            if str(item.source_id) in allowed and pins.get(str(item.source_id))==sid and item.jurisdiction_code in brief.jurisdictions:
                 selected.expected[item.id]=ExpectedSourceRecord(**item.model_dump())
+                scoped_expected[eid]=raw
+        scoped_coverage=[]
         for raw in payload.get('coverage',[]):
             coverage=CoverageRow.model_validate(raw)
-            item=payload.get('expected_sources',{}).get(str(coverage.expected_source_id))
-            if item and (str(item['source_id']) not in allowed or pins.get(str(item['source_id']))!=sid):continue
+            if expected_sources is not None and str(coverage.expected_source_id) not in scoped_expected:
+                continue
             selected.coverage.append(coverage)
+            scoped_coverage.append(raw)
+        selected.snapshots[sid]={'published_at':str(row['published_at']),'prepared_through':payload.get('prepared_through'),
+            'brief':payload.get('brief'),'source_ids':payload['source_ids'],'coverage':scoped_coverage,
+            'analysis_coverage':_scope_analysis_coverage(payload.get('analysis_coverage'),local_pins),
+            'reasons':payload.get('reasons',[]),'expected_sources':scoped_expected,
+            'evidence_input':payload['evidence_input'],'verifications':payload['verifications']}
         for fid,f in e.findings.items():
             key=str(fid)
             try:
@@ -241,8 +262,13 @@ def _timeline_date(claim: StoredClaim) -> tuple[KeyDateKind, date] | None:
 def compose_prepared_report(request_id,brief,selected,*,manifest=None):
     request_id=UUID(str(request_id));now=datetime.now(UTC)
     sections=writer.claim_sections(selected.claims)
-    summary=ReportSection(section='executive_summary',sentences=[ReportSentence(text=c.draft.content,
-        finding_ids=[c.finding_id],structural=False) for c in selected.claims[:5]],no_verified_items=not selected.claims)
+    summary_items = [ReportSentence(text=c.draft.content, finding_ids=[c.finding_id], structural=False)
+                     for c in selected.claims[:5]]
+    if not summary_items:
+        summary_items = [ReportSentence(text="The selected snapshot has no supported findings for this request. "
+                                            "See Coverage and limitations for the available evidence.",
+                                        finding_ids=[], structural=True)]
+    summary = ReportSection(section='executive_summary', sentences=summary_items, no_verified_items=False)
     timeline_dates = {}
     timeline_sentences = []
     for claim in selected.claims:
@@ -256,8 +282,23 @@ def compose_prepared_report(request_id,brief,selected,*,manifest=None):
     timeline = ReportSection(section='deadlines_timeline', sentences=timeline_sentences,
                              no_verified_items=not timeline_sentences)
     sections = [summary, *(timeline if s.section == 'deadlines_timeline' else s for s in sections[1:])]
-    notes=['This fresh report uses completed prepared evidence; no source acquisition or new factual wording was generated for this request.',
-           'Human evidence checking, machine support, publication coverage and final report approval are separate.']
+    sections = [section for section in sections if section.sentences]
+    notes = ['This draft uses saved evidence. The counts describe the selected sources and dates.']
+    for market in brief.jurisdictions:
+        claims = [c for c in selected.claims if c.draft.jurisdiction_code == market]
+        facts = [c for c in claims if not c.draft.is_inference]
+        publications = {selected.passages[e.passage_id].document_id for c in facts for e in c.evidence}
+        name = MARKET_NAMES.get(market, market)
+        count = len(publications)
+        if not facts:
+            notes.append(f'{name} has no supported facts in the selected evidence.')
+        else:
+            notes.append(f'{name} has {len(facts)} supported {"fact" if len(facts) == 1 else "facts"} from '
+                         f'{count} cited {"publication" if count == 1 else "publications"}.')
+        if not any(c.draft.is_inference for c in claims):
+            notes.append(f'The selected evidence yielded no supported inferences for {name}.')
+    if not timeline_sentences:
+        notes.append('The selected evidence yielded no verified deadlines or consultation dates.')
     if selected.omissions:notes.append(f'{len(selected.omissions)} prepared items were omitted by source/date/review/dependency or report limits.')
     for sid,s in selected.snapshots.items():
         a=s.get('analysis_coverage')
@@ -274,6 +315,9 @@ def compose_prepared_report(request_id,brief,selected,*,manifest=None):
     freshness=''.join('<li>'+escape(str(s.get('source_name') or s.get('scope_id')))+': '+escape(str(s.get('published_at') or 'unknown'))+'</li>' for s in scopes)
     banner='<aside role="status" style="border:2px solid #ae7029;background:#fff5e6;padding:1rem;margin:1rem 0"><strong>{{PREPARED_REVIEW_WARNING}}</strong><p>Evidence snapshot freshness by source:</p><ul>'+freshness+'</ul></aside>'
     html=html.replace('</h1>','</h1>'+banner,1)
+    coverage_heading = 'id="section-coverage_limitations"'
+    heading_end = html.find('</h2>', html.index(coverage_heading)) + len('</h2>')
+    html = html[:heading_end] + '{{PREPARED_MARKET_REVIEWS}}' + html[heading_end:]
     html=html.replace('</ol></nav>','<li><a href="#prepared-fact-reviews">Human evidence decisions</a></li></ol></nav>',1)
     html=html.replace('</body>','{{PREPARED_FACT_REVIEWS}}</body>',1)
     capture={'schema_version':1,'kind':'prepared_report','request_id':str(request_id),'brief':brief.model_dump(mode='json'),
@@ -302,11 +346,12 @@ def execute_prepared_request(conn,dsn,request_id=None,client=None,*,workspace_id
         sources={str(s.id):s for s in PostgresStore(conn).list_sources(workspace_id)}
         allowed={sid for sid in map(str,request['source_ids']) if sid in sources and
                  {'fetch','store_text','quote'}<=set(sources[sid].permitted_operations)}
-        entries=conn.execute('''select e.*,s.name as source_name,p.published_at from public.prepared_report_request_scopes e
-            join public.sources s on s.id=e.scope_id and s.workspace_id=e.workspace_id
+        entries=conn.execute('''select e.*,scope.source_id,s.name as source_name,p.published_at from public.prepared_report_request_scopes e
+            join public.preparation_scopes scope on scope.id=e.scope_id and scope.workspace_id=e.workspace_id
+            join public.sources s on s.id=scope.source_id and s.workspace_id=e.workspace_id
             left join public.prepared_snapshots p on p.id=e.snapshot_id and p.workspace_id=e.workspace_id
             where e.request_id=%s and e.workspace_id=%s order by e.scope_id''',(request['id'],workspace_id)).fetchall()
-        pins={str(e['scope_id']):str(e['snapshot_id']) for e in entries if e['snapshot_id']}
+        pins={str(e['source_id']):str(e['snapshot_id']) for e in entries if e['snapshot_id']}
         snapshots=store.load_request_snapshots(request['id'])
         reviews=conn.execute('''select distinct on(snapshot_id,finding_id) snapshot_id,finding_id,decision
             from public.prepared_fact_reviews where workspace_id=%s and snapshot_id=any(%s::uuid[])

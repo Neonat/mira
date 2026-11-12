@@ -25,7 +25,7 @@ from psycopg.types.json import Jsonb
 from mira.db import acting_as
 from mira.extract import EXTRACTION_VERSION, Extracted, split_passages
 from mira.fetch import FetchedPage
-from mira.originals import PrivateOriginalStore
+from mira.originals import PrivateOriginalStore, original_identity
 from mira.store import SourceRecord
 
 DOCUMENT_TYPES = {"regulator": "regulation", "website": "guidance", "rss": "news"}
@@ -97,11 +97,57 @@ class EvidenceWriter:
                     or retained.get("size_bytes") != len(page.body)
                     or retained.get("workspace_id") != str(self.workspace_id)):
                 raise ValueError("Original identity does not match acquisition")
-            return {"original_retained": True, "retained_original": retained,
-                    "original_retention_status": "retained"}
+            result = {"original_retained": True, "retained_original": retained,
+                      "original_retention_status": "retained"}
+            attribution = source.connector_config.get("original_retention", {}).get("attribution")
+            if isinstance(attribution, str) and attribution.strip():
+                result["original_attribution"] = attribution
+            return result
         except Exception:
             # The pure storage boundary cannot roll back already permitted text.
             return {**result, "original_retention_status": "failed"}
+
+    def _record_recovery(self, execute, version_id, page, original):
+        identity = original["retained_original"]
+        recovery = {"identity": identity, "retrieved_at": page.fetched_at.isoformat(), "source_url": page.url}
+        if original.get("original_attribution"):
+            recovery["attribution"] = original["original_attribution"]
+        return execute(
+            """update public.document_versions
+                  set metadata = metadata || %s
+                where id = %s and workspace_id = %s
+                  and metadata->>'capture_sha256' = %s
+                  and metadata->'original_retained' is distinct from 'true'::jsonb
+                  and not (metadata ? 'recovered_original')""",
+            (Jsonb({"recovered_original": recovery}), version_id, self.workspace_id, identity["sha256"]),
+        ).rowcount
+
+    def recover_original(self, version_id: UUID, page: FetchedPage) -> dict:
+        """Retain a fresh HTTP response only if it exactly matches a saved capture."""
+        digest = hashlib.sha256(page.body).hexdigest()
+        with acting_as(self.conn, self.user_id):
+            row = self.conn.execute(
+                """select v.metadata
+                     from public.document_versions v
+                     join public.documents d on d.id = v.document_id and d.workspace_id = v.workspace_id
+                    where v.id = %s and v.workspace_id = %s and d.source_id = %s and v.source_url = %s
+                      and v.metadata->>'acquisition_method' = 'http_fetch'
+                      and v.metadata->>'kind' = %s and v.metadata->>'capture_sha256' = %s
+                    for update of v""",
+                (version_id, self.workspace_id, page.source.id, page.url, page.kind, digest),
+            ).fetchone()
+            if row is None:
+                raise ValueError("Publisher response differs from the saved capture")
+            result = self._retain_original(self.conn.execute, page, "http_fetch", digest)
+            identity = result["retained_original"]
+            if not identity:
+                raise ValueError(f"Original retention {result['original_retention_status']}")
+            existing = original_identity(row["metadata"])
+            if existing is not None and existing != identity:
+                raise ValueError("Existing retained original identity differs")
+            if existing is None and self._record_recovery(self.conn.execute, version_id, page, result) != 1:
+                raise ValueError("Could not record the recovered original")
+            return identity
 
     def save(self, page: FetchedPage, extracted: Extracted, provenance: dict[str, object] | None = None,
              *, deadline: float | None = None) -> SavedPage:
@@ -114,6 +160,8 @@ class EvidenceWriter:
         reuse = dict(reuse) if isinstance(reuse, dict) else {}
         if isinstance(reuse.get("notice"), str):
             reuse["notice"] = reuse["notice"].replace("{retrieved_date}", page.fetched_at.date().isoformat())
+        if provenance:
+            provenance = {k: v for k, v in provenance.items() if k not in {"recovered_original", "original_attribution"}}
         supplied_method = (provenance or {}).get("acquisition_method")
         method = (supplied_method if supplied_method in ("live_browser", "offline_browser") else
                   "manual_import" if (provenance or {}).get("import") == "manual" else "http_fetch")
@@ -156,11 +204,7 @@ class EvidenceWriter:
             ).fetchone()
             if existing:
                 if original_metadata["original_retained"]:
-                    execute(
-                        """update public.document_versions set metadata = metadata || %s
-                           where id = %s and workspace_id = %s""",
-                        (Jsonb(original_metadata), existing["id"], ws),
-                    )
+                    self._record_recovery(execute, existing["id"], page, original_metadata)
                 if extracted.published and extracted.published_basis:
                     execute(
                         """update public.document_versions set published_at = %s,

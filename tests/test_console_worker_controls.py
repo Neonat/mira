@@ -45,7 +45,7 @@ def test_depth_reaches_actual_orchestrator(monkeypatch):
         def list_sources(self,w):return [source()]
     monkeypatch.setattr(runner,'PostgresStore',Store)
     monkeypatch.setattr(runner,'hybrid_from_env',lambda *a,**k:None)
-    ctx=SimpleNamespace(brief=SimpleNamespace(jurisdictions=['HK']))
+    ctx=SimpleNamespace(brief=SimpleNamespace(topic='AML/CFT',jurisdictions=['HK']))
     result=runner.build_orchestrator(None,'unused',uuid4(),object(),
          settings=ResearchSettings(max_analysis_batches=2),ctx=ctx)
     assert result.analysis_limits.max_batches==2
