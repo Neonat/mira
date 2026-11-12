@@ -107,6 +107,29 @@ test('the live review queue uses the latest Hong Kong report and excludes review
   assert.equal(result.cases[0].fact.content, 'Saved finding');
 });
 
+test('the live review queue finds pending cases beyond a page of reviewed bindings', async () => {
+  const snapshot = 'b653120a-d3ca-40bb-85dc-d07d983b45f0';
+  const bindings = Array.from({ length: 101 }, (_, i) => ({
+    snapshot_id: snapshot, finding_id: 'a9d74f41-55eb-46a9-bc96-' + String(i).padStart(12, '0'),
+  }));
+  const pending = bindings.at(-1);
+  const offsets = [];
+  const api = createReportApi(config, async (url) => {
+    if (url.pathname.endsWith('/prepared_reports')) return Response.json([{ id: reportId }]);
+    if (url.pathname.endsWith('/prepared_report_bindings')) {
+      const offset = Number(url.searchParams.get('offset'));
+      offsets.push(offset);
+      return Response.json(bindings.slice(offset, offset + Number(url.searchParams.get('limit'))));
+    }
+    const includesPending = url.searchParams.get('finding_id').includes(pending.finding_id);
+    return Response.json(includesPending ? [pending] : []);
+  });
+  const result = await api.listHongKongReviewCases('reviewer', workspace);
+  assert.deepEqual(offsets, [0, 100]);
+  assert.equal(result.publishedCount, 101);
+  assert.deepEqual(result.cases, [pending]);
+});
+
 test('review evidence must match the pinned version and an active quotable Hong Kong source', async () => {
   const passage = '9e30a1f4-5724-4882-bec8-31ffb4fe2c30';
   const source = 'ae0ad7f2-5e70-4a38-a28c-082734bb51b6';

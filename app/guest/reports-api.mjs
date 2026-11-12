@@ -125,23 +125,30 @@ export function createReportApi(config, request = fetch) {
       const report = reports[0];
       if (!report) return { report: null, publishedCount: 0, cases: [] };
 
-      const bindings = await send('/rest/v1/prepared_report_bindings', { token, query: {
-        select: 'snapshot_id,finding_id', workspace_id: 'eq.' + workspace,
-        report_id: 'eq.' + report.id, order: 'snapshot_id.asc,finding_id.asc', limit: reviewPageSize,
-      } });
-      const bySnapshot = new Map();
-      for (const { snapshot_id, finding_id } of bindings) {
-        if (!uuidPattern.test(snapshot_id) || !uuidPattern.test(finding_id)) continue;
-        if (!bySnapshot.has(snapshot_id)) bySnapshot.set(snapshot_id, []);
-        bySnapshot.get(snapshot_id).push(finding_id);
+      let publishedCount = 0;
+      const cases = [];
+      while (true) {
+        const bindings = await send('/rest/v1/prepared_report_bindings', { token, query: {
+          select: 'snapshot_id,finding_id', workspace_id: 'eq.' + workspace,
+          report_id: 'eq.' + report.id, order: 'snapshot_id.asc,finding_id.asc',
+          limit: reviewPageSize, offset: publishedCount,
+        } });
+        publishedCount += bindings.length;
+        const bySnapshot = new Map();
+        for (const { snapshot_id, finding_id } of bindings) {
+          if (!uuidPattern.test(snapshot_id) || !uuidPattern.test(finding_id)) continue;
+          if (!bySnapshot.has(snapshot_id)) bySnapshot.set(snapshot_id, []);
+          bySnapshot.get(snapshot_id).push(finding_id);
+        }
+        const batches = await Promise.all(Array.from(bySnapshot, ([snapshot, ids]) =>
+          send('/rest/v1/prepared_facts', { token, query: {
+            select: 'snapshot_id,finding_id,fact,prepared_fact_reviews()',
+            workspace_id: 'eq.' + workspace, snapshot_id: 'eq.' + snapshot, finding_id: inIds(ids),
+            prepared_fact_reviews: 'is.null', order: 'finding_id.asc', limit: ids.length,
+          } })));
+        cases.push(...batches.flat());
+        if (bindings.length < reviewPageSize) return { report, publishedCount, cases };
       }
-      const batches = await Promise.all(Array.from(bySnapshot, ([snapshot, ids]) =>
-        send('/rest/v1/prepared_facts', { token, query: {
-          select: 'snapshot_id,finding_id,fact,prepared_fact_reviews()',
-          workspace_id: 'eq.' + workspace, snapshot_id: 'eq.' + snapshot, finding_id: inIds(ids),
-          prepared_fact_reviews: 'is.null', order: 'finding_id.asc', limit: ids.length,
-        } })));
-      return { report, publishedCount: bindings.length, cases: batches.flat() };
     },
     async getHongKongReviewEvidence(token, workspace, item) {
       const citations = item.fact?.evidence;

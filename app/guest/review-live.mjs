@@ -4,6 +4,7 @@ const $ = id => document.getElementById(id);
 const form = $('sign-in');
 const workspace = $('workspace');
 const buttons = Array.from(document.querySelectorAll('[data-decision]'));
+const reviewControls = [...buttons, workspace, $('next')];
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 let api;
 let session;
@@ -53,13 +54,17 @@ function clearCase() {
   $('citations').replaceChildren();
 }
 
+function setSaving(saving) {
+  for (const control of reviewControls) control.disabled = saving;
+}
+
 function reset(message) {
   generation++;
   session = undefined;
   remaining = [];
   report = undefined;
   workspace.replaceChildren();
-  workspace.disabled = false;
+  setSaving(false);
   clearCase();
   $('queue').hidden = true;
   form.hidden = false;
@@ -178,21 +183,20 @@ for (const button of buttons) {
     if (!active || button.disabled) return;
     const version = generation;
     const item = active;
-    const controls = [...buttons, workspace, $('next')];
-    for (const control of controls) control.disabled = true;
+    setSaving(true);
     status('Saving evidence decision…');
     try {
       await api.saveEvidenceReview(session.token, item, button.dataset.decision);
     } catch (error) {
       if (version === generation) {
-        for (const control of controls) control.disabled = false;
+        setSaving(false);
         showError(error, error.status === 403 ? 'Your account cannot save decisions in this workspace.' : 'Mira could not confirm the save. Reload the queue before retrying.');
         if (error.status !== 401 && error.status !== 403) clearCase();
       }
       return;
     }
     if (version !== generation) return;
-    for (const control of controls) control.disabled = false;
+    setSaving(false);
     try {
       await nextCase(version, 'Evidence decision saved.');
     } catch (error) {
