@@ -2,7 +2,7 @@
 
 Mira helps bank internal auditors answer questions like **“What changed in Hong Kong’s anti-money-laundering rules and guidance over the past year?”** The auditor chooses a topic, market and date range. Mira searches approved public sources, checks which claims the evidence supports, and prepares a draft report with links back to the publications. The auditor can inspect the evidence and decide what to approve.
 
-See what Mira found in the [Hong Kong AML/CFT portfolio dataset on Hugging Face](https://huggingface.co/datasets/natsim/mira-hong-kong-aml-cft). It contains 18 paraphrased findings with publication dates and direct publisher links.
+Read Mira’s [Hong Kong AML/CFT demo report](https://neonat.github.io/mira-smu-ytp-aif-2026/report.html) for 4 November 2025 through 4 November 2026. The public edition includes 138 paraphrased factual findings, nine audit inferences and direct publisher links. The [Hugging Face portfolio dataset](https://huggingface.co/datasets/natsim/mira-hong-kong-aml-cft) contains an 18-publication research sample.
 
 Mira was built for the SMU run of the [Young Talent Programme for AI in Finance](https://www.ibf.org.sg/home/for-financial-institutions/talent-development-and-training-support/develop-young-talent) in response to [DBS Internal Audit’s External Driver Researcher brief](docs/dbs_project_statement.md).
 
@@ -60,7 +60,7 @@ The **Country methods** page separates measured results from recommendations and
 
 ## A report designed for auditors
 
-The [public Hong Kong AML/CFT research sample](docs/portfolio/hong-kong-aml-cft.md) pairs 18 paraphrased findings from the final demo draft with publisher links and issue dates.
+The [Hong Kong report HTML](docs/portfolio/hong-kong-aml-cft-report.html) is a self-contained public edition of the final demo draft. It includes publication dates, links from the eight proof-of-concept inferences to their supporting findings, and two reviewed Wolfsberg paraphrases. Human evidence review is pending. The [public research sample](docs/portfolio/hong-kong-aml-cft.md) is also available as a table.
 
 The report brings together regulatory developments, deadlines, supervisory themes, industry developments, contextual insights and an evidence appendix. Each finding carries its saved wording, fact/inference label, supported date and source references.
 
