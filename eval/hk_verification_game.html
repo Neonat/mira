@@ -36,6 +36,8 @@ h3 { font-size: 1.05rem; line-height: 1.35; }
 .top-controls { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .4rem .9rem; }
 #undo { min-height: 44px; background: #e6f1e8; border-color: #b6d2c1; font-size: .86rem; }
 #undo:hover { background: #fff; }
+#skip { min-height: 44px; background: transparent; border-color: #799e8b; color: #fff; font-size: .86rem; }
+#skip:hover { background: #245447; }
 .eyebrow { color: var(--muted); font-weight: 750; font-size: .75rem; letter-spacing: .09em; text-transform: uppercase; }
 main { padding-block: clamp(1.25rem, 5vw, 3rem) 1.5rem; }
 .intro { margin-bottom: clamp(1rem, 4vw, 1.7rem); align-items: flex-end; }
@@ -70,7 +72,7 @@ kbd { margin-right: .35rem; padding: .12rem .3rem; border: 1px solid #a9bbb1; bo
 .feedback { background: #f8faf6; border-radius: 0 0 13px 13px; }
 .feedback h3 { margin-block: .2rem .35rem; }
 .feedback > p { max-width: 76ch; }
-.feedback .primary, .finish .primary { margin-top: .8rem; }
+.feedback .primary { margin-top: .8rem; }
 details { margin-top: .55rem; }
 summary { min-height: 42px; padding-block: .45rem; cursor: pointer; font-weight: 650; }
 dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .35rem .8rem; font-size: .92rem; }
@@ -79,6 +81,33 @@ a { color: #1a614b; text-underline-offset: 3px; }
 details a { display: inline-block; margin-top: .5rem; }
 .finish { padding: clamp(1.1rem, 5vw, 2rem); }
 .finish h2 { margin-block: .25rem .5rem; }
+#score { font-weight: 700; }
+#preview-note, .training-note { color: var(--muted); }
+#readiness:has(.readiness-toast:not([hidden]), #sad-face:not([hidden])) { margin-top: .85rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.readiness-toast { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem .8rem; padding: .65rem .8rem; border: 1px solid #b6d2c1; border-radius: 9px; background: var(--source); box-shadow: 0 4px 14px #1a392016; }
+.readiness-toast p { flex: 1 1 14rem; }
+.readiness-toast a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 750; }
+#coaching-tip { background: #fbf3e7; border-color: #e1c5a7; }
+#sad-face { display: block; font-size: 2.25rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .readiness-toast, #sad-face { animation: enter-feedback .2s ease-out both; }
+  @keyframes enter-feedback {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+.result-list { list-style: none; padding: 0; margin: 1rem 0; border-block: 1px solid var(--line); }
+.result-list li { padding-block: .75rem; }
+.result-list li + li { border-top: 1px solid var(--line); }
+.result-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .75rem; }
+.result-status { color: var(--green); font-size: .85rem; font-weight: 750; }
+.result-status.missed { color: #8c3f26; }
+.result-decisions { margin-top: .2rem; font-weight: 650; }
+.result-reason { margin-top: .25rem; max-width: 76ch; }
+.result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; margin-top: .8rem; }
+#copy-status { margin-top: .4rem; color: var(--muted); }
+#summary-text { display: block; width: 100%; min-height: 10rem; margin-top: .5rem; padding: .6rem; font: inherit; }
 #confetti { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
 #confetti span { position: absolute; top: -18px; width: 8px; height: 12px; border-radius: 2px; }
 @media (max-width: 640px) {
@@ -101,6 +130,7 @@ details a { display: inline-block; margin-top: .5rem; }
     <span class="brand">Mira</span>
     <div class="top-controls">
       <span class="eyebrow">Hong Kong · Compliance training</span>
+      <button id="skip" type="button">Skip to end</button>
       <button id="undo" type="button" aria-keyshortcuts="U" hidden>Undo</button>
     </div>
   </div>
@@ -155,10 +185,27 @@ details a { display: inline-block; margin-top: .5rem; }
     </section>
   </article>
   <section id="finish" class="sheet finish" aria-labelledby="finish-title" hidden>
-    <p class="eyebrow">Practice complete</p>
-    <h2 id="finish-title" tabindex="-1">Review complete</h2>
+    <h2 id="finish-title" tabindex="-1">Practice results</h2>
+    <p id="preview-note" hidden></p>
     <p id="score"></p>
-    <button id="replay" class="primary">Play again</button>
+    <div id="readiness">
+      <span id="sad-face" aria-hidden="true" hidden>🙁</span>
+      <div id="ready-toast" class="readiness-toast" hidden>
+        <p><strong>Ready to verify live cases?</strong></p>
+        <a href="https://mira-guest-reports.labandinnovation.chatgpt.site/review-live">Open live-case review</a>
+      </div>
+      <p id="coaching-tip" class="readiness-toast" hidden>Try coaching or ask a second reviewer to check your decisions on live cases.</p>
+      <span id="readiness-status" class="sr-only" role="status"></span>
+    </div>
+    <ul id="result-list" class="result-list" role="list" aria-label="Case results"></ul>
+    <p id="training-note" class="training-note">Use these results for coaching. Player decisions stay in this session and never update Mira’s verification records.</p>
+    <div class="result-actions">
+      <button id="copy-summary" class="primary" type="button">Copy summary</button>
+      <button id="replay" type="button">Play again</button>
+      <button id="back-to-game" type="button" hidden>Back to game</button>
+    </div>
+    <p id="copy-status" role="status"></p>
+    <textarea id="summary-text" aria-label="Summary to copy" readonly hidden></textarea>
   </section>
 </main>
 <div id="confetti" aria-hidden="true"></div>
@@ -170,10 +217,13 @@ const cases = JSON.parse(document.getElementById("cases-data").textContent);
 const $ = id => document.getElementById(id);
 const choices = {"approve":"Approve", "send-back":"Send back", "escalate":"Escalate"};
 const keys = {"1":"approve", "2":"send-back", "3":"escalate"};
+const sampleAnswers = ["approve", "approve", "send-back"];
 const dateFormat = new Intl.DateTimeFormat("en-GB", {day:"numeric", month:"short", year:"numeric", timeZone:"UTC"});
 const formatDate = value => dateFormat.format(new Date(value + "T00:00:00Z"));
 let current = 0;
 let answers = [];
+let previewing = false;
+let readinessTimer;
 
 function textElement(tag, text) {
   const element = document.createElement(tag);
@@ -189,7 +239,7 @@ function renderProgress() {
     dot.setAttribute("aria-hidden", "true");
     return dot;
   });
-  $("undo").hidden = answers.length === 0;
+  $("undo").hidden = previewing || answers.length === 0;
   $("progress").replaceChildren(...dots);
   $("progress").setAttribute("aria-label", answers.length + " of " + cases.length + " decisions made");
 }
@@ -200,6 +250,8 @@ function renderCase() {
   $("actions").hidden = false;
   $("feedback").hidden = true;
   $("verification").open = false;
+  $("skip").hidden = false;
+  $("progress").hidden = false;
   $("case-position").textContent = "Case " + (current + 1) + " of " + cases.length;
   $("cutoff").textContent = "Review cutoff · " + formatDate(item.cutoff);
   $("case-title").textContent = item.title;
@@ -250,11 +302,88 @@ function showCase() {
   $("case-title").focus({preventScroll:true});
 }
 function undoDecision() {
-  if (!answers.length) return;
+  if (previewing || !answers.length) return;
   answers.pop();
   current = answers.length;
   $("confetti").replaceChildren();
   showCase();
+}
+function showResults(decisions, sample = false) {
+  clearReadiness();
+  const rows = cases.map((item, index) => ({
+    title: item.title,
+    chosen: choices[decisions[index]],
+    suggested: choices[item.action],
+    matched: decisions[index] === item.action,
+    reason: item.explanation
+  }));
+  const correct = rows.filter(row => row.matched).length;
+  const skipped = cases.length - decisions.length;
+  const score = correct + " of " + decisions.length + " decisions matched the review guidance." +
+    (skipped ? " " + skipped + (skipped === 1 ? " case skipped." : " cases skipped.") : "");
+  const title = sample ? "Sample results" : previewing ? "Practice preview" : "Practice results";
+  const summary = ["Mira · Review the Finding · Hong Kong", title, score];
+  $("result-list").replaceChildren(...rows.map(row => {
+    const verdict = row.chosen ? (row.matched ? "Matched" : "Missed") : "Skipped";
+    const result = document.createElement("li");
+    const heading = document.createElement("div");
+    heading.className = "result-heading";
+    const status = textElement("span", verdict);
+    status.className = row.chosen && !row.matched ? "result-status missed" : "result-status";
+    heading.append(textElement("h3", row.title), status);
+    result.append(heading);
+    summary.push("", row.title + " · " + verdict);
+    if (!row.chosen) return result;
+    const decision = "Picked " + row.chosen + " · Suggested " + row.suggested;
+    const picks = textElement("p", decision);
+    picks.className = "result-decisions";
+    const reason = textElement("p", row.reason);
+    reason.className = "result-reason";
+    result.append(picks, reason);
+    summary.push(decision, row.reason);
+    return result;
+  }));
+  if (sample) summary.splice(2, 0, "Demo example using sample decisions.");
+  summary.push("", "For coaching. Player decisions do not update Mira’s verification records.");
+  $("summary-text").value = summary.join("\n");
+  $("summary-text").hidden = true;
+  $("copy-status").textContent = "";
+  $("finish-title").textContent = title;
+  $("preview-note").hidden = !previewing;
+  $("preview-note").textContent = (sample ? "Sample decisions for the demo. " : "") + "Back to game resumes where you left off.";
+  $("score").textContent = score;
+  $("replay").hidden = previewing;
+  $("back-to-game").hidden = !previewing;
+  $("skip").hidden = true;
+  $("progress").hidden = previewing;
+  $("case").hidden = true;
+  $("finish").hidden = false;
+  renderProgress();
+  $("finish-title").focus();
+  window.scrollTo(0, 0);
+}
+function clearReadiness() {
+  clearTimeout(readinessTimer);
+  $("ready-toast").hidden = true;
+  $("coaching-tip").hidden = true;
+  $("sad-face").hidden = true;
+  $("readiness-status").textContent = "";
+  $("confetti").replaceChildren();
+}
+function showReadiness() {
+  if (answers.length < 2) return;
+  const matches = Number(answers[0] === cases[0].action) + Number(answers[1] === cases[1].action);
+  if (matches === 1) return;
+  const ready = matches === 2;
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (ready) celebrate();
+  else $("sad-face").hidden = reducedMotion;
+  readinessTimer = setTimeout(() => {
+    $("sad-face").hidden = true;
+    $("ready-toast").hidden = !ready;
+    $("coaching-tip").hidden = ready;
+    $("readiness-status").textContent = ready ? "Ready to verify live cases?" : $("coaching-tip").textContent;
+  }, reducedMotion ? 0 : 1000);
 }
 function advance() {
   current++;
@@ -262,17 +391,48 @@ function advance() {
     showCase();
     return;
   }
-  const correct = answers.filter((answer, index) => answer === cases[index].action).length;
-  $("case").hidden = true;
-  $("finish").hidden = false;
-  $("score").textContent = correct + " of " + cases.length + " decisions matched the review guidance.";
-  $("finish-title").focus();
-  window.scrollTo(0, 0);
+  showResults(answers);
   celebrate();
+}
+function backToGame() {
+  clearReadiness();
+  previewing = false;
+  $("finish").hidden = true;
+  $("case").hidden = false;
+  $("skip").hidden = false;
+  $("progress").hidden = false;
+  renderProgress();
+  ($("feedback").hidden ? $("case-title") : $("recommended")).focus();
+}
+async function copySummary() {
+  const field = $("summary-text");
+  const value = field.value;
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(value);
+    copied = true;
+  } catch {
+    // Some browsers block clipboard access. Offer the same text for manual copying.
+  }
+  if ($("finish").hidden || field.value !== value) return;
+  field.hidden = copied;
+  $("copy-status").textContent = copied ? "Summary copied." : "Select and copy the summary below.";
+  if (!copied) {
+    field.focus();
+    field.select();
+  }
 }
 document.querySelectorAll("[data-action]").forEach(button => button.onclick = () => decide(button.dataset.action));
 $("continue").onclick = advance;
 $("undo").onclick = undoDecision;
+$("skip").onclick = () => {
+  previewing = true;
+  const sample = answers.length === 0;
+  showResults(sample ? sampleAnswers : answers, sample);
+  showReadiness();
+};
+$("back-to-game").onclick = backToGame;
+$("copy-summary").onclick = copySummary;
 $("replay").onclick = () => {
   $("confetti").replaceChildren();
   current = 0;
@@ -280,7 +440,7 @@ $("replay").onclick = () => {
   showCase();
 };
 document.addEventListener("keydown", event => {
-  if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (previewing || event.target === $("summary-text") || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.key.toLowerCase() === "u") undoDecision();
   else if (Object.hasOwn(keys, event.key)) decide(keys[event.key]);
 });
