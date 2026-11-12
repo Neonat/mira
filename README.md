@@ -1,20 +1,16 @@
-# Mira — External Driver Researcher
+# Mira — AI research for bank auditors
 
-Mira turns public regulatory and industry developments into cited research reports for bank internal auditors. An auditor sets the topic, markets and reporting period; Mira plans the research, gathers approved evidence, checks claims and source independence, and prepares a report for review and sign-off.
+Mira helps bank internal auditors answer questions like **“What changed in Hong Kong’s anti-money-laundering rules and guidance over the past year?”** The auditor chooses a topic, market and date range. Mira searches approved public sources, checks which claims the evidence supports, and prepares a draft report with links back to the publications. The auditor can inspect the evidence and decide what to approve.
 
-Browse the [Hong Kong AML/CFT portfolio dataset on Hugging Face](https://huggingface.co/datasets/natsim/mira-hong-kong-aml-cft) for 18 paraphrased findings, with publication dates and direct publisher links.
+See what Mira found in the [Hong Kong AML/CFT portfolio dataset on Hugging Face](https://huggingface.co/datasets/natsim/mira-hong-kong-aml-cft). It contains 18 paraphrased findings with publication dates and direct publisher links.
 
-**Programme:** built for the SMU run of the
-[Young Talent Programme for AI in Finance (YTP-AIF)](https://www.ibf.org.sg/home/for-financial-institutions/talent-development-and-training-support/develop-young-talent),
-responding to DBS Bank Internal Audit's *Agentic AI for Audit: External Driver
-Researcher* problem statement. [SMU's programme overview](https://computing.smu.edu.sg/news/2026/aug/11/smu-unveils-new-courses-prepare-graduates-ai-enabled-future)
-describes the applied industry-project context.
+Mira was built for the SMU run of the [Young Talent Programme for AI in Finance](https://www.ibf.org.sg/home/for-financial-institutions/talent-development-and-training-support/develop-young-talent) in response to [DBS Internal Audit’s External Driver Researcher brief](docs/dbs_project_statement.md).
 
-**Audience:** programme assessors, DBS Internal Audit stakeholders and pilot auditors.
+## Gamified evidence review
 
-**Scope:** an AML/CFT research prototype supporting Singapore, Hong Kong and scoped Australian/UAE federal research, with a demonstrated Hong Kong research case. The current workflow includes expanded ingestion, Exa-assisted discovery, permitted browser acquisition, claim-level corroboration and passage-level analysis tracking.
+In **Review the Finding**, you play a compliance reviewer at a fictional Hong Kong bank. Each of the three cases gives you a draft finding, a source excerpt and a date cutoff. Choose **Approve**, **Send back** or **Escalate**, then see how your decision compares with the suggested action and why. You can undo a decision, see your score and copy a case-by-case summary for coaching.
 
-Australia uses Federal Register API metadata and direct publication files, alongside AUSTRAC public guidance subject to live access checks. UAE federal research follows approved CBUAE publication hubs to same-host documents. Malaysia and DIFC/DFSA are outside the enabled source set, and MAS remains inactive.
+The practice game runs in the browser. Recording a decision on a live finding requires an authorized reviewer account. [Play Review the Finding](https://mira-guest-reports.labandinnovation.chatgpt.site/review-the-finding) · [How the cases work](docs/demo/hk-verification-game.md)
 
 ## Engineering highlights
 
@@ -35,6 +31,8 @@ The [validation section](#validation-and-prototype-status) separates recorded
 engineering checks from the measured coverage of live research runs.
 
 ## From research brief to reviewed evidence
+
+The prototype focuses on anti-money laundering and countering the financing of terrorism (AML/CFT) in Hong Kong, with configured sources for Singapore and scoped research in Australia and the federal UAE. Australia uses Federal Register metadata and publication files, plus AUSTRAC guidance subject to access checks. UAE federal research uses approved CBUAE publication hubs. MAS automated acquisition remains inactive. Malaysia and DIFC/DFSA are outside the enabled source set.
 
 | Auditor's task | Mira's implemented workflow |
 |---|---|
