@@ -27,6 +27,7 @@ from mira.store import ClaimEvidence, PassageRecord, StoredClaim
 
 DEFAULT_OUTPUT = Path("reports/hk-verification-game/index.html")
 TEMPLATE = Path(__file__).with_suffix(".html")
+THEME = TEMPLATE.parent.parent / "app" / "guest" / "review-theme.css"
 SOURCE_HOSTS = {"brdr.hkma.gov.hk", "www.hkma.gov.hk"}
 
 
@@ -195,9 +196,10 @@ def main(argv=None) -> int:
             conn.execute("set local statement_timeout = '10s'")
             cases = [read_case(conn, scenario) for scenario in SCENARIOS]
         template = TEMPLATE.read_text(encoding="utf-8")
-        if template.count("{{CASES}}") != 1:
-            raise ValueError("The training template has an invalid data placeholder.")
-        html = template.replace("{{CASES}}", json.dumps(cases, ensure_ascii=False).replace("<", r"\u003c"), 1)
+        if template.count("{{CASES}}") != 1 or template.count("{{THEME}}") != 1:
+            raise ValueError("The training template has an invalid placeholder.")
+        html = template.replace("{{THEME}}", THEME.read_text(encoding="utf-8").strip(), 1)
+        html = html.replace("{{CASES}}", json.dumps(cases, ensure_ascii=False).replace("<", r"\u003c"), 1)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with NamedTemporaryFile(dir=args.output.parent, mode="w", encoding="utf-8", delete=False) as temp:
             path = Path(temp.name)
