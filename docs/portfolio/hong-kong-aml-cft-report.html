@@ -1,0 +1,1378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Hong Kong AML/CFT report · Mira</title>
+<meta name="description" content="Mira’s Hong Kong AML/CFT proof-of-concept report for 4 November 2025 through 4 November 2026, with paraphrased findings, audit inferences and publisher citations.">
+<style>
+:root {
+  color-scheme: light;
+  --ink: #1c1b1f;
+  --muted: #5c555d;
+  --accent: #980019;
+  --accent-soft: #fff0f2;
+  --line: #ded9dc;
+  --paper: #f6f4f4;
+  --white: #fff;
+  font: 16px/1.62 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: var(--paper); }
+a { color: var(--accent); text-underline-offset: .17em; }
+a:hover { text-decoration-thickness: .13em; }
+a:focus-visible { outline: 3px solid var(--accent); outline-offset: .2rem; }
+.wrap { width: min(100% - 2rem, 68rem); margin-inline: auto; }
+.top { background: var(--white); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .25rem 1rem; }
+.brand { font-size: 1.5rem; font-weight: 820; letter-spacing: -.05em; color: var(--ink); }
+.top a { display: inline-flex; min-height: 2.75rem; align-items: center; }
+.top nav { display: flex; flex-wrap: wrap; gap: 0 1.2rem; font-size: .9rem; }
+.hero { padding-block: clamp(2rem, 7vw, 4.8rem) clamp(1.8rem, 5vw, 3.7rem); }
+.edition, .type { color: var(--accent); font-weight: 730; font-size: .78rem; letter-spacing: .075em; text-transform: uppercase; }
+h1, h2, h3, p { margin: 0; }
+h1 { font: 700 clamp(2.45rem, 7vw, 4.8rem)/1.05 "Playfair Display", Georgia, serif; letter-spacing: -.045em; margin-block: .35rem .7rem; }
+h2 { font-size: clamp(1.5rem, 4vw, 2.05rem); line-height: 1.2; letter-spacing: -.03em; margin-block-end: .85rem; }
+h3 { font-size: 1.12rem; line-height: 1.35; margin-block: .25rem .55rem; }
+.dates, .date, .sources, .source-label { color: var(--muted); }
+.status { display: inline-block; padding: .22rem .7rem; margin-top: .85rem; background: var(--accent-soft); border-left: 3px solid var(--accent); font-size: .92rem; }
+.layout { display: grid; gap: 1.7rem; align-items: start; padding-bottom: 3rem; }
+.contents { background: var(--white); border: 1px solid var(--line); border-radius: .7rem; padding: 1rem 1.2rem; }
+.contents h2 { font-size: 1.05rem; margin-bottom: .15rem; }
+.contents ul, .sources { list-style: none; margin: 0; padding: 0; }
+.contents a { display: block; padding: .55rem 0; font-size: .93rem; line-height: 1.35; }
+section { background: var(--white); border: 1px solid var(--line); border-radius: .7rem; padding: clamp(1rem, 3vw, 2rem); }
+section + section { margin-top: 1.35rem; }
+section > p + p, article > p + p { margin-top: .6rem; }
+.finding, .guidance { border-top: 1px solid var(--line); padding: 1.15rem 0; }
+article:target { background: var(--accent-soft); box-shadow: -.45rem 0 var(--accent-soft), .45rem 0 var(--accent-soft); }
+[id] { scroll-margin-top: 1rem; }
+.sources { font-size: .87rem; overflow-wrap: anywhere; margin-top: .55rem; }
+.sources li + li { margin-top: .27rem; }
+.date { white-space: nowrap; }
+.date::before { content: " · "; }
+.source-label { font-size: .86rem; font-weight: 700; }
+.premises { list-style: disc; margin: .2rem 0 0 1.1rem; }
+.summary { margin: 0; padding-left: 1.2rem; }
+.summary li + li { margin-top: .45rem; }
+.back { border-top: 1px solid var(--line); padding-top: .75rem; font-size: .88rem; margin-top: .85rem; }
+@media (min-width: 54rem) {
+  .layout { grid-template-columns: 13.2rem minmax(0, 1fr); gap: 2rem; }
+  .contents { position: sticky; top: 1rem; }
+}
+@media print {
+  body, section { background: white; }
+  .top, .contents, .back { display: none; }
+  .hero { padding-block: 0 1rem; }
+  .layout { display: block; }
+  section { padding: 0; border: none; }
+  .finding, .guidance { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="https://github.com/Neonat/mira-smu-ytp-aif-2026">Mira</a>
+    <nav aria-label="Portfolio">
+      <a href="https://neonat.github.io/mira-smu-ytp-aif-2026/">Review game</a>
+      <a href="https://huggingface.co/datasets/natsim/mira-hong-kong-aml-cft">Hugging Face dataset</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <header class="hero">
+    <p class="edition">Public portfolio edition</p>
+    <h1>Hong Kong AML/CFT report</h1>
+    <p class="dates"><time datetime="2025-11-04">4 November 2025</time> to <time datetime="2026-11-04">4 November 2026</time></p>
+    <p class="status">Proof-of-concept draft · Human evidence review pending</p>
+  </header>
+  <div class="layout">
+    <nav id="contents" class="contents" aria-labelledby="contents-title">
+      <h2 id="contents-title">Contents</h2>
+      <ul>
+    <li><a href="#executive-summary">Executive summary</a></li>
+    <li><a href="#audit-inferences">Additional audit inferences</a></li>
+    <li><a href="#regulatory-developments">Regulatory developments</a></li>
+    <li><a href="#deadlines">Deadlines and consultation timeline</a></li>
+    <li><a href="#supervisory-trends">Supervisory trends and focus areas</a></li>
+    <li><a href="#industry-developments">Industry developments</a></li>
+    <li><a href="#wolfsberg-guidance">Wolfsberg industry guidance</a></li>
+    <li><a href="#coverage">Coverage and limitations</a></li>
+      </ul>
+    </nav>
+    <div>
+<section aria-labelledby="executive-summary">
+<h2 id="executive-summary">Executive summary</h2>
+<ul class="summary">
+  <li><a href="#finding-001">SFC told in-scope firms to apply updated sanctions lists in customer and payment screening.</a></li>
+  <li><a href="#finding-002">The UN committee on Afghanistan changed five sanctions entries in late October 2026.</a></li>
+  <li><a href="#finding-003">The UN committee for ISIL and Al-Qaida delisted three people and revised three entries.</a></li>
+  <li><a href="#finding-004">HKMA called for risk-based reviews of accounts opened with help from agents.</a></li>
+  <li><a href="#finding-005">HKMA expects stronger due diligence, approvals and oversight where agents help with onboarding.</a></li>
+</ul>
+<p class="back"><a href="#contents">Back to contents</a></p>
+</section>
+
+<section aria-labelledby="audit-inferences">
+<h2 id="audit-inferences">Additional audit inferences</h2>
+<p>Eight Codex-generated audit hypotheses, each linked to the two findings used to develop it.</p>
+<article id="inference-01" class="finding" data-kind="POC inference">
+  <p class="type">Codex POC inference</p>
+  <h3>Trace sanctions-list changes through remediation</h3>
+  <p>Where bank and SFC-regulated group entities share a sanctions-screening platform, a list update and the resolution of defects found in testing are two distinct points of control. Evidence that a list was updated leaves the timeliness of defect remediation open.</p>
+  <p><strong>Audit question</strong> Can a sampled list change be traced to live customer and payment screening, with evidence that any resulting defects were corrected and retested?</p>
+  <p class="source-label">Supporting findings</p>
+  <ul class="sources premises">
+    <li><a href="#finding-001">SFC tells licensed firms to update sanctions screening databases for the UNSC changes</a></li>
+    <li><a href="#finding-030">HKMA thematic review found prompt reporting but identified delayed remediation issues in sanctions screening testing</a></li>
+  </ul>
+</article>
+<article id="inference-02" class="finding" data-kind="POC inference">
+  <p class="type">Codex POC inference</p>
+  <h3>Test both ways account-opening checks can fail</h3>
+  <p>For Hong Kong banks, identity impersonation and interference in account opening are different routes to the same mule-account risk. A strong remote identity check can coexist with weak controls on agent-assisted or manually handled openings.</p>
+  <p><strong>Audit question</strong> In a sample of higher-risk openings across channels, what identity evidence and audit trail show how exceptions or manual interventions were handled?</p>
+  <p class="source-label">Supporting findings</p>
+  <ul class="sources premises">
+    <li><a href="#finding-016">HKMA said AI and deepfakes are increasing remote on-boarding ML/TF risks</a></li>
+    <li><a href="#finding-007">HKMA published a circular on anti-bribery and corruption controls for account opening</a></li>
+  </ul>
+</article>
+<article id="inference-03" class="finding" data-kind="POC inference">
+  <p class="type">Codex POC inference</p>
+  <h3>Separate AI monitoring rollout from effectiveness</h3>
+  <p>HKMA’s reporting shows a mix of deployed AI monitoring and plans for wider rollout. Reported implementation progress leaves the effectiveness of live uses open.</p>
+  <p><strong>Audit question</strong> Which uses are planned, being piloted, or live, and what monitoring results are available for those already in use?</p>
+  <p class="source-label">Supporting findings</p>
+  <ul class="sources premises">
+    <li><a href="#finding-138">HKMA reported growing AI adoption by Authorized Institutions for AML/CFT transaction monitoring</a></li>
+    <li><a href="#finding-023">HKMA told certain AIs to keep implementation plans under review and update HKMA when called for</a></li>
+  </ul>
+</article>
+<article id="inference-04" class="finding" data-kind="POC inference">
+  <p class="type">Codex POC inference</p>
+  <h3>Trace interbank disclosures after the initial decision</h3>
+  <p>For a bank sharing information under Part XIIAA, the original decision to disclose without consent and a later duty to correct inaccurate information can arise on the same case. A record of the initial decision gives only a partial view if a later error is identified.</p>
+  <p><strong>Audit question</strong> For a sampled disclosure without consent that later required correction, can the bank show why it proceeded and how and when it corrected the information?</p>
+  <p class="source-label">Supporting findings</p>
+  <ul class="sources premises">
+    <li><a href="#finding-050">HKMA guideline sets conditions for disclosure without consent</a></li>
+    <li><a href="#finding-060">HKMA&#x27;s published guideline sets a correction duty for inaccurate AI-to-AI shared information</a></li>
+  </ul>
+</article>
+<article id="inference-05" class="finding" data-kind="POC inference">
+  <p class="type">Codex POC inference</p>
+  <h3>Revisit wealth and funds evidence after material changes</h3>
+  <p>A source-of-wealth or source-of-funds assessment that was adequate at onboarding may become less informative after a material change in a higher-risk customer’s profile. The relevance of the existing evidence depends on the change and the revised risk assessment.</p>
+  <p><strong>Audit question</strong> When a sampled higher-risk profile changed materially, did the file explain whether its existing corroboration still applied and whether the case needed escalation?</p>
+  <p class="source-label">Supporting findings</p>
+  <ul class="sources premises">
+    <li><a href="#finding-037">HKMA issued new guidance on high-end money laundering focusing on SoW and SoF corroboration for higher-risk customers</a></li>
+    <li><a href="#finding-039">HKMA issued guidance on combating high-end money laundering focused on profile changes, escalation and staff support</a></li>
+  </ul>
+</article>
+<article id="inference-06" class="finding" data-kind="POC inference">
+  <p class="type">Codex POC inference</p>
+  <h3>Follow layering alerts through reporting exceptions</h3>
+  <p>For SFC-licensed firms, spotting signs of layering and completing the reporting process are separate control outcomes. Where a case resulted in a report submitted outside STREAMS 2 after implementation, an alert record alone cannot show that the separate resubmission step was completed.</p>
+  <p><strong>Audit question</strong> For a sampled layering alert that led to a report, can the firm show the reporting decision, submission channel, and resubmission evidence where the circular’s condition applied?</p>
+  <p class="source-label">Supporting findings</p>
+  <ul class="sources premises">
+    <li><a href="#finding-115">SFC issued a circular on red flags and controls for potential layering activities</a></li>
+    <li><a href="#finding-109">SFC circular set STR re-submission conditions for STREAMS 2</a></li>
+  </ul>
+</article>
+<article id="inference-07" class="finding" data-kind="POC inference">
+  <p class="type">Codex POC inference</p>
+  <h3>Track virtual-asset proposals by activity</h3>
+  <p>The December 2025 update placed virtual-asset dealing and custody at a different legislative stage from advisory and management services. Using a single status for all four activities would obscure which proposals had advanced and which were still being consulted on at that point.</p>
+  <p><strong>Audit question</strong> Does the regulatory change register record the activity, source date, and stage of each proposal separately?</p>
+  <p class="source-label">Supporting findings</p>
+  <ul class="sources premises">
+    <li><a href="#finding-111">FSTB and SFC published consultation conclusions and said they will proceed with VA dealer and custodian proposals</a></li>
+    <li><a href="#finding-112">FSTB and SFC started a further consultation on VA advisory and management service regimes</a></li>
+  </ul>
+</article>
+<article id="inference-08" class="finding" data-kind="POC inference">
+  <p class="type">Codex POC inference</p>
+  <h3>Preserve FATF categories in country-risk decisions</h3>
+  <p>The March 2026 SFC circular relayed different FATF developments under different categories. A single country-list flag would hide the distinction between a call for enhanced due diligence and an addition to increased monitoring, making it harder to explain the response to each change.</p>
+  <p><strong>Audit question</strong> Can a sampled country-risk change be traced to the FATF category, its effective context, and the rationale for the institution’s response?</p>
+  <p class="source-label">Supporting findings</p>
+  <ul class="sources premises">
+    <li><a href="#finding-031">SFC relayed FATF’s continued enhanced due diligence call on Myanmar and possible countermeasures</a></li>
+    <li><a href="#finding-108">SFC relayed FATF’s addition of Kuwait and Papua New Guinea to increased monitoring</a></li>
+  </ul>
+</article>
+<p class="back"><a href="#contents">Back to contents</a></p>
+</section>
+
+<section aria-labelledby="regulatory-developments">
+<h2 id="regulatory-developments">Regulatory developments</h2>
+<article id="finding-001" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC tells licensed firms to update sanctions screening databases for the UNSC changes</h3>
+  <p>The SFC asked the firms covered by its October alert to reflect the UN Security Council changes in checks on customers and payments. It pointed them to its 7 February 2018 sanctions circular for the standards that apply.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC69">SFC · 30 October UN sanctions alert</a> <span class="date"><time datetime="2026-10-30">30 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-002" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC issues an early alert after UNSC Afghanistan sanctions list details are amended</h3>
+  <p>On 30 October 2026, the SFC issued an AML/CFT early alert stating that the UNSC sanctions committee concerning Afghanistan had amended the details of five individuals on its sanctions list on 29 October 2026 (New York time).</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC69">SFC · 30 October UN sanctions alert</a> <span class="date"><time datetime="2026-10-30">30 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-003" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed UNSC ISIL/Al-Qaida sanctions-list changes and Hong Kong list update</h3>
+  <p>The SFC told the firms covered by its alert that the UN committee for ISIL (Da’esh) and Al-Qaida delisted three people and changed three entries on 24 and 26 October 2026, New York time. Hong Kong’s Commerce and Economic Development Bureau also posted the revised section 25 list under Cap. 537CB.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC66">SFC · 27 October UN sanctions alert</a> <span class="date"><time datetime="2026-10-27">27 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-004" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Risk-based look-back reviews for third-party-assisted account opening</h3>
+  <p>HKMA advises institutions to prioritise reviews of past accounts opened through third-party assistance according to the likelihood of bribery or corruption.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20261022-1-EN/20261022-1-EN.pdf#page=3">HKMA · Account-opening bribery controls · p. 3</a> <span class="date"><time datetime="2026-10-22">22 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-005" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA says AIs must apply enhanced controls when third-party agents are involved in account opening</h3>
+  <p>HKMA says institutions must strengthen controls when outside agents introduce customers or help them open accounts. Its examples include deeper due diligence, closer examination of approval decisions, and active oversight by management.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20261022-1-EN/20261022-1-EN.pdf#page=2">HKMA · Account-opening bribery controls · p. 2</a> <span class="date"><time datetime="2026-10-22">22 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-006" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA circular said AIs should review account-opening controls for bribery and corruption vulnerabilities</h3>
+  <p>HKMA asked institutions to look for gaps in controls that address bribery and corruption during onboarding. It invited them to use the circular’s practices to strengthen their AML/CFT framework.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20261022-1-EN/20261022-1-EN.pdf#page=3">HKMA · Account-opening bribery controls · p. 3</a> <span class="date"><time datetime="2026-10-22">22 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-007" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA published a circular on anti-bribery and corruption controls for account opening</h3>
+  <p>On 2026-10-22, HKMA published a circular on anti-bribery and corruption controls for account opening. In the quoted sections, it says AIs may use remote on-boarding and other technology to mitigate bribery risk and create an audit trail, but where third-party agents introduce clients or assist with account opening, AIs must apply enhanced controls. It also says AIs should conduct targeted sample checks on accounts opened by branches and staff with higher financial crime risk, and may use callback verification to identify referral fees or agent rebates.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20261022-1-EN/20261022-1-EN.pdf#page=2">HKMA · Account-opening bribery controls · p. 2</a> <span class="date"><time datetime="2026-10-22">22 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-008" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA issued guidance on anti-bribery and corruption controls in account opening</h3>
+  <p>HKMA’s circular calls for a named senior-management owner for onboarding bribery risk, and retrospective checks prioritised by risk where outside agents helped open accounts.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20261022-1-EN/20261022-1-EN.pdf#page=3">HKMA · Account-opening bribery controls · p. 3</a> <span class="date"><time datetime="2026-10-22">22 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-009" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA reminded all Authorized Institutions to strengthen anti-bribery and corruption controls for account opening</h3>
+  <p>HKMA reminded all authorized institutions to guard against corrupt onboarding. It warned that staff misconduct can make mule accounts harder to spot and expose an institution to legal and regulatory risk.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20261022-1-EN/20261022-1-EN.pdf#page=1">HKMA · Account-opening bribery controls · p. 1</a> <span class="date"><time datetime="2026-10-22">22 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-010" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA said banks should factor bribery risk drivers into ML/TF risk assessments for account opening</h3>
+  <p>HKMA expects banks to account for onboarding bribery in their existing money laundering and terrorist financing risk assessments. It cited conflicts of interest and outside intermediaries as factors that may call for additional controls.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20261022-1-EN/20261022-1-EN.pdf#page=1">HKMA · Account-opening bribery controls · p. 1</a> <span class="date"><time datetime="2026-10-22">22 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-011" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC investigation linked weak controls over customer-supplied trading systems to ML/TF risk</h3>
+  <p>In a 29 September 2026 publication, the SFC said its investigation found that Zheng Da had not carried out due diligence or testing on customer supplied systems used by 160 clients to place futures orders. The SFC said this left the firm unable to properly assess or manage ML/TF and other risks associated with those systems, and that weak controls over their use exposed the firm to risks including money laundering and nominee account arrangements.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR158">SFC · Zheng Da enforcement release</a> <span class="date"><time datetime="2026-09-29">29 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-012" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC disciplinary case cites Zheng Da AML/CFT and customer-supplied system failures</h3>
+  <p>The SFC attributed Zheng Da’s deficient controls to failures by Zhong as a responsible officer and senior manager. The regulator cited breaches of the ordinance, AML guideline and conduct code, including letting clients keep using customer-supplied systems to place orders without checking those systems.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR158">SFC · Zheng Da enforcement release</a> <span class="date"><time datetime="2026-09-29">29 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-013" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC publication describes ML/TF control failings at Zheng Da</h3>
+  <p>In a 29 September 2026 publication, the SFC said deposits into eight Zheng Da client accounts were inconsistent with clients’ declared financial profiles, but there were no records supporting the firm’s claimed enquiries with those clients. The SFC said Zheng Da therefore failed to demonstrate proper enquiries on those deposits and satisfactory handling of associated ML/TF risks. The same publication also said Zheng Da lacked an effective ongoing monitoring system for suspicious trading patterns and failed to detect 176 instances where the same client placed buy and sell orders for the same futures contracts within the same second and at the same price.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR158">SFC · Zheng Da enforcement release</a> <span class="date"><time datetime="2026-09-29">29 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-014" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA set out core AML/CFT expectations for remote on-boarding of individual customers</h3>
+  <p>On 2026-09-03, HKMA published a remote on-boarding communication stating that, where an individual customer’s identity is obtained through electronic channels, AIs and SVF licensees should ensure the reliability of the identity document, data or information used for verification and should use technology to link the customer incontrovertibly to that identity. HKMA also said firms are expected to design products and services using a risk-based approach proportionate to the customer’s assessed ML/TF risk profile, with tiered account features and limits given as an example.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260902-1-EN/20260902-1-EN.pdf#page=2">HKMA · Remote onboarding of individual customers · p. 2</a> <span class="date"><time datetime="2026-09-03">3 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-015" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA updated regulatory expectations for remote on-boarding of individual customers</h3>
+  <p>On 3 September 2026, HKMA updated its regulatory expectations for remote on-boarding of individual customers for Authorized Institutions and Stored Value Facility Licensees. The circular supersedes HKMA’s 2019 and 2021 individual remote on-boarding circulars, while stating that the 2020 corporate remote on-boarding circular and the 2020 feedback on AML/CFT controls for remote customer on-boarding initiatives remain applicable and should be read together with the new letter.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260902-1-EN/20260902-1-EN.pdf#page=1">HKMA · Remote onboarding of individual customers · p. 1</a> <span class="date"><time datetime="2026-09-03">3 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-016" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA said AI and deepfakes are increasing remote on-boarding ML/TF risks</h3>
+  <p>HKMA warned that automated AI tools and deepfakes can make impersonation, online fraud and the use of mule-account networks easier to scale. It described remote identity checks as central to the AML/CFT controls of banks and stored value facility licensees and said it was sharing emerging techniques with industry and police.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260902-1-EN/20260902-1-EN.pdf#page=1">HKMA · Remote onboarding of individual customers · p. 1</a> <span class="date"><time datetime="2026-09-03">3 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-017" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA told AIs and SVF licensees to comprehensively review remote on-boarding controls</h3>
+  <p>HKMA asked authorized institutions and stored value facility licensees to examine remote onboarding end to end, covering the technology and its oversight. The review should account for new scam and fraud intelligence from the authority and Hong Kong police.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260902-1-EN/20260902-1-EN.pdf#page=2">HKMA · Remote onboarding of individual customers · p. 2</a> <span class="date"><time datetime="2026-09-03">3 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-018" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA said AIs and SVF licensees are expected to use shared intelligence on an ongoing basis, particularly for remote on-boarding solutions</h3>
+  <p>HKMA expects institutions and stored value facility licensees to incorporate the fraud techniques it shares with industry and police into their controls as the threats evolve. It singled out remote onboarding as an area that needs regular updates and retuning.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260902-1-EN/20260902-1-EN.pdf#page=1">HKMA · Remote onboarding of individual customers · p. 1</a> <span class="date"><time datetime="2026-09-03">3 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-019" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA updated PEP-related AML/CFT good practices for AIs and SVF licensees</h3>
+  <p>HKMA refreshed its recommended practices for politically exposed persons and asked institutions and stored value facility licensees to consider using them when they improve their controls.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260827-4-EN/20260827-4-EN.pdf#page=2">HKMA · Updated politically exposed persons guidance · p. 2</a> <span class="date"><time datetime="2026-08-28">28 Aug 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-020" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC said Victory’s handling of a client account fell short of AML/CFT standards</h3>
+  <p>The SFC found that Victory did too little to follow up on activity inconsistent with a client’s stated finances. It also failed to tell the regulator about documents suspected to be false that were used for a transaction. The SFC cited the ordinance and licensed-firm guideline and attributed the lapses to neglect by a senior manager and responsible officer.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR113">SFC · Victory Securities enforcement release</a> <span class="date"><time datetime="2026-07-24">24 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-021" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC highlighted FATF&#x27;s warning that DPRK uses opaque structures to violate sanctions</h3>
+  <p>The SFC drew attention to FATF’s warning, referring to UN Security Council Resolution 2270, that North Korea evades sanctions through corporate fronts, shell entities, joint ventures and ownership arrangements that conceal control.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-022" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC reminded named SFC-regulated entities to apply extra care for higher-risk jurisdictions</h3>
+  <p>The SFC advised the firms addressed by the circular to scrutinise relationships and transactions tied to riskier jurisdictions more closely and apply the specific high-risk requirements where appropriate.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-023" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA told certain AIs to keep implementation plans under review and update HKMA when called for</h3>
+  <p>On 22 June 2026, HKMA said AIs with significant operations in Hong Kong that had submitted implementation plans should keep those plans under review and report updates on progress and new use cases being explored to HKMA when called for.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260622-1-EN/20260622-1-EN.pdf#page=1">HKMA · AI adoption to fight financial crime · p. 1</a> <span class="date"><time datetime="2026-06-22">22 Jun 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-024" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed FATF&#x27;s June 2026 call for enhanced due diligence and possible countermeasures for high-risk jurisdictions</h3>
+  <p>The SFC passed on FATF’s 19 June 2026 call for stronger due diligence on the jurisdictions it classified as high risk. FATF also urged countermeasures in the most serious cases to address laundering, terrorist financing and proliferation financing.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-025" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA&#x27;s March 2026 sanctions-screening thematic review highlighted management reporting and ongoing review of testing</h3>
+  <p>HKMA found that most institutions in its review routinely gave management screening performance data to inform decisions and staffing. It has examined institutions’ testing since setting out the regular testing requirement in 2018.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260316-1-EN/20260316-1-EN.pdf#page=2">HKMA · Sanctions-screening thematic review · p. 2</a> <span class="date"><time datetime="2026-03-16">16 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-026" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA told AIs and SVF licensees to gap-assess sanctions risk controls and support them with demonstrable testing</h3>
+  <p>HKMA asked banks and stored value facility licensees to check their sanctions controls for gaps and consider the circular’s suggested practices. It may request test results showing how well screening works and how efficiently it meets requirements relative to the institution’s risks.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260316-1-EN/20260316-1-EN.pdf#page=3">HKMA · Sanctions-screening thematic review · p. 3</a> <span class="date"><time datetime="2026-03-16">16 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-027" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA told AIs and SVF licensees to gap-assess sanctions risk controls and support them with demonstrable testing</h3>
+  <p>HKMA asked banks and stored value facility licensees to check their sanctions controls for gaps and consider the circular’s suggested practices. It may request test results showing how well screening works and how efficiently it meets requirements relative to the institution’s risks.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260316-1-EN/20260316-1-EN.pdf#page=3">HKMA · Sanctions-screening thematic review · p. 3</a> <span class="date"><time datetime="2026-03-16">16 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-028" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA&#x27;s March 2026 sanctions-screening thematic review highlighted management reporting and ongoing review of testing</h3>
+  <p>HKMA found that most institutions in its review routinely gave management screening performance data to inform decisions and staffing. It has examined institutions’ testing since setting out the regular testing requirement in 2018.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260316-1-EN/20260316-1-EN.pdf#page=2">HKMA · Sanctions-screening thematic review · p. 2</a> <span class="date"><time datetime="2026-03-16">16 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-029" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA expects sanctions screening testing frequency to be risk-based and senior-management approved</h3>
+  <p>HKMA said the frequency of sanctions screening system testing should align with risk, take historical testing performance data into account, and be approved by senior management.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260316-1-EN/20260316-1-EN.pdf#page=2">HKMA · Sanctions-screening thematic review · p. 2</a> <span class="date"><time datetime="2026-03-16">16 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-030" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA thematic review found prompt reporting but identified delayed remediation issues in sanctions screening testing</h3>
+  <p>In its 16 March 2026 thematic review of sanctions screening systems, HKMA said most AIs could show that testing had strengthened system maintenance and optimization and that post-test performance data were promptly reported to senior management, but some AIs were told to implement testing-led remedial actions more promptly, particularly for system configurations and algorithms.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260316-1-EN/20260316-1-EN.pdf#page=2">HKMA · Sanctions-screening thematic review · p. 2</a> <span class="date"><time datetime="2026-03-16">16 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-031" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed FATF’s continued enhanced due diligence call on Myanmar and possible countermeasures</h3>
+  <p>The SFC conveyed FATF’s request for heightened checks calibrated to the risk from Myanmar. FATF said it would consider countermeasures if progress remained insufficient by June 2026.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-032" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC fined Kylin for failures that included KYC controls and AML/CTF recordkeeping</h3>
+  <p>The SFC reprimanded Kylin International (HK) Co., Limited and imposed a $9 million fine for private-fund management failures. It cited weak client identification and suitability checks, along with missing records showing compliance with AML/CFT rules.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR19">SFC · Kylin enforcement release</a> <span class="date"><time datetime="2026-02-09">9 Feb 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-033" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC disciplinary case linked Kylin’s AML/CTF compliance failures to senior-management failings</h3>
+  <p>In an SFC disciplinary case published on 2026-02-09, the SFC said Kylin’s misconduct was attributable to failures by members of senior management to discharge their duties, and it specified that Zhu was responsible for failures related to Kylin’s AML/CTF compliance. The SFC also said the sanctions were intended to send a deterrent message to the market.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR19">SFC · Kylin enforcement release</a> <span class="date"><time datetime="2026-02-09">9 Feb 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-034" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guidance on combating high-end money laundering called for AML/CFT control gap analysis</h3>
+  <p>HKMA asked authorized institutions to identify gaps in their AML/CFT controls and consider the circular’s improvements for tackling high-end money laundering.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=3">HKMA · High-end money laundering guidance · p. 3</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-035" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA said AIs should assess transaction reasonableness using customer risk profiles and history</h3>
+  <p>HKMA told institutions to test whether a transaction makes sense in light of the customer’s risk profile and past activity.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=3">HKMA · High-end money laundering guidance · p. 3</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-036" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA published new guidance on risk-proportionate CDD for retail high-net-worth customers</h3>
+  <p>In guidance published on 2025-12-12, HKMA said AIs should calibrate CDD for retail high-net-worth customers according to their ML/TF risk, not rely on a lighter approach simply because the relationship sits in retail wealth management rather than private banking. HKMA highlighted that the two segments could have very similar risk exposures and said additional CDD should be applied where warranted.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=2">HKMA · High-end money laundering guidance · p. 2</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-037" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA issued new guidance on high-end money laundering focusing on SoW and SoF corroboration for higher-risk customers</h3>
+  <p>HKMA identified verifying where higher-risk customers’ wealth and funds come from as an important preventive measure. It expects compliance teams to help frontline staff managing those relationships.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=2">HKMA · High-end money laundering guidance · p. 2</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-038" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA said AIs should assess transaction reasonableness using customer risk profiles and history</h3>
+  <p>HKMA told institutions to test whether a transaction makes sense in light of the customer’s risk profile and past activity.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=3">HKMA · High-end money laundering guidance · p. 3</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-039" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA issued guidance on combating high-end money laundering focused on profile changes, escalation and staff support</h3>
+  <p>HKMA asks institutions to examine traits such as multiple nationalities and significant changes in employment, wealth contributors or assets under management. It recommends controls calibrated to risk, escalation when indicators cluster, and training for both frontline and control teams.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=2">HKMA · High-end money laundering guidance · p. 2</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-040" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guidance on combating high-end money laundering called for AML/CFT control gap analysis</h3>
+  <p>HKMA asked authorized institutions to identify gaps in their AML/CFT controls and consider the circular’s improvements for tackling high-end money laundering.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=3">HKMA · High-end money laundering guidance · p. 3</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-041" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guidance says AIs should periodically monitor retail high-net-worth portfolios and add CDD as risks change</h3>
+  <p>HKMA recommends recurring reviews of retail high-net-worth portfolios. When a customer’s profile changes, the institution should add due diligence in proportion to the resulting risk.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=2">HKMA · High-end money laundering guidance · p. 2</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-042" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA review found gaps in how some AIs implemented CDD for retail high-net-worth customers versus private banking customers</h3>
+  <p>HKMA reported that the AIs it reviewed generally had CDD policies and procedures meeting legal and regulatory requirements, but it still identified improvement areas in the effective implementation of risk-proportionate CDD. In some cases, retail high-net-worth customers were subject to materially less robust CDD than private banking customers even though the two segments had very similar ML/TF risk exposures.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=2">HKMA · High-end money laundering guidance · p. 2</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-043" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA review found shortcomings in some transaction-monitoring alert closures</h3>
+  <p>All reviewed institutions could flag unusual or suspicious transactions, but HKMA found some closures lacked supporting analysis. Examples involved sizeable deposits with unclear origins, substantial third-party dealings with poorly understood connections, and payments involving jurisdictions with no evident link to the customer.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=3">HKMA · High-end money laundering guidance · p. 3</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-044" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA said some AIs and SVF licensees applied non-proportionate PEP-related AML/CFT controls</h3>
+  <p>In a 21 November 2025 publication, HKMA said it had reviewed PEP-related controls by AIs and SVF licensees and found that, in general, they understand and apply PEP requirements effectively. HKMA also said it observed cases of overly cautious or non-proportionate AML/CFT controls, including excessive source-of-wealth requests and overly broad interpretations of the PEP definition. HKMA said the overly broad interpretation of the PEP definition could result in an unmanageably large number of PEPs and can lead to misallocation of resources.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251118-4-EN/20251118-4-EN.pdf#page=1">HKMA · Politically exposed persons guidance · p. 1</a> <span class="date"><time datetime="2025-11-21">21 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-045" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guidance on politically exposed persons</h3>
+  <p>HKMA issued updated guidance for banks and stored value facility licensees on tailoring controls for politically exposed persons to the risks involved.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251118-4-EN/20251118-4-EN.pdf#page=1">HKMA · Politically exposed persons guidance · p. 1</a> <span class="date"><time datetime="2025-11-21">21 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-046" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA published guidance with Smart Tips on risk-based AML/CFT controls for PEPs</h3>
+  <p>HKMA’s Smart Tips clarify who qualifies as a PEP, relative or close associate, how to identify them, when to strengthen checks, and how to handle former PEPs. HKMA asks banks and stored value facility licensees to read the tips alongside the ordinance, the AML/CFT guideline and other applicable material, and to consider using the practices.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251118-4-EN/20251118-4-EN.pdf#page=2">HKMA · Politically exposed persons guidance · p. 2</a> <span class="date"><time datetime="2025-11-21">21 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-047" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA said some AIs and SVF licensees applied non-proportionate PEP-related AML/CFT controls</h3>
+  <p>In a 21 November 2025 publication, HKMA said it had reviewed PEP-related controls by AIs and SVF licensees and found that, in general, they understand and apply PEP requirements effectively. HKMA also said it observed cases of overly cautious or non-proportionate AML/CFT controls, including excessive source-of-wealth requests and overly broad interpretations of the PEP definition. HKMA said the overly broad interpretation of the PEP definition could result in an unmanageably large number of PEPs and can lead to misallocation of resources.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251118-4-EN/20251118-4-EN.pdf#page=1">HKMA · Politically exposed persons guidance · p. 1</a> <span class="date"><time datetime="2025-11-21">21 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-048" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA said it will monitor implementation of its PEP guidance in AML/CFT supervision</h3>
+  <p>On 2025-11-21, HKMA said it will monitor how AIs and SVF licensees implement the standards in its guidance on politically exposed persons as part of AML/CFT supervision, and that it will refer to cases about the treatment of PEPs that are brought to its attention.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251118-4-EN/20251118-4-EN.pdf#page=2">HKMA · Politically exposed persons guidance · p. 2</a> <span class="date"><time datetime="2025-11-21">21 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-049" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA&#x27;s 2025 statutory guideline sets out when AIs may share information with other AIs</h3>
+  <p>An authorized institution may disclose information when it believes another institution can use it to detect or prevent prohibited conduct. Grounds for believing there is a connection may come from police, group companies, scam victims or their representatives, or the institution’s own observations. It may share with several institutions even when an individual recipient has no connection to the transaction.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=23">HKMA · Interbank information-sharing guideline · p. 23</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-050" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guideline sets conditions for disclosure without consent</h3>
+  <p>An institution sharing without consent needs reasonable grounds to believe asking first could impair the recipient’s efforts against prohibited conduct. HKMA calls for a case-specific assessment and a record of the rationale that can be supplied on request.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=24">HKMA · Interbank information-sharing guideline · p. 24</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-051" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guidance describes Part XIIAA safe-harbour protection for disclosure and confidentiality treatment for receiving AI use</h3>
+  <p>Section 68AAG can protect disclosures made in line with Part XIIAA. Sharing outside the eligible institutions or purposes can remove that protection and expose the discloser to confidentiality breaches or damages. The guideline also explains that use by a recipient under section 68AAF(3) does not breach its confidentiality duty.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=7">HKMA · Interbank information-sharing guideline · p. 7</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-052" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guidance limits the scope and purpose of interbank information sharing</h3>
+  <p>Section 3.3 leaves the form of information open and limits requests and disclosures to material relevant to detecting or preventing prohibited conduct. HKMA asks institutions to establish procedures to meet those conditions and prohibits unrelated or unnecessarily broad enquiries.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=10">HKMA · Interbank information-sharing guideline · p. 10</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-053" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA&#x27;s new statutory guideline says Part XIIAA disclosures cannot be used mechanically and are not a basis for automatic de-risking</h3>
+  <p>Published on 2025-11-07, HKMA&#x27;s statutory guideline on AI-to-AI information sharing says a receiving AI should make its own assessment, using all available information and its own policies and procedures, before taking action under paragraph 10.2. The guideline also says information shared under Part XIIAA is not intended to create blacklists or automatic or indiscriminate de-risking, so decisions on exiting or entering a business relationship should not be based on the disclosure alone.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=31">HKMA · Interbank information-sharing guideline · p. 31</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-054" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA published a new statutory guideline on AI-to-AI information sharing</h3>
+  <p>On 2025-11-07, HKMA published an AI-to-AI information-sharing statutory guideline. In the excerpts provided, it says responses may be made only in specified circumstances, limits disclosure of information about entities, accounts or transactions not identified in the request to associated cases, and expects AIs to assess whether seeking consent would prejudice inquiries and to keep records of that decision.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=17">HKMA · Interbank information-sharing guideline · p. 17</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-055" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA issued a new Guideline under Part XIIAA of the Banking Ordinance that links back to the existing AML/CFT framework</h3>
+  <p>HKMA issued the statutory guideline under Banking Ordinance section 68AAL. It directs authorized institutions to apply it alongside Part XIIAA and HKMA’s existing AML/CFT guidance.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=3">HKMA · Interbank information-sharing guideline · p. 3</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-056" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guideline explains when AI-to-AI information sharing may occur around STR filing</h3>
+  <p>HKMA&#x27;s statutory guideline on AI-to-AI information sharing says that, for AIs, the request-and-response process is likely to occur before institution A files an STR and decides whether to file after considering any information received from institution B. It also says the legislation does not preclude post-STR requests in the circumstances described, including where institution B may have information that assists inquiries and could lead to further or supplemental STRs.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=20">HKMA · Interbank information-sharing guideline · p. 20</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-057" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guideline allows own-initiative AI-to-AI sharing, including to multiple AIs</h3>
+  <p>Section 68AAC(4) allows an institution to share voluntarily with one or more institutions. The material can concern the entity, a related entity, an account or transaction, or an occasional transaction carried out or requested for that entity.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=22">HKMA · Interbank information-sharing guideline · p. 22</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-058" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA’s new guideline allows onward AI-to-AI sharing without consent only under specified conditions</h3>
+  <p>A recipient can pass relevant material onward without consent if it has reasonable grounds to suspect involvement in prohibited conduct and asking first could undermine the next institution’s efforts. It should identify the Part XIIAA basis, assess the original institution’s identification as one factor, and may ask for more under section 68AAB if its conditions are met.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=25">HKMA · Interbank information-sharing guideline · p. 25</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-059" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA&#x27;s new guideline restricts and channels use of AI-to-AI information shared under Part XIIAA</h3>
+  <p>A recipient may use Part XIIAA information only to address prohibited conduct. HKMA’s examples include reviewing possible crime proceeds, considering a report to the Joint Financial Intelligence Unit, strengthening monitoring, revisiting customer due diligence and informing relationship decisions, subject to paragraph 10.5.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=30">HKMA · Interbank information-sharing guideline · p. 30</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-060" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA&#x27;s published guideline sets a correction duty for inaccurate AI-to-AI shared information</h3>
+  <p>In HKMA&#x27;s 2025-11-07 AI-to-AI information-sharing statutory guideline, section 68AAE says an AI that disclosed information must correct any inaccuracy as soon as reasonably practicable after becoming aware of it, and must correct again if a prior correction is itself inaccurate or becomes inaccurate. The text says this applies across requests, responses, own-initiative disclosures and onward disclosures under Part XIIAA.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=27">HKMA · Interbank information-sharing guideline · p. 27</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-061" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA published a statutory guideline on AI-to-AI information sharing under Part XIIAA</h3>
+  <p>Part XIIAA of the Banking Ordinance permits voluntary information sharing between authorized institutions to address prohibited conduct. HKMA uses both mandatory and advisory-sounding verbs to set binding requirements in this guideline. Breaches can affect the Monetary Authority’s view of controls and ongoing eligibility for authorization, and can trigger use of its statutory powers. Relevant entities include current or former business relationships and those tied to occasional transactions.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=5">HKMA · Interbank information-sharing guideline · p. 5</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-062" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA issued guidance on voluntary AI-to-AI information sharing</h3>
+  <p>HKMA issued a Guideline describing the statutory framework and regulatory expectations for voluntary sharing of information among AIs to detect or prevent prohibited conduct. It covers the scope and circumstances of sharing, types of information that may be shared, thresholds that must be met, confidentiality and record-keeping, the circumstances in which safe harbour under Part XIIAA applies, the use of shared information including avoiding indiscriminate de-risking, correction of inaccurate information, complaint handling, and practical guidance for AIs and senior management on related policies, procedures and controls.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=3">HKMA · Interbank information-sharing guideline · p. 3</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-063" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA published the AI-to-AI information sharing and statutory guideline and set out section 68AAC conditions</h3>
+  <p>HKMA says section 68AAC(4) allows proactive disclosure about an entity, its related parties, accounts or transactions, and occasional transactions it asks the institution to conduct. The institution needs reasonable grounds to link observed activity to prohibited conduct, must believe the recipient could use the information to counter it, and needs reasonable grounds to believe seeking consent could impede that work. It can share before filing an STR.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=22">HKMA · Interbank information-sharing guideline · p. 22</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-064" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA statutory guideline sets confidentiality limits for Part XIIAA AI-to-AI information sharing</h3>
+  <p>In a statutory guideline published by HKMA on 2025-11-07, information shared under Part XIIAA, including personal data as defined in the PDPO, must be treated as confidential and may be disclosed only as permitted by Part XIIAA or other legislation. The guideline frames these controls as part of protecting the regime&#x27;s purpose of detecting or preventing prohibited conduct.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=32">HKMA · Interbank information-sharing guideline · p. 32</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-065" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA says AI-to-AI sharing controls should have senior-management approval and oversight</h3>
+  <p>HKMA expects senior managers to sign off on sharing controls and keep them under review. The controls cover who can use the approved platforms, how institutions handle and follow up on shared material, and which records they keep.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=8">HKMA · Interbank information-sharing guideline · p. 8</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-066" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA&#x27;s 2025 guideline limits the Part XIIAA information-sharing mechanism to AIs and defines entity coverage broadly</h3>
+  <p>In HKMA&#x27;s 2025 AI-to-AI information sharing statutory guideline, the Part XIIAA mechanism is limited to AIs, meaning institutions authorized by the MA under the BO to conduct banking business or a business of taking deposits in Hong Kong. The guideline also says the definition of entity is intentionally widely drawn, so information may be shared about individuals, legal persons and legal arrangements, including corporations, partnerships and trusts.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=10">HKMA · Interbank information-sharing guideline · p. 10</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-067" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA&#x27;s new statutory guideline sets parameters for AI-to-AI information requests, disclosure, and recordkeeping</h3>
+  <p>In HKMA&#x27;s 2025 statutory guideline on AI-to-AI information sharing, requests under section 68AAB(1) may cover a relevant entity of either institution and associated entities, accounts or transactions, and associations do not have to be formal. The cited sections also say requested AIs should keep records of response decisions and responses, and that disclosure in response to a request may be made in the circumstances set out in section 68AAC(2), including where the requested AI has reasonable grounds to believe the disclosure may assist the requesting AI&#x27;s inquiries.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=20">HKMA · Interbank information-sharing guideline · p. 20</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-068" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA published an AI-to-AI information sharing statutory guideline</h3>
+  <p>HKMA asks disclosers to use the most accurate information available at the time. The default is to use an approved platform and share with an institution that has written approval under section 68AAH. The Monetary Authority can permit another channel. HKMA also illustrates good-faith sharing for the statutory purpose and notes the recipient’s protection under section 68AAG(4).</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=7">HKMA · Interbank information-sharing guideline · p. 7</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-069" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Part XIIAA information sharing must remain among AIs and non-AI disclosures are outside the safe harbour</h3>
+  <p>Part XIIAA permits requests and disclosures only between authorized institutions. Section 68AAG protection does not extend to material sent to an entity outside that group.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=26">HKMA · Interbank information-sharing guideline · p. 26</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-070" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guideline lets a requested AI disclose associated information not named in a request</h3>
+  <p>In HKMA&#x27;s statutory guideline published on 2025-11-07, section 68AAC(1)(b) is described as allowing a requested AI to disclose information about an entity, account or transaction that was not identified in the request if it has reasonable grounds to believe it is associated with the identified entity, account or transaction. The guideline gives examples of association indicators, including a transaction nexus, common directors/signatories/trustees/beneficiaries, common IP addresses or devices, and other signs that items are linked, controlled by the same person(s), or form part of a network such as mule accounts. It also says the requested AI is not expected to investigate whether the requesting AI’s reasons are justified.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=21">HKMA · Interbank information-sharing guideline · p. 21</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-071" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Section 68AAH(1) says MA should be satisfied on systems of control before approving designated-platform access</h3>
+  <p>Before the Monetary Authority approves access in writing under section 68AAH(1), it should be satisfied that the institution’s controls can meet Part XIIAA requirements.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=7">HKMA · Interbank information-sharing guideline · p. 7</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-072" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA statutory guideline sets Part XIIAA record-keeping duties and retention periods</h3>
+  <p>Section 68AAI covers section 68AAB(1) requests received or sent and information exchanged under Part XIIAA. Customer records must be kept for the life of the relationship and five years or more afterwards. Other records must be kept for at least five years from the request or disclosure. The Monetary Authority may require longer retention.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=33">HKMA · Interbank information-sharing guideline · p. 33</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-073" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>An AI wishing to pass information off-platform should approach HKMA for approval</h3>
+  <p>An institution should ask HKMA before sharing outside an approved platform. The authority can consult the intended recipient and may also give participating institutions standing approval subject to conditions.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=15">HKMA · Interbank information-sharing guideline · p. 15</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-074" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC sanctioned Zheng Da and its responsible officer over AML/CFT failures</h3>
+  <p>The SFC reprimanded Zheng Da International Financial Holding Limited and fined it $7 million over compliance failures spanning December 2021 to September 2023, including AML/CFT lapses. It suspended responsible officer Zhong Hao’s licence for seven months, ending 27 April 2027.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR158">SFC · Zheng Da enforcement release</a> <span class="date"><time datetime="2026-09-29">29 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-075" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>MA approval is required before an AI can access a designated platform</h3>
+  <p>An AI may only access a designated platform for the purposes of information sharing under Part XIIAA if the MA&#x27;s approval is in force.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=13">HKMA · Interbank information-sharing guideline · p. 13</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-076" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Requested AIs are expected to acknowledge and respond promptly to section 68AAB(1) requests</h3>
+  <p>HKMA expects institutions to acknowledge section 68AAB(1) requests immediately. Where section 68AAC(2) permits disclosure, the response should provide substantive information promptly where feasible and identify the material shared under Part XIIAA.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=20">HKMA · Interbank information-sharing guideline · p. 20</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-077" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Segregation of duties and four-eyes review must be applied in account opening</h3>
+  <p>HKMA requires separation of onboarding duties. It calls for separate reviewers and approvers and rotation of applications among checking staff so that one employee does not repeatedly handle the same customer or agent’s submissions.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20261022-1-EN/20261022-1-EN.pdf#page=2">HKMA · Account-opening bribery controls · p. 2</a> <span class="date"><time datetime="2026-10-22">22 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-078" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA signalled thematic examinations on implementation of updated PEP controls</h3>
+  <p>HKMA said it will undertake a round of thematic examinations later in 2026 to test how effectively the updated PEP-related AML/CFT good practices have been implemented, and it plans to share observations and further good-practice examples where available.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260827-4-EN/20260827-4-EN.pdf#page=2">HKMA · Updated politically exposed persons guidance · p. 2</a> <span class="date"><time datetime="2026-08-28">28 Aug 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-079" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Part XIIAA requests and disclosures must be relevant and purpose-limited</h3>
+  <p>Institutions should use Part XIIAA only for relevant enquiries into prohibited conduct, with requests kept to the scope needed. HKMA rules out uses such as marketing and ties the purpose and relevance conditions to section 68AAG protection.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=10">HKMA · Interbank information-sharing guideline · p. 10</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-080" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA says AIs should document consent-prejudice decisions and provide records on request</h3>
+  <p>HKMA expects an institution to assess whether asking permission could compromise its enquiry, record the decision and produce the record if requested.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=19">HKMA · Interbank information-sharing guideline · p. 19</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-081" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Own-initiative sharing is not conditional on filing an STR</h3>
+  <p>An institution making a voluntary disclosure may also file a suspicious transaction report about the entity or account. Section 68AAC(4) allows the disclosure before a report has been filed.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=22">HKMA · Interbank information-sharing guideline · p. 22</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-082" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Receiving AIs are expected to make their own assessment before acting on Part XIIAA information</h3>
+  <p>Before acting under paragraph 10.2, the receiving institution should weigh everything it knows under its own procedures. Material received under Part XIIAA can inform that decision alongside other evidence.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=31">HKMA · Interbank information-sharing guideline · p. 31</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-083" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>AI information-sharing controls should have senior management approval and ongoing oversight</h3>
+  <p>HKMA expects senior management to approve how institutions share information and oversee periodic reviews and changes to those controls.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=8">HKMA · Interbank information-sharing guideline · p. 8</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-084" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Section 68AAC(2) limits when a requested AI may respond to a request</h3>
+  <p>Section 68AAC(2) allows a reply only where the institution has reasonable grounds to think sharing would help the requester’s enquiry and asking the affected entity’s permission could undermine it.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=17">HKMA · Interbank information-sharing guideline · p. 17</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-085" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>A requesting AI may ask another AI for information only in specified inquiry circumstances</h3>
+  <p>Under section 68AAB(2), a requesting AI may make a request when it becomes aware of activity that, in its opinion, warrants inquiries into whether an entity or associated account or transaction may be or may have been involved in or associated with prohibited conduct, and it knows or has reasonable grounds to believe the requested AI has or is likely to have information that may assist those inquiries.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=17">HKMA · Interbank information-sharing guideline · p. 17</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-086" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA guidance says AIs’ compliance functions should support front-line staff on higher-risk customer relationships</h3>
+  <p>HKMA calls on compliance teams to give staff practical guidance and help when handling higher-risk relationships, drawing on material from HKMA and the Hong Kong Association of Banks.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=2">HKMA · High-end money laundering guidance · p. 2</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-087" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>The guideline says complaint responses should avoid confirming whether Part XIIAA sharing occurred</h3>
+  <p>The guideline says AIs responding to complaints should avoid confirming whether information has been shared under Part XIIAA. It explains that confirming sharing would contravene section 68AAF(1), while confirming non-sharing could indirectly contravene section 68AAF(1) by implication.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=36">HKMA · Interbank information-sharing guideline · p. 36</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-088" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Section 68AAC(5) sets threshold conditions for own-initiative disclosure</h3>
+  <p>For a voluntary disclosure under section 68AAC(5), the institution must have noticed relevant activity and have reasonable grounds to connect it to prohibited conduct. It must believe sharing could help the recipient counter the conduct and have reasonable grounds to believe asking consent could impair that work.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=22">HKMA · Interbank information-sharing guideline · p. 22</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-089" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>The guideline describes MA written approval for AI access to designated platforms</h3>
+  <p>Under section 68AAH, the Monetary Authority can approve an authorized institution in writing to use an official platform for Part XIIAA sharing.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=12">HKMA · Interbank information-sharing guideline · p. 12</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-090" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Self-initiated sharing should generally stay within FINEST participants unless HKMA is approached</h3>
+  <p>HKMA generally expects voluntary disclosures to go through FINEST to institutions that participate. An institution should approach HKMA if it considers sharing with a non-participant necessary or expedient.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=23">HKMA · Interbank information-sharing guideline · p. 23</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-091" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Institution A may forgo consent only where seeking it could prejudice inquiries</h3>
+  <p>In HKMA’s example, institution A can proceed without the affected entities’ consent only if it has reasonable grounds to believe asking would harm its enquiry. A fraud pattern linked to the customer, account or transaction could support that conclusion where asking might alert someone involved.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=18">HKMA · Interbank information-sharing guideline · p. 18</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-092" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>AIs should not reveal that an STR has been filed</h3>
+  <p>HKMA tells both senders and recipients to take care to keep the filing of a suspicious transaction report confidential when exchanging information.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=35">HKMA · Interbank information-sharing guideline · p. 35</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-093" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>AIs should file STRs as soon as reasonably practicable</h3>
+  <p>The guideline says AIs should keep in mind the need to file STRs as soon as reasonably practicable so that relevant information is passed to the JFIU in good time.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=35">HKMA · Interbank information-sharing guideline · p. 35</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-094" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>FATF maintained its call for enhanced due diligence on Myanmar and flagged possible October 2026 countermeasures</h3>
+  <p>FATF said Myanmar had made limited progress and kept its request for extra checks scaled to the country’s risks. It said it would consider countermeasures if progress remained insufficient by October 2026.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-095" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC reiterated FATF countermeasures related to DPRK in its 2026 AML/CFT circulars</h3>
+  <p>In both circulars, the SFC described FATF’s North Korea measures as ending correspondent links with its banks, shutting their overseas branches and subsidiaries, and restricting financial dealings and business relationships with North Korean persons.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-096" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>FATF expects intensified monitoring as part of enhanced due diligence</h3>
+  <p>The circulars explain that FATF expects enhanced due diligence to involve closer and differently targeted monitoring so institutions can detect activity outside the usual pattern or otherwise suspicious.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-097" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed FATF&#x27;s continued call for countermeasures on Iran</h3>
+  <p>In SFC AML/CFT circulars published on 2026-03-13 and 2026-07-14, the SFC relayed that FATF continued to view Iran as a serious concern. FATF said Iran&#x27;s domestic compliance with the Palermo Convention and the TF Convention was not in line with FATF standards, that Iran had failed to address most of its action plan since 2016, and that all jurisdictions were urged to apply effective countermeasures on Iran because of ongoing terrorist-financing and proliferation-financing threats.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-098" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC said in-scope entities should update screening databases for the UNSC changes</h3>
+  <p>The SFC asked firms covered by the alert to apply the UN Security Council changes when screening customers and payments. It again pointed to the standards in its 7 February 2018 sanctions circular.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC65">SFC · 16 October UN sanctions alert</a> <span class="date"><time datetime="2026-10-16">16 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-099" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed a UNSC ISIL (Da’esh) and Al-Qaida sanctions-list update</h3>
+  <p>The SFC reported that the UN committee responsible for ISIL and Al-Qaida updated list entries for two people and one entity on 15 October 2026, New York time.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC65">SFC · 16 October UN sanctions alert</a> <span class="date"><time datetime="2026-10-16">16 Oct 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-100" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC disciplinary publication described CSS-to-BSS API connectivity and an AML Guideline suspicion indicator</h3>
+  <p>The SFC said an API linked customer-supplied trading systems to Zheng Da’s electronic brokerage platform. It also pointed to the AML guideline’s example of matched orders that can give the appearance of trading activity and raise suspicions of manipulation and money laundering or terrorist financing.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=26PR158">SFC · Zheng Da enforcement release</a> <span class="date"><time datetime="2026-09-29">29 Sep 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-101" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA updated PEP Smart Tips for AIs and SVF licensees</h3>
+  <p>HKMA refreshed its PEP guidance for authorized institutions and stored value facility licensees, emphasising fair treatment and controls scaled to risk. It said follow-up since November 2025 showed institutions had taken steps to improve, with further changes still needed.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260827-4-EN/20260827-4-EN.pdf#page=1">HKMA · Updated politically exposed persons guidance · p. 1</a> <span class="date"><time datetime="2026-08-28">28 Aug 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-102" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC issued a July 2026 AML/CFT circular to Hong Kong licensed firms and SFC-licensed VASPs on FATF June 2026 updates</h3>
+  <p>The SFC sent the firms it regulates an AML/CFT circular covering FATF’s June 2026 notices on high-risk and increased-monitoring jurisdictions, and decisions from the plenary held on 17–19 June.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-103" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed FATF approval of further virtual-asset and DeFi AML/CFT publications</h3>
+  <p>The SFC reported that FATF approved a seventh update on how its virtual-asset standards are being applied and a separate report on the risks of laundering, terrorist financing and proliferation financing in decentralised finance. The circular described both as forthcoming.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-104" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Report on terrorist financing via social media, messaging and streaming platforms was published</h3>
+  <p>The SFC pointed to a 26 June 2026 report on misuse of social, messaging and streaming services to fund terrorism. It describes ways those services are abused and recommends responses.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-105" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed FATF warning on DPRK sanctions-evasion structures</h3>
+  <p>The SFC repeated FATF’s warning, citing UN Security Council Resolution 2270, that North Korea can sidestep sanctions using corporate fronts, shell entities, joint ventures and ownership structures that obscure control.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-106" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC reminded licensed corporations, SFC-licensed VASPs and associated entities to apply extra care to higher-risk jurisdictions</h3>
+  <p>The SFC told the firms it addressed to give extra scrutiny to dealings tied to riskier jurisdictions and use the applicable high-risk measures. The reminder also covers jurisdictions beyond those in the FATF notices.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-107" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC issued an AML/CFT circular relaying FATF February 2026 high-risk jurisdiction outcomes</h3>
+  <p>The SFC circulated FATF’s February plenary outcomes and updates on high-risk and increased-monitoring jurisdictions. FATF urged stronger due diligence for every high-risk jurisdiction it identified, with countermeasures for the most serious cases.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-108" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed FATF’s addition of Kuwait and Papua New Guinea to increased monitoring</h3>
+  <p>In the same 13 March 2026 circular, the SFC said FATF updated its statement on Jurisdictions under Increased Monitoring by adding Kuwait and Papua New Guinea.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-109" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC circular set STR re-submission conditions for STREAMS 2</h3>
+  <p>After STREAMS 2 went live, licensed firms that used a different channel to send a suspicious transaction report to the Joint Financial Intelligence Unit had to submit it again through the new system. The circular said the unit would issue instructions and firms would need a Hongkong Post e-Cert.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC2">SFC · STREAMS 2 reporting circular</a> <span class="date"><time datetime="2026-01-26">26 Jan 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-110" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>FSTB and SFC are preparing AMLO licensing regimes for VA dealing and custody</h3>
+  <p>The Financial Services and the Treasury Bureau and SFC planned to complete proposals to license virtual-asset dealers and custodians under the ordinance, aiming to bring legislation to Hong Kong’s Legislative Council during 2026.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=25PR210">FSTB and SFC · Virtual-asset licensing consultation</a> <span class="date"><time datetime="2025-12-24">24 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-111" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>FSTB and SFC published consultation conclusions and said they will proceed with VA dealer and custodian proposals</h3>
+  <p>The Financial Services and the Treasury Bureau and SFC released the results of their consultation on licensing virtual-asset dealers and custodians and confirmed they would take the proposals forward.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=25PR210">FSTB and SFC · Virtual-asset licensing consultation</a> <span class="date"><time datetime="2025-12-24">24 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-112" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>FSTB and SFC started a further consultation on VA advisory and management service regimes</h3>
+  <p>The same December announcement opened another consultation, this time on proposed regimes for virtual-asset advisory and management providers.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc?refNo=25PR210">FSTB and SFC · Virtual-asset licensing consultation</a> <span class="date"><time datetime="2025-12-24">24 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-113" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA thematic review found generally adequate controls but enhancement areas for high-end money laundering</h3>
+  <p>HKMA said it conducted a thematic review of Authorized Institutions’ AML/CFT controls for high-end money laundering because of evolving ML/TF typologies. It reported that AIs had generally established adequate and effective controls, but that the review still identified areas for enhancement.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=1">HKMA · High-end money laundering guidance · p. 1</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-114" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA published guidance on risk-based AML/CFT controls for PEPs</h3>
+  <p>On 2025-11-21, HKMA published guidance stating that Hong Kong&#x27;s 2023 AMLO amendments were made to align with the latest FATF standards for PEPs, and that AIs and SVF licensees are expected to implement PEP-related controls in a proportionate, balanced, risk-based way.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251118-4-EN/20251118-4-EN.pdf#page=1">HKMA · Politically exposed persons guidance · p. 1</a> <span class="date"><time datetime="2025-11-21">21 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-115" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC issued a circular on red flags and controls for potential layering activities</h3>
+  <p>The SFC’s November circular explains indicators of possible layering and reminds licensed firms of the controls it expects them to use to identify and prevent it.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=25EC62">SFC · Layering circular</a> <span class="date"><time datetime="2025-11-17">17 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-116" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC warns of emerging layering activity through licensed corporations and virtual asset trading platforms</h3>
+  <p>The SFC warned that it had seen signs of layering through licensed firms and virtual-asset trading platforms. It said weak detection and prevention exposed both the firms and the wider sector to serious money laundering and terrorist financing risk.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=25EC62">SFC · Layering circular</a> <span class="date"><time datetime="2025-11-17">17 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-117" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC expected senior management and control functions to implement effective AML/CFT controls for identified risks</h3>
+  <p>The SFC expects the board, responsible officers, managers in charge, compliance officer and money laundering reporting officer to fulfil their oversight and implementation duties. The firm’s AML/CFT controls should address the risks it identifies.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=25EC62">SFC · Layering circular</a> <span class="date"><time datetime="2025-11-17">17 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-118" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA statutory guideline says the AI-to-AI information-sharing safe harbour applies only within Hong Kong</h3>
+  <p>In an HKMA statutory guideline published in 2025, the safe harbour for AI-to-AI information sharing is stated to have effect only within Hong Kong. The guideline says AIs should consider taking competent legal advice where customers may be subject to non-Hong Kong data privacy or other confidentiality requirements, including cases where relationships are managed in Hong Kong but accounts or transactions are booked with non-local affiliates.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=26">HKMA · Interbank information-sharing guideline · p. 26</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-119" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA statutory guideline expects AIs to keep shared information accurate and correct inaccuracies promptly</h3>
+  <p>In an HKMA statutory guideline on AI-to-AI information sharing published on 2025-11-07, Chapter 9 says AIs are expected to exercise reasonable care so information is accurate when it is shared and to correct any inaccuracies as soon as reasonably practicable.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=27">HKMA · Interbank information-sharing guideline · p. 27</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-120" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed FATF risk-analysis messaging and reminded regulated firms to monitor FATF updates</h3>
+  <p>The SFC said FATF encourages jurisdictions to factor the notices into risk assessments. It also asked the regulated entities addressed by the circular to follow subsequent updates on FATF’s site.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-121" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>AIs and SVF licensees are expected to apply proportionate, balanced, risk-based PEP controls</h3>
+  <p>HKMA expects authorized institutions and stored value facility licensees to scale controls for politically exposed persons to the assessed risk and apply them in a balanced way.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251118-4-EN/20251118-4-EN.pdf#page=1">HKMA · Politically exposed persons guidance · p. 1</a> <span class="date"><time datetime="2025-11-21">21 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-122" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Disclosing AIs are expected to update changed or outdated disclosures and add later relevant information</h3>
+  <p>HKMA expects a discloser to correct information it learns is stale or has changed. It should also pass on new details it believes could help a recipient identify or prevent prohibited conduct.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251106-2-EN/20251106-2-EN.pdf#page=27">HKMA · Interbank information-sharing guideline · p. 27</a> <span class="date"><time datetime="2025-11-07">7 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-123" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed FATF jurisdiction-risk statements and reminded addressees to monitor updates</h3>
+  <p>The SFC relayed that FATF would continue following jurisdictions with significant weaknesses in their AML/CFT systems. FATF encouraged consideration of its findings in risk analysis, and the SFC asked recipients to check the FATF site for updates.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-124" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Public consultation approved for new Recommendation 16 guidance on cross-border payment transparency</h3>
+  <p>The SFC reported approval for a consultation on draft guidance for FATF’s revised Recommendation 16. The guidance would help governments and financial institutions improve the transparency of cross-border payments to address laundering, terrorism and proliferation financing, and predicate offences such as fraud.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-125" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC relayed that Myanmar remained subject to a FATF enhanced due diligence call</h3>
+  <p>In both circulars, the SFC reported that FATF continued to urge heightened due diligence calibrated to Myanmar’s risks.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-126" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC twice relayed FATF’s continued DPRK countermeasure message in 2026</h3>
+  <p>The March and July circulars reiterated FATF’s call for action on North Korea. They highlighted continuing AML/CFT weaknesses and heightened proliferation financing risk as the country connects more to global finance. FATF called for stronger vigilance and enforcement of countermeasures, including targeted financial sanctions.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-127" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>FATF report on stablecoins and unhosted wallets highlighted illicit-finance risks</h3>
+  <p>The SFC drew attention to FATF’s 3 March 2026 report about stablecoins and unhosted wallets. It examines criminal use, including direct transfers between users of those wallets, and proposes ways for government and industry to reduce the risks.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-128" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>FATF report on offshore virtual asset service provider risks was highlighted in an SFC AML/CFT circular</h3>
+  <p>An SFC AML/CFT circular published in March 2026 reported that FATF had published, on 11 March 2026, a report on understanding and mitigating the risk of offshore virtual asset service providers. The circular said the report explores risks from the unregulated provision of offshore virtual asset service provider services, including how criminals exploit gaps and differences in regulatory and supervisory coverage, and sets out what government can do to address this.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-129" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>FATF updated the jurisdictions under increased monitoring list in June 2026</h3>
+  <p>The July 2026 SFC circular said FATF updated its statement on Jurisdictions under Increased Monitoring by adding Bosnia and Herzegovina and Iraq and removing Algeria and Namibia from the list.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-130" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA announced a second workshop on agentic AI use cases</h3>
+  <p>HKMA scheduled its second workshop, focused on agentic AI applications, for 23 June 2026 at the Hong Kong University of Science and Technology.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260622-1-EN/20260622-1-EN.pdf#page=1">HKMA · AI adoption to fight financial crime · p. 1</a> <span class="date"><time datetime="2026-06-22">22 Jun 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-131" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC highlighted FATF&#x27;s paper on cyber-enabled fraud</h3>
+  <p>The SFC told its addressees that outcomes from the recent FATF Plenary included approval to publish a paper on cyber-enabled fraud. The circular says the report was published on 24 February 2026 and presents cyber-enabled fraud as an escalating global threat that AML/CFT tools can help address, including by preventing fraud, returning victims&#x27; money and bringing perpetrators to justice.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-132" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>New report on underground banking and hawala misuse was slated for September 2026 publication</h3>
+  <p>The SFC said FATF approved a study of criminal exploitation of informal banking, including hawala, in a changing technology environment. The circular gave September 2026 as the expected release.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-133" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>The SFC circulars pointed readers to existing Guideline paragraphs 4.9 and 4.13</h3>
+  <p>Both circulars directed readers to paragraphs 4.9 and 4.13 of the SFC’s AML/CFT guideline for licensed firms and SFC-licensed virtual-asset service providers.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC13">SFC · February FATF update</a> <span class="date"><time datetime="2026-03-13">13 Mar 2026</time></span></li>
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<p class="back"><a href="#contents">Back to contents</a></p>
+</section>
+
+<section aria-labelledby="deadlines">
+<h2 id="deadlines">Deadlines and consultation timeline</h2>
+<article id="finding-134" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>Consultation deadline for the Recommendation 16 guidance</h3>
+  <p>The SFC gave 21 August 2026 as the deadline for comments on the draft guidance supporting FATF’s revised cross-border payment standard.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<p class="back"><a href="#contents">Back to contents</a></p>
+</section>
+
+<section aria-labelledby="supervisory-trends">
+<h2 id="supervisory-trends">Supervisory trends and focus areas</h2>
+<article id="finding-135" class="finding" data-kind="Inference">
+  <p class="type">Mira-verified inference</p>
+  <h3>HKMA PEP controls and implementation monitoring</h3>
+  <p>Together, the November 2025 guidance and the updated Smart Tips suggest supervisory attention to the effective implementation of risk-based AML/CFT controls for politically exposed persons.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251118-4-EN/20251118-4-EN.pdf#page=1">HKMA · Politically exposed persons guidance · p. 1</a> <span class="date"><time datetime="2025-11-21">21 Nov 2025</time></span></li>
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260827-4-EN/20260827-4-EN.pdf#page=1">HKMA · Updated politically exposed persons guidance · p. 1</a> <span class="date"><time datetime="2026-08-28">28 Aug 2026</time></span></li>
+  </ul>
+</article>
+<p class="back"><a href="#contents">Back to contents</a></p>
+</section>
+
+<section aria-labelledby="industry-developments">
+<h2 id="industry-developments">Industry developments</h2>
+<article id="finding-136" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA highlighted high-end money laundering typologies spanning retail, wealth and cross-border relationships</h3>
+  <p>HKMA described case patterns in which criminal syndicates used retail banking relationships to gain access to the banking system and then move large sums through multiple accounts, including retail wealth management and private banking. It also cited cases where criminals used citizenship-through-investment nationalities and relationships with the same financial institution across multiple jurisdictions to facilitate cross-border fund transfers.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251210-1-EN/20251210-1-EN.pdf#page=1">HKMA · High-end money laundering guidance · p. 1</a> <span class="date"><time datetime="2025-12-12">12 Dec 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-137" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA reported broader AI-led AML/CFT monitoring transformation among AIs</h3>
+  <p>HKMA said more authorized institutions were implementing or considering integrated suspicious-activity monitoring as they redesigned their wider AML/CFT operations.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20260622-1-EN/20260622-1-EN.pdf#page=1">HKMA · AI adoption to fight financial crime · p. 1</a> <span class="date"><time datetime="2026-06-22">22 Jun 2026</time></span></li>
+  </ul>
+</article>
+<article id="finding-138" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>HKMA reported growing AI adoption by Authorized Institutions for AML/CFT transaction monitoring</h3>
+  <p>In a publication dated 19 November 2025, the HKMA said 48 Authorized Institutions had assessed the feasibility of using artificial intelligence to strengthen transaction monitoring for ML/TF. It reported that more than 30% had already adopted AI in their monitoring systems, and that timelines provided by most others would raise adoption to above 80% over the next 12–24 months.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20251118-3-EN/20251118-3-EN.pdf#page=1">HKMA · AI adoption for AML/CFT · p. 1</a> <span class="date"><time datetime="2025-11-19">19 Nov 2025</time></span></li>
+  </ul>
+</article>
+<article id="finding-139" class="finding" data-kind="Fact">
+  <p class="type">Fact</p>
+  <h3>SFC noted FATF plenary approval of publication of a new global overview on public-private partnerships and data protection arrangements</h3>
+  <p>The SFC reported that FATF approved publication of a global review of public–private cooperation and data protection. It surveys ways organisations share information to produce intelligence that can be acted on in criminal cases.</p>
+  <ul class="sources" aria-label="Publisher citations">
+    <li><a href="https://apps.sfc.hk/edistributionWeb/gateway/EN/circular/doc?refNo=26EC39">SFC · June FATF update</a> <span class="date"><time datetime="2026-07-14">14 Jul 2026</time></span></li>
+  </ul>
+</article>
+<p class="back"><a href="#contents">Back to contents</a></p>
+</section>
+
+<section aria-labelledby="wolfsberg-guidance">
+<h2 id="wolfsberg-guidance">Wolfsberg industry guidance</h2>
+<p>Two link-only paraphrases reviewed on 12 November 2026.</p>
+<article class="guidance">
+  <h3>Risk-based approach guidance</h3>
+  <p>Wolfsberg advises banks to direct resources toward their most significant financial-crime risks and scale back controls that contribute little.</p>
+  <p class="sources"><a href="https://wolfsberg-group.org/news/guidance-on-the-risk-based-approach">Wolfsberg Group</a> <span class="date"><time datetime="2026-06-23">23 Jun 2026</time></span></p>
+</article>
+<article class="guidance">
+  <h3>Banking services for non-bank payment providers</h3>
+  <p>Wolfsberg advises banks to adjust due diligence and monitoring to the risks of the payment services each provider actually offers.</p>
+  <p class="sources"><a href="https://wolfsberg-group.org/news/guidance-on-the-provision-of-banking-services">Wolfsberg Group</a> <span class="date"><time datetime="2026-07-15">15 Jul 2026</time></span></p>
+</article>
+<p class="back"><a href="#contents">Back to contents</a></p>
+</section>
+
+<section aria-labelledby="coverage">
+<h2 id="coverage">Coverage and limitations</h2>
+<p>This portfolio edition preserves the draft’s 138 factual entries and nine inferences in paraphrased form, with publisher links and publication dates. Eight inferences were added by Codex for the proof of concept. The supervisory trends section contains the inference previously verified by Mira.</p>
+<p>The underlying draft cited 18 of 18 benchmark publications, including 14 of 14 regulatory publications. That measurement covers the benchmark’s publication list. Some saved passages remained deferred or failed during preparation, and the draft omitted 106 prepared items under its scope and reporting limits. Human evidence review is pending. <a href="https://github.com/Neonat/mira-smu-ytp-aif-2026/blob/main/eval/evidence/2026-11-12-hk-poc-inference-download.md">Benchmark and draft validation</a></p>
+<p class="back"><a href="#contents">Back to contents</a></p>
+</section>
+    </div>
+  </div>
+</main>
+</body>
+</html>
