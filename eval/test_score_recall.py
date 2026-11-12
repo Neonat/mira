@@ -56,6 +56,22 @@ def test_recall_denominator_matches_the_brief_market_and_dates():
     assert (result["all"].found, result["all"].total) == (1, 1)
 
 
+def test_hk_scope_uses_hong_kong_copies_of_shared_fatf_publications():
+    items = load_items(GROUND_TRUTH)
+    mas_urls = [i.url for i in items if "mas.gov.sg" in i.url]
+    sfc_urls = [
+        "https://apps.sfc.hk/edistributionWeb/api/circular/openFile?lang=EN&refNo=26EC13",
+        "https://apps.sfc.hk/edistributionWeb/api/circular/list-content/circular/aml/doc?lang=EN&refNo=26EC39",
+    ]
+    hk = score(items, sfc_urls, jurisdictions=["HK"])
+    assert (hk["all"].found, hk["all"].total) == (2, 18)
+    assert (hk["regulatory"].found, hk["regulatory"].total) == (0, 14)
+    assert score(items, mas_urls, jurisdictions=["HK"])["all"].found == 0
+    assert score(items, sfc_urls, jurisdictions=["SG"])["all"].found == 0
+    assert score(items, mas_urls, jurisdictions=["SG"])["all"].found == 7
+    assert score(items, sfc_urls + mas_urls, jurisdictions=["SG", "HK"])["all"].found == 7
+
+
 def test_title_alone_is_not_a_match_only_the_canonical_url_is():
     # Same name, different URL: rule 5 needs the same publication, identified by its canonical URL.
     recall = score([item("A", "https://www.hkma.gov.hk/circulars/a")], ["https://www.hkma.gov.hk/circulars/a-copy"])
