@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Mira · Review the Finding</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #172e29;
+  --muted: #4c625a;
+  --green: #19483d;
+  --line: #cbd8cb;
+  --paper: #f3f5ef;
+  --card: #fff;
+  --source: #edf3eb;
+  font: 16px/1.55 "Instrument Sans", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); }
+[hidden] { display: none !important; }
+h1, h2, h3, p, blockquote, dl, dd { margin: 0; }
+h1, h2 { font-family: "Instrument Serif", Georgia, serif; font-weight: 500; line-height: 1.12; }
+h1 { font-size: clamp(2.45rem, 7vw, 4rem); letter-spacing: -.035em; }
+h2 { font-size: clamp(1.55rem, 4vw, 2.3rem); }
+h3 { font-size: 1.05rem; line-height: 1.35; }
+.wrap { width: min(100% - 2rem, 65rem); margin-inline: auto; }
+.top { background: #113930; color: white; }
+.top .wrap, .intro, .case-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .65rem 1rem; }
+.top .wrap { min-height: 64px; }
+.brand { font: 600 1.4rem/1 Georgia, serif; letter-spacing: -.03em; }
+.top .eyebrow { color: #c4e1d2; }
+.eyebrow { color: var(--muted); font-weight: 750; font-size: .75rem; letter-spacing: .09em; text-transform: uppercase; }
+main { padding-block: clamp(1.25rem, 5vw, 3rem) 1.5rem; }
+.intro { margin-bottom: clamp(1rem, 4vw, 1.7rem); align-items: flex-end; }
+.intro h1 + p { margin-top: .45rem; max-width: 60ch; color: var(--muted); }
+.progress { display: flex; align-items: center; gap: .45rem; }
+.dot { display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--card); width: 2rem; height: 2rem; font: 700 .85rem/1 system-ui; }
+.dot.current { border: 2px solid var(--green); }
+.dot.done { color: #fff; background: var(--green); border-color: var(--green); }
+.sheet { border: 1px solid var(--line); border-radius: 13px; background: var(--card); box-shadow: 0 7px 25px #1a39200c; }
+.case-meta { border-bottom: 1px solid var(--line); padding: .65rem clamp(.85rem, 3vw, 1.4rem); }
+.cutoff { color: var(--muted); font-size: .87rem; }
+.case-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.case-grid > section { min-width: 0; padding: clamp(.85rem, 3vw, 1.4rem); }
+.draft .situation { margin: .45rem 0 1.05rem; color: var(--muted); }
+.finding { border-left: 3px solid #4b7d67; padding-left: .75rem; }
+.finding p + p { margin-top: .35rem; }
+.finding .claim { font-size: clamp(1.05rem, 2.2vw, 1.2rem); }
+.evidence { background: var(--source); border-left: 1px solid var(--line); }
+.evidence h3 { margin-block: .35rem .2rem; }
+.metadata { color: var(--muted); font-size: .85rem; }
+blockquote { margin-top: .65rem; line-height: 1.6; }
+.actions, .feedback { border-top: 1px solid var(--line); padding: .85rem clamp(.85rem, 3vw, 1.4rem); }
+.actions { position: sticky; bottom: 0; background: #fff; z-index: 1; border-radius: 0 0 13px 13px; }
+.actions p { margin-bottom: .45rem; font-weight: 650; }
+.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; }
+button { min-height: 46px; padding: .5rem .65rem; border: 1px solid #9eb5a7; border-radius: 7px; background: #fff; color: var(--ink); font: 650 1rem/1.2 system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
+button:hover { background: var(--source); }
+:focus-visible { outline: 3px solid #3c8060; outline-offset: 3px; }
+.primary { background: var(--green); color: #fff; border-color: var(--green); min-width: min(11rem, 100%); }
+.primary:hover { background: #123a31; }
+kbd { margin-right: .35rem; padding: .12rem .3rem; border: 1px solid #a9bbb1; border-radius: 4px; font: .72rem/1 system-ui; }
+.feedback { background: #f8faf6; border-radius: 0 0 13px 13px; }
+.feedback h3 { margin-block: .2rem .35rem; }
+.feedback > p { max-width: 76ch; }
+.feedback .primary, .finish .primary { margin-top: .8rem; }
+details { margin-top: .55rem; }
+summary { min-height: 42px; padding-block: .45rem; cursor: pointer; font-weight: 650; }
+dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .35rem .8rem; font-size: .92rem; }
+dt { font-weight: 650; }
+a { color: #1a614b; text-underline-offset: 3px; }
+details a { display: inline-block; margin-top: .5rem; }
+.finish { padding: clamp(1.1rem, 5vw, 2rem); }
+.finish h2 { margin-block: .25rem .5rem; }
+#confetti { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
+#confetti span { position: absolute; top: -18px; width: 8px; height: 12px; border-radius: 2px; }
+@media (max-width: 640px) {
+  .wrap { width: calc(100% - 1rem); }
+  .case-grid { grid-template-columns: 1fr; }
+  .evidence { border-left: 0; border-top: 1px solid var(--line); }
+  .actions { padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+  .choices { gap: .35rem; }
+  .choices button { font-size: .88rem; padding-inline: .3rem; }
+  kbd { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap"><span class="brand">Mira</span><span class="eyebrow">Hong Kong · Compliance training</span></div>
+</header>
+<main class="wrap">
+  <div class="intro">
+    <div>
+      <h1>Review the Finding</h1>
+      <p>You’re the reviewer at a fictional Hong Kong bank. Decide what to do with each draft finding.</p>
+    </div>
+    <div id="progress" class="progress" role="img" aria-label="Case progress"></div>
+  </div>
+  <article class="sheet" id="case" aria-labelledby="case-title">
+    <div class="case-meta">
+      <p class="eyebrow" id="case-position"></p>
+      <p class="cutoff" id="cutoff"></p>
+    </div>
+    <div class="case-grid">
+      <section class="draft">
+        <h2 id="case-title" tabindex="-1"></h2>
+        <p class="situation" id="situation"></p>
+        <div class="finding">
+          <p class="eyebrow">Draft finding</p>
+          <p class="claim" id="finding"></p>
+        </div>
+      </section>
+      <section class="evidence" aria-labelledby="source-title">
+        <p class="eyebrow">Evidence packet</p>
+        <h3 id="source-title"></h3>
+        <p class="metadata" id="source-meta"></p>
+        <blockquote id="excerpt"></blockquote>
+      </section>
+    </div>
+    <section id="actions" class="actions" aria-label="Make your decision">
+      <p>What would you do?</p>
+      <div class="choices">
+        <button data-action="approve" aria-keyshortcuts="1"><kbd aria-hidden="true">1</kbd>Approve</button>
+        <button data-action="send-back" aria-keyshortcuts="2"><kbd aria-hidden="true">2</kbd>Send back</button>
+        <button data-action="escalate" aria-keyshortcuts="3"><kbd aria-hidden="true">3</kbd>Escalate</button>
+      </div>
+    </section>
+    <section id="feedback" class="feedback" aria-labelledby="recommended" hidden>
+      <p class="eyebrow" id="your-decision"></p>
+      <h3 id="recommended" tabindex="-1"></h3>
+      <p id="explanation"></p>
+      <details id="verification">
+        <summary>Mira verification record</summary>
+        <dl id="check-list"></dl>
+        <a id="source-link" target="_blank" rel="noopener noreferrer">Open the HKMA publication</a>
+      </details>
+      <button id="continue" class="primary">Next case</button>
+    </section>
+  </article>
+  <section id="finish" class="sheet finish" aria-labelledby="finish-title" hidden>
+    <p class="eyebrow">Practice complete</p>
+    <h2 id="finish-title" tabindex="-1">Review complete</h2>
+    <p id="score"></p>
+    <button id="replay" class="primary">Play again</button>
+  </section>
+</main>
+<div id="confetti" aria-hidden="true"></div>
+<noscript>Enable JavaScript to play the training demo.</noscript>
+<script type="application/json" id="cases-data">{{CASES}}</script>
+<script>
+"use strict";
+const cases = JSON.parse(document.getElementById("cases-data").textContent);
+const $ = id => document.getElementById(id);
+const choices = {"approve":"Approve", "send-back":"Send back", "escalate":"Escalate"};
+const keys = {"1":"approve", "2":"send-back", "3":"escalate"};
+const dateFormat = new Intl.DateTimeFormat("en-GB", {day:"numeric", month:"short", year:"numeric", timeZone:"UTC"});
+const formatDate = value => dateFormat.format(new Date(value + "T00:00:00Z"));
+let current = 0;
+let answers = [];
+
+function textElement(tag, text) {
+  const element = document.createElement(tag);
+  element.textContent = text;
+  return element;
+}
+function renderProgress() {
+  const dots = cases.map((_, index) => {
+    const dot = textElement("span", index < answers.length ? "✓" : String(index + 1));
+    dot.className = "dot";
+    if (index < answers.length) dot.classList.add("done");
+    else if (index === current) dot.classList.add("current");
+    dot.setAttribute("aria-hidden", "true");
+    return dot;
+  });
+  $("progress").replaceChildren(...dots);
+  $("progress").setAttribute("aria-label", answers.length + " of " + cases.length + " decisions made");
+}
+function renderCase() {
+  const item = cases[current];
+  $("case").hidden = false;
+  $("finish").hidden = true;
+  $("actions").hidden = false;
+  $("feedback").hidden = true;
+  $("verification").open = false;
+  $("case-position").textContent = "Case " + (current + 1) + " of " + cases.length;
+  $("cutoff").textContent = "Review cutoff · " + formatDate(item.cutoff);
+  $("case-title").textContent = item.title;
+  $("situation").textContent = item.situation;
+  $("finding").textContent = item.finding;
+  $("source-title").textContent = item.source.title;
+  $("source-meta").textContent = "HKMA · Published " + formatDate(item.source.date) +
+    (item.source.page ? " · PDF page " + item.source.page : "");
+  $("excerpt").textContent = "“" + item.source.excerpt + "”";
+  renderProgress();
+}
+function decide(action) {
+  if ($("actions").hidden || $("case").hidden) return;
+  const item = cases[current];
+  answers.push(action);
+  $("actions").hidden = true;
+  $("feedback").hidden = false;
+  $("your-decision").textContent = action === item.action ? "Your choice matched the review guidance" : "Your choice · " + choices[action];
+  $("recommended").textContent = "Recommended decision · " + choices[item.action];
+  $("explanation").textContent = item.explanation;
+  $("check-list").replaceChildren(...item.checks.flatMap(([name, result]) => [
+    textElement("dt", name), textElement("dd", result)
+  ]));
+  $("source-link").href = item.source.url + (item.source.page ? "#page=" + item.source.page : "");
+  $("continue").textContent = current + 1 === cases.length ? "See results" : "Next case";
+  renderProgress();
+  $("recommended").focus();
+}
+function celebrate() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const colors = ["#30806a", "#ffc654", "#e77f69", "#597bcb", "#8267a8"];
+  for (let i = 0; i < 60; i++) {
+    const chip = document.createElement("span");
+    chip.style.left = (Math.random() * 100) + "%";
+    chip.style.background = colors[i % colors.length];
+    $("confetti").append(chip);
+    const drift = (Math.random() - 0.5) * 150;
+    chip.animate([
+      {transform:"translate(0, 0) rotate(0deg)", opacity:1},
+      {transform:`translate(${drift}px, ${innerHeight + 35}px) rotate(${360 + Math.random() * 540}deg)`, opacity:0}
+    ], {duration:1300 + Math.random() * 650, delay:Math.random() * 240, fill:"both", easing:"ease-in"})
+      .onfinish = () => chip.remove();
+  }
+}
+function advance() {
+  current++;
+  if (current < cases.length) {
+    renderCase();
+    $("case-title").focus();
+    window.scrollTo(0, 0);
+    return;
+  }
+  const correct = answers.filter((answer, index) => answer === cases[index].action).length;
+  $("case").hidden = true;
+  $("finish").hidden = false;
+  $("score").textContent = correct + " of " + cases.length + " decisions matched the review guidance.";
+  $("finish-title").focus();
+  window.scrollTo(0, 0);
+  celebrate();
+}
+document.querySelectorAll("[data-action]").forEach(button => button.onclick = () => decide(button.dataset.action));
+$("continue").onclick = advance;
+$("replay").onclick = () => {
+  $("confetti").replaceChildren();
+  current = 0;
+  answers = [];
+  renderCase();
+  $("case-title").focus();
+  window.scrollTo(0, 0);
+};
+document.addEventListener("keydown", event => {
+  if (!event.repeat && !event.metaKey && !event.ctrlKey && !event.altKey && Object.hasOwn(keys, event.key)) {
+    decide(keys[event.key]);
+  }
+});
+renderCase();
+</script>
+</body>
+</html>
